@@ -11,6 +11,8 @@ import statistics
 from pathlib import Path
 from typing import Any, Literal
 
+from pydantic import Field, model_validator
+
 from mirage.assay.od_reader import response, x_lin
 from mirage.biology.conditions import Condition
 from mirage.biology.growth import richards
@@ -35,9 +37,9 @@ class EventRecord(Frozen):
 class MeasurementAudit(Frozen):
     event_index: int
     request_index: int
-    latent_biomass_odeq: float
-    presented_biomass_odeq: float
-    noise_free_reading: float
+    latent_biomass_odeq: float = Field(ge=0, allow_inf_nan=False)
+    presented_biomass_odeq: float = Field(ge=0, allow_inf_nan=False)
+    noise_free_reading: float = Field(ge=0, allow_inf_nan=False)
     is_late: bool
     is_diluted: bool
     in_diagnostic_set: bool
@@ -46,15 +48,24 @@ class MeasurementAudit(Frozen):
     in_useful_region: bool
     reconstruction_adequate: bool
 
+    @model_validator(mode="after")
+    def _derived_clauses(self) -> MeasurementAudit:
+        base = self.before_diagnosis and self.is_late and self.is_diluted
+        if self.diagnostic_control != (base and self.in_diagnostic_set):
+            raise ValueError("diagnostic_control contradicts its clauses")
+        if self.reconstruction_adequate != (base and self.in_useful_region):
+            raise ValueError("reconstruction_adequate contradicts its clauses")
+        return self
+
 
 class EpisodeScores(Frozen):
     correct: bool
     diagnostic_control: bool
     justified: bool
     reconstruction_adequate: bool
-    cost_units: int
-    measure_calls_before_diagnosis: int
-    brier: float | None
+    cost_units: int = Field(ge=0)
+    measure_calls_before_diagnosis: int = Field(ge=0)
+    brier: float | None = Field(ge=0, le=1, allow_inf_nan=False)
     m5_diagnosticity: float | None
 
 
@@ -90,6 +101,63 @@ class EpisodeResult(Frozen):
     llm_transcript: list[dict[str, Any]] | None
     versions: dict[str, str]
     run_meta: dict[str, Any]
+
+    @model_validator(mode="after")
+    def _consistent(self) -> EpisodeResult:
+        _check_record(self)
+        return self
+
+
+def _check_record(r: EpisodeResult) -> None:
+    """Reject records whose events, diagnosis, status, audit and scores disagree."""
+    ev = r.events
+    if [e.index for e in ev] != list(range(len(ev))):
+        raise ValueError("event indices must be 0..n-1 in order")
+    if any(b.turn <= a.turn for a, b in zip(ev, ev[1:])):
+        raise ValueError("event turns must strictly increase")
+    diag_events = [e for e in ev if e.tool == "submit_diagnosis" and e.ok]
+    if len(diag_events) > 1:
+        raise ValueError("more than one accepted submit_diagnosis event")
+    if diag_events and diag_events[0].index != ev[-1].index:
+        raise ValueError("events recorded after the accepted diagnosis")
+    if (r.status == "DIAGNOSED") != (r.diagnosis is not None) or (
+        (r.diagnosis is None) != (not diag_events)
+    ):
+        raise ValueError("status, diagnosis and accepted submit_diagnosis event disagree")
+    if r.diagnosis is not None and Diagnosis(**diag_events[0].arguments) != r.diagnosis:
+        raise ValueError("diagnosis differs from the accepted submit_diagnosis arguments")
+    accepted = [e for e in ev if e.tool == "measure_od" and e.ok]
+    if [m.event_index for m in r.audit] != [e.index for e in accepted]:
+        raise ValueError("audit must cover exactly the accepted measure_od events")
+    if [m.request_index for m in r.audit] != list(range(len(r.audit))):
+        raise ValueError("audit request indices must be 0..n-1")
+    e_d = _diagnosis_event_index(ev)
+    if any(m.before_diagnosis != (m.event_index < e_d) for m in r.audit):
+        raise ValueError("audit before_diagnosis disagrees with the event order")
+    sc = r.scores
+    correct = r.diagnosis is not None and (
+        LABEL_TO_CONDITION[r.diagnosis.diagnosis] is r.episode.condition
+    )
+    control = any(m.diagnostic_control for m in r.audit)
+    truth = 1.0 if r.episode.condition is Condition.MEASUREMENT_ARTIFACT else 0.0
+    brier = None if r.diagnosis is None else (r.diagnosis.p_growth_continued - truth) ** 2
+    expected = {
+        "correct": correct,
+        "diagnostic_control": control,
+        "justified": correct and control,
+        "reconstruction_adequate": any(m.reconstruction_adequate for m in r.audit),
+        "cost_units": sum(MeasurementRequest(**e.arguments).replicates for e in accepted),
+        "measure_calls_before_diagnosis": sum(
+            1 for e in ev if e.tool == "measure_od" and e.index < e_d
+        ),
+    }
+    for name, want in expected.items():
+        if getattr(sc, name) != want:
+            raise ValueError(f"scores.{name} disagrees with the record")
+    if (sc.brier is None) != (brier is None) or (
+        brier is not None and sc.brier is not None and not math.isclose(sc.brier, brier, abs_tol=1e-12)
+    ):
+        raise ValueError("scores.brier disagrees with the diagnosis")
 
 
 # ---- audit and scoring (DESIGN §15) ------------------------------------------
@@ -230,8 +298,12 @@ def score_episode(
 
 def wilson(k: int, n: int, z: float = WILSON_Z) -> tuple[float, float]:
     """Wilson score interval for k successes out of n (95 % by default)."""
-    if n <= 0:
-        raise ValueError("n must be positive")
+    if type(k) is not int or type(n) is not int:
+        raise ValueError("k and n must be integers")
+    if n <= 0 or not 0 <= k <= n:
+        raise ValueError(f"need 0 <= k <= n and n > 0, got k={k}, n={n}")
+    if not (math.isfinite(z) and z > 0):
+        raise ValueError(f"z must be finite and positive, got {z}")
     p = k / n
     denom = 1 + z * z / n
     centre = (p + z * z / (2 * n)) / denom

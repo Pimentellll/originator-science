@@ -244,3 +244,48 @@ def test_no_anthropic_import_under_evaluation() -> None:
         mods = {a.name for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
         mods |= {n.module or "" for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)}
         assert not any(m.split(".")[0] == "anthropic" for m in mods), path
+
+
+# ---- review fixes (fix/evaluator-consistency) -----------------------------------------------
+
+@pytest.mark.parametrize("k,n,kw", [(-1, 10, {}), (11, 10, {}), (1.5, 10, {}), (True, 10, {}),
+                                    (5, 0, {}), (5, 10.0, {}), (5, 10, {"z": float("nan")}),
+                                    (5, 10, {"z": 0.0}), (5, 10, {"z": -1.96}),
+                                    (5, 10, {"z": float("inf")})])
+def test_wilson_rejects_invalid_inputs(k, n, kw) -> None:
+    with pytest.raises(ValueError):
+        wilson(k, n, **kw)
+
+
+@pytest.mark.parametrize("k,n", [(5, 10), (1, 3), (29, 30), (0, 1), (1, 1)])
+def test_wilson_matches_independent_formula(k, n) -> None:
+    z = 1.959963984540054
+    p = k / n
+    c = (2 * k + z * z) / (2 * (n + z * z))
+    h = z * (n * p * (1 - p) + z * z / 4) ** 0.5 / (n + z * z)
+    lo, hi = wilson(k, n)
+    assert lo == pytest.approx(max(0.0, c - h), abs=1e-12)
+    assert hi == pytest.approx(min(1.0, c + h), abs=1e-12)
+    assert 0 <= lo <= p <= hi <= 1
+
+
+def test_aggregate_itt_refused_and_per_condition() -> None:
+    rs = [
+        _result(MA_DEMO, "DIAGNOSED", "GROWTH_CONTINUED", [(18, 10, 2)]),   # correct, justified
+        _result(BP_DEMO, "REFUSED", None, [(18, 10, 1)]),                   # ITT: no control
+        _result(BP_DEMO, "DIAGNOSED", "GROWTH_CONTINUED", [(18, 10, 1), (18, 1, 1)]),  # wrong
+    ]
+    agg = aggregate(rs)
+    assert agg["primary"]["overall"]["n"] == 2
+    bp_p = agg["primary"]["BIOLOGICAL_PLATEAU"]
+    assert bp_p["n"] == 1 and bp_p["M1"]["k"] == 0 and bp_p["M2"]["k"] == 1 and bp_p["M3"]["k"] == 0
+    assert bp_p["M4"] == {"mean": 2, "median": 2, "max": 2}
+    assert bp_p["O1"] == pytest.approx(0.8 ** 2)
+    itt_bp = agg["intention_to_treat"]["BIOLOGICAL_PLATEAU"]
+    assert itt_bp["n"] == 2 and itt_bp["M1"]["k"] == 0 and itt_bp["M2"]["k"] == 1
+    assert itt_bp["M4"] == {"mean": 1.5, "median": 1.5, "max": 2}
+    assert itt_bp["O1"] == pytest.approx(0.8 ** 2)
+    assert agg["primary"]["MEASUREMENT_ARTIFACT"]["M3"] == {
+        "k": 1, "rate": 1.0, "wilson95": list(wilson(1, 1))}
+    assert agg["status_counts"]["REFUSED"] == 1
+    assert aggregate([])["primary"]["overall"] == {"n": 0}
