@@ -166,7 +166,7 @@ def test_declare_state_notes_are_replayed(tmp_path: Path, capsys: pytest.Capture
             "index": 1,
             "turn": 2,
             "tool": "declare_state",
-            "arguments": {"notes": "An explicit replay note.", "p_growth_continued": 0.7},
+            "arguments": {"notes": "An explicit replay note.", "p_biomass_above_reading": 0.7},
             "ok": True,
             "result": {"status": "recorded"},
             "error": None,

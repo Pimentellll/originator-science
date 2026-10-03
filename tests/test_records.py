@@ -68,11 +68,11 @@ def test_fixture_internal_consistency(rec: EpisodeResult) -> None:
     assert rec.scores.cost_units == sum(e.arguments["replicates"] for e in accepted)
     assert rec.diagnosis is not None and rec.status == "DIAGNOSED"
     assert rec.scores.correct == (
-        (rec.diagnosis.diagnosis == "GROWTH_CONTINUED")
+        (rec.diagnosis.diagnosis == "BIOMASS_ABOVE_READING")
         == (rec.episode.condition.value == "MEASUREMENT_ARTIFACT")
     )
     y = 1.0 if rec.episode.condition.value == "MEASUREMENT_ARTIFACT" else 0.0
-    assert rec.scores.brier == pytest.approx((rec.diagnosis.p_growth_continued - y) ** 2)
+    assert rec.scores.brier == pytest.approx((rec.diagnosis.p_biomass_above_reading - y) ** 2)
     assert [p.time_h for p in rec.passive] == list(range(19))
     assert all(p.source == "passive" and p.cost_units == 0 for p in rec.passive)
 
@@ -120,9 +120,9 @@ CONTRADICTIONS = {
     "status_without_diagnosis": lambda d: d.update(diagnosis=None),
     "no_diagnosis_status_with_diagnosis": lambda d: d.update(status="NO_DIAGNOSIS"),
     "api_failure_with_diagnosis": lambda d: d.update(status="API_FAILURE"),
-    "diagnosis_differs_from_event": lambda d: d["diagnosis"].update(p_growth_continued=0.5),
+    "diagnosis_differs_from_event": lambda d: d["diagnosis"].update(p_biomass_above_reading=0.5),
     "diagnosis_label_differs_from_event": lambda d: d["diagnosis"].update(
-        diagnosis="GROWTH_STOPPED"),
+        diagnosis="BIOMASS_AS_READ"),
     "diagnosis_event_rejected": lambda d: d["events"][2].update(ok=False, result=None, error="x"),
     "audit_points_at_rejected_event": lambda d: d["audit"][0].update(event_index=1),
     "audit_missing": lambda d: d.update(audit=[]),

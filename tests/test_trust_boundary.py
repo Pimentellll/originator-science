@@ -1,4 +1,4 @@
-"""T-012 (hidden state cannot reach the agent) and T-028 (prompt-v1 snapshot, no scaffolding)."""
+"""T-012 (hidden state cannot reach the agent) and T-028 (prompt-v2 snapshot, no scaffolding)."""
 
 import ast
 import json
@@ -23,7 +23,7 @@ from mirage.lab.tools import (
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src" / "mirage"
 PRIOR = load_prior(ROOT / "experiments" / "configs" / "scenario_v1.json")
-SNAPSHOT = Path(__file__).parent / "snapshots" / "prompt_v1.json"
+SNAPSHOT = Path(__file__).parent / "snapshots" / "prompt_v2.json"
 SNAPSHOT_EPISODE = (0, Condition.BIOLOGICAL_PLATEAU)
 
 FORBIDDEN = ("saturat", "artefact", "artifact", "linear", "plateau", "carrying capacity",
@@ -131,7 +131,7 @@ class CapturingClient:
                      "input": {"time_h": 18, "dilution_factor": 10, "replicates": 3}}
         else:
             block = {"type": "tool_use", "id": "t2", "name": "submit_diagnosis",
-                     "input": {"diagnosis": "GROWTH_STOPPED", "p_growth_continued": 0.2,
+                     "input": {"diagnosis": "BIOMASS_AS_READ", "p_biomass_above_reading": 0.2,
                                "late_biomass_estimate_od": None, "rationale": "r"}}
         return Message.model_validate({
             "id": "m", "type": "message", "role": "assistant", "model": params["model"],

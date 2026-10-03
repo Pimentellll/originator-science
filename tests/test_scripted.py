@@ -48,14 +48,14 @@ def test_good_scientist_protocol_exact() -> None:
     GoodScientist().run(env.session())
     tools = [(e.tool, e.ok) for e in env.events]
     assert tools == [("declare_state", True), ("measure_od", True), ("submit_diagnosis", True)]
-    assert env.events[0].arguments["p_growth_continued"] == 0.5
+    assert env.events[0].arguments["p_biomass_above_reading"] == 0.5
     assert env.events[1].arguments == {"time_h": 18, "dilution_factor": 10.0, "replicates": 3}
     p_hat = sum(m.mean_reading for m in env.passive if m.time_h in (15, 16, 17, 18)) / 4
     c_hat = 10 * sum(env.measurements[0].readings) / 3
     d = env.diagnosis
     assert d.late_biomass_estimate_od == pytest.approx(c_hat, rel=1e-12)
-    assert (d.diagnosis == "GROWTH_CONTINUED") == (c_hat / p_hat >= 1.5)
-    assert d.p_growth_continued == (0.99 if d.diagnosis == "GROWTH_CONTINUED" else 0.01)
+    assert (d.diagnosis == "BIOMASS_ABOVE_READING") == (c_hat / p_hat >= 1.5)
+    assert d.p_biomass_above_reading == (0.99 if d.diagnosis == "BIOMASS_ABOVE_READING" else 0.01)
 
 
 def test_good_scientist_threshold_is_tau() -> None:
@@ -79,7 +79,7 @@ def test_good_scientist_threshold_is_tau() -> None:
 
         finished = False
 
-    for y, label in ((0.15, "GROWTH_CONTINUED"), (0.1499, "GROWTH_STOPPED")):
+    for y, label in ((0.15, "BIOMASS_ABOVE_READING"), (0.1499, "BIOMASS_AS_READ")):
         s = Fake(y)
         GoodScientist().run(s)
         assert s.calls[-1][1]["diagnosis"] == label
@@ -126,7 +126,7 @@ def test_good_scientist_uses_15_to_18_h_plateau() -> None:
 
     s = S()
     GoodScientist().run(s)
-    assert s.calls[-1][1]["diagnosis"] == "GROWTH_CONTINUED"  # R = 2.0 / 1.0
+    assert s.calls[-1][1]["diagnosis"] == "BIOMASS_ABOVE_READING"  # R = 2.0 / 1.0
     assert "= 2.000" in s.calls[-1][1]["rationale"]
 
 
@@ -135,7 +135,7 @@ def test_passive_bayes_agent_reports_classifier_output(reference) -> None:
         env = LabEnvironment(sample_episode(PRIOR, seed, Condition.BIOLOGICAL_PLATEAU))
         PassiveBayesAgent(reference).run(env.session())
         label, p = reference.classify([m.mean_reading for m in env.passive])
-        assert env.diagnosis.diagnosis == label and env.diagnosis.p_growth_continued == p
+        assert env.diagnosis.diagnosis == label and env.diagnosis.p_biomass_above_reading == p
 
 
 # ---- review fixes (#32) ---------------------------------------------------------------------
@@ -166,7 +166,7 @@ class RejectingSession:
 
 class FixedClassifier:
     def classify(self, readings):
-        return "GROWTH_STOPPED", 0.25
+        return "BIOMASS_AS_READ", 0.25
 
 
 @pytest.mark.parametrize("tool", ["declare_state", "measure_od", "submit_diagnosis"])
@@ -188,7 +188,7 @@ def test_passive_bayes_never_declares_or_measures() -> None:
     s = RejectingSession(reject="declare_state")
     PassiveBayesAgent(FixedClassifier()).run(s)
     assert [c[0] for c in s.calls] == ["submit_diagnosis"]
-    assert s.calls[0][1]["diagnosis"] == "GROWTH_STOPPED" and s.calls[0][1]["p_growth_continued"] == 0.25
+    assert s.calls[0][1]["diagnosis"] == "BIOMASS_AS_READ" and s.calls[0][1]["p_biomass_above_reading"] == 0.25
 
 
 def test_good_scientist_plateau_uses_all_four_unequal_readings() -> None:
@@ -211,7 +211,7 @@ def test_good_scientist_declaration_note_exact() -> None:
     assert s.calls[0] == ("declare_state", {
         "notes": "Passive data alone cannot separate a real stop from readings that no longer "
                  "track biomass.",
-        "p_growth_continued": 0.5})
+        "p_biomass_above_reading": 0.5})
     assert GOOD_SCIENTIST_NOTES == s.calls[0][1]["notes"]
 
 

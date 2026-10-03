@@ -101,7 +101,7 @@ def test_t013_budget_accounting() -> None:
     assert sum(m.replicates for m in env.accepted) == 6 and env.budget_remaining == 0
     assert all(p.cost_units == 0 for p in env.passive)
     assert not env.finished
-    assert env.call("submit_diagnosis", {"diagnosis": "GROWTH_CONTINUED", "p_growth_continued": 0.9,
+    assert env.call("submit_diagnosis", {"diagnosis": "BIOMASS_ABOVE_READING", "p_biomass_above_reading": 0.9,
                                          "late_biomass_estimate_od": None, "rationale": "x"}).ok
     assert env.status == "DIAGNOSED"
 
@@ -120,9 +120,9 @@ INVALID = [
     ("measure_od", {"time_h": 18, "dilution_factor": 10.0, "replicates": 1, "extra": 1}),
     ("measure_od", {"dilution_factor": 10.0, "replicates": 1}),
     ("pipette", {"volume": 1}),
-    ("submit_diagnosis", {"diagnosis": "BIOLOGICAL_PLATEAU", "p_growth_continued": 0.5,
+    ("submit_diagnosis", {"diagnosis": "BIOLOGICAL_PLATEAU", "p_biomass_above_reading": 0.5,
                           "late_biomass_estimate_od": None, "rationale": "x"}),
-    ("declare_state", {"notes": "x", "p_growth_continued": 1.5}),
+    ("declare_state", {"notes": "x", "p_biomass_above_reading": 1.5}),
 ]
 
 
@@ -163,19 +163,19 @@ def test_t026_within_episode_instrument_stability() -> None:
 def test_turn_limit_ends_episode_no_diagnosis() -> None:
     env = LabEnvironment(cfg())
     for _ in range(11):
-        env.call("declare_state", {"notes": "thinking", "p_growth_continued": 0.5})
+        env.call("declare_state", {"notes": "thinking", "p_biomass_above_reading": 0.5})
     assert not env.finished
     env.call("pipette", {})
     assert env.finished and env.status == "NO_DIAGNOSIS" and env.turn == 12
     with pytest.raises(RuntimeError):
-        env.call("declare_state", {"notes": "x", "p_growth_continued": 0.5})
+        env.call("declare_state", {"notes": "x", "p_biomass_above_reading": 0.5})
 
 
 def test_diagnosis_on_last_turn_counts() -> None:
     env = LabEnvironment(cfg())
     for _ in range(11):
-        env.call("declare_state", {"notes": "x", "p_growth_continued": 0.5})
-    env.call("submit_diagnosis", {"diagnosis": "GROWTH_STOPPED", "p_growth_continued": 0.1,
+        env.call("declare_state", {"notes": "x", "p_biomass_above_reading": 0.5})
+    env.call("submit_diagnosis", {"diagnosis": "BIOMASS_AS_READ", "p_biomass_above_reading": 0.1,
                                   "late_biomass_estimate_od": 1.0, "rationale": "flat"})
     assert env.status == "DIAGNOSED" and env.diagnosis is not None
 
@@ -191,7 +191,7 @@ def test_second_finish_raises_and_keeps_first_status() -> None:
 def test_finish_after_turn_limit_raises() -> None:
     env = LabEnvironment(cfg(), max_turns=1)
     s = env.session()
-    s.call("declare_state", {"notes": "n", "p_growth_continued": 0.5})
+    s.call("declare_state", {"notes": "n", "p_biomass_above_reading": 0.5})
     assert env.status == "NO_DIAGNOSIS"
     with pytest.raises(RuntimeError, match="already finished"):
         env.finish("API_FAILURE")
@@ -239,7 +239,7 @@ def test_finish_diagnosed_requires_a_diagnosis() -> None:
 
 def test_finish_after_diagnosis_is_rejected_and_status_kept() -> None:
     env = LabEnvironment(cfg())
-    assert env.call("submit_diagnosis", {"diagnosis": "GROWTH_STOPPED", "p_growth_continued": 0.2,
+    assert env.call("submit_diagnosis", {"diagnosis": "BIOMASS_AS_READ", "p_biomass_above_reading": 0.2,
                                           "late_biomass_estimate_od": None, "rationale": "x"}).ok
     with pytest.raises(RuntimeError, match="already finished"):
         env.finish("API_FAILURE")
@@ -252,7 +252,7 @@ def test_finish_valid_runner_statuses(status) -> None:
     env.finish(status)
     assert env.status == status and env.session().finished
     with pytest.raises(RuntimeError, match="finished"):
-        env.call("declare_state", {"notes": "x", "p_growth_continued": 0.5})
+        env.call("declare_state", {"notes": "x", "p_biomass_above_reading": 0.5})
     assert env.events == []
 
 
@@ -279,7 +279,7 @@ def test_max_turns_validated_before_observations(bad, monkeypatch) -> None:
 def test_max_turns_accepts_positive_int(good) -> None:
     env = LabEnvironment(cfg(), max_turns=good)
     for _ in range(good):
-        env.call("declare_state", {"notes": "n", "p_growth_continued": 0.5})
+        env.call("declare_state", {"notes": "n", "p_biomass_above_reading": 0.5})
     assert env.status == "NO_DIAGNOSIS" and env.turn == good
 
 
@@ -310,9 +310,9 @@ def test_every_call_is_one_complete_event() -> None:
     env = LabEnvironment(cfg())
     script = [("measure_od", {"time_h": 18, "dilution_factor": 10.0, "replicates": 2}),
               ("measure_od", {"time_h": 99}),
-              ("declare_state", {"notes": "thinking", "p_growth_continued": 0.4}),
+              ("declare_state", {"notes": "thinking", "p_biomass_above_reading": 0.4}),
               ("nope", {}),
-              ("submit_diagnosis", {"diagnosis": "GROWTH_CONTINUED", "p_growth_continued": 0.9,
+              ("submit_diagnosis", {"diagnosis": "BIOMASS_ABOVE_READING", "p_biomass_above_reading": 0.9,
                                     "late_biomass_estimate_od": 3.2, "rationale": "r"})]
     responses = [env.call(t, a) for t, a in script]
     assert [e.index for e in env.events] == list(range(5))
@@ -321,5 +321,5 @@ def test_every_call_is_one_complete_event() -> None:
         assert (e.tool, e.arguments, e.ok, e.result, e.error) == (tool, args, r.ok, r.result, r.error)
     assert [e.ok for e in env.events] == [True, False, True, False, True]
     assert [m.event_index for m in env.accepted] == [0]
-    assert env.agent_states == [AgentState(notes="thinking", p_growth_continued=0.4)]
+    assert env.agent_states == [AgentState(notes="thinking", p_biomass_above_reading=0.4)]
     assert env.status == "DIAGNOSED" and env.diagnosis.late_biomass_estimate_od == 3.2

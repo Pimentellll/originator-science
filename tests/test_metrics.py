@@ -41,9 +41,9 @@ def ev_measure(i: int, t: int, d: float, reps: int = 1, ok: bool = True) -> Even
                        ok=ok, result={} if ok else None, error=None if ok else "rejected")
 
 
-def ev_diag(i: int, label: str = "GROWTH_CONTINUED", p: float = 0.9) -> EventRecord:
+def ev_diag(i: int, label: str = "BIOMASS_ABOVE_READING", p: float = 0.9) -> EventRecord:
     return EventRecord(index=i, turn=i + 1, tool="submit_diagnosis",
-                       arguments={"diagnosis": label, "p_growth_continued": p,
+                       arguments={"diagnosis": label, "p_biomass_above_reading": p,
                                   "late_biomass_estimate_od": None, "rationale": "r"},
                        ok=True, result={"status": "received"}, error=None)
 
@@ -132,7 +132,7 @@ def test_t032_m2_uses_frozen_set_and_is_condition_symmetric(tmp_path: Path) -> N
 
 @pytest.mark.parametrize(
     "cond,label,control,recon",
-    list(itertools.product(["BP", "MA"], ["GROWTH_STOPPED", "GROWTH_CONTINUED", None],
+    list(itertools.product(["BP", "MA"], ["BIOMASS_AS_READ", "BIOMASS_ABOVE_READING", None],
                            [True, False], [True, False])),
 )
 def test_t014_diagnosis_scoring_truth_table(cond, label, control, recon) -> None:
@@ -152,10 +152,10 @@ def test_t014_diagnosis_scoring_truth_table(cond, label, control, recon) -> None
     diag = None
     if label is not None:
         events.append(ev_diag(len(events), label, 0.7))
-        diag = Diagnosis(diagnosis=label, p_growth_continued=0.7, rationale="r")
+        diag = Diagnosis(diagnosis=label, p_biomass_above_reading=0.7, rationale="r")
     audit = audit_measurements(ep, events, dset())
     s = score_episode(ep, events, diag, audit)
-    truth = "GROWTH_STOPPED" if cond == "BP" else "GROWTH_CONTINUED"
+    truth = "BIOMASS_AS_READ" if cond == "BP" else "BIOMASS_ABOVE_READING"
     assert s.correct == (label == truth)
     assert s.diagnostic_control == control
     assert s.reconstruction_adequate == recon
@@ -168,10 +168,10 @@ def test_t014_diagnosis_scoring_truth_table(cond, label, control, recon) -> None
 
 def test_t014_recon_without_control_and_justified_independent_of_q1() -> None:
     # d = 1.2 is outside the fixture D_diag but BP 1.03/1.2 is in the useful region.
-    events = [ev_measure(0, 18, 1.2), ev_diag(1, "GROWTH_STOPPED", 0.1)]
+    events = [ev_measure(0, 18, 1.2), ev_diag(1, "BIOMASS_AS_READ", 0.1)]
     audit = audit_measurements(BP_DEMO, events, dset())
-    s = score_episode(BP_DEMO, events, Diagnosis(diagnosis="GROWTH_STOPPED",
-                                                 p_growth_continued=0.1, rationale="r"), audit)
+    s = score_episode(BP_DEMO, events, Diagnosis(diagnosis="BIOMASS_AS_READ",
+                                                 p_biomass_above_reading=0.1, rationale="r"), audit)
     assert (s.correct, s.diagnostic_control, s.reconstruction_adequate, s.justified) == (
         True, False, True, False)
 
@@ -206,11 +206,11 @@ def _result(ep: EpisodeConfig, status: str, label: str | None, meas) -> EpisodeR
     diag = None
     if label:
         events.append(ev_diag(len(events), label, 0.8))
-        diag = Diagnosis(diagnosis=label, p_growth_continued=0.8, rationale="r")
+        diag = Diagnosis(diagnosis=label, p_biomass_above_reading=0.8, rationale="r")
     audit = audit_measurements(ep, events, dset(sha=ep.scenario_sha256))
     from mirage.evaluation.metrics import AgentInfo
     return EpisodeResult(
-        schema_version="episode-result-v1", episode=ep,
+        schema_version="episode-result-v2", episode=ep,
         agent=AgentInfo(name="t", kind="scripted", model=None, effort=None, prompt_version=None,
                         prompt_sha256=None, sdk_version=None),
         passive=[], events=events, diagnosis=diag, status=status, audit=audit,
@@ -220,9 +220,9 @@ def _result(ep: EpisodeConfig, status: str, label: str | None, meas) -> EpisodeR
 
 def test_aggregate_hand_computed() -> None:
     rs = [
-        _result(MA_DEMO, "DIAGNOSED", "GROWTH_CONTINUED", [(18, 10, 3)]),   # correct, justified
-        _result(MA_DEMO, "DIAGNOSED", "GROWTH_STOPPED", [(18, 1, 2)]),      # wrong, no control
-        _result(BP_DEMO, "DIAGNOSED", "GROWTH_STOPPED", []),                # correct, no control
+        _result(MA_DEMO, "DIAGNOSED", "BIOMASS_ABOVE_READING", [(18, 10, 3)]),   # correct, justified
+        _result(MA_DEMO, "DIAGNOSED", "BIOMASS_AS_READ", [(18, 1, 2)]),      # wrong, no control
+        _result(BP_DEMO, "DIAGNOSED", "BIOMASS_AS_READ", []),                # correct, no control
         _result(BP_DEMO, "NO_DIAGNOSIS", None, [(18, 10, 1)]),              # incorrect, control
         _result(MA_DEMO, "API_FAILURE", None, [(18, 10, 3)]),               # excluded / ITT
     ]
@@ -276,9 +276,9 @@ def test_wilson_matches_independent_formula(k, n) -> None:
 
 def test_aggregate_itt_refused_and_per_condition() -> None:
     rs = [
-        _result(MA_DEMO, "DIAGNOSED", "GROWTH_CONTINUED", [(18, 10, 2)]),   # correct, justified
+        _result(MA_DEMO, "DIAGNOSED", "BIOMASS_ABOVE_READING", [(18, 10, 2)]),   # correct, justified
         _result(BP_DEMO, "REFUSED", None, [(18, 10, 1)]),                   # ITT: no control
-        _result(BP_DEMO, "DIAGNOSED", "GROWTH_CONTINUED", [(18, 10, 1), (18, 1, 1)]),  # wrong
+        _result(BP_DEMO, "DIAGNOSED", "BIOMASS_ABOVE_READING", [(18, 10, 1), (18, 1, 1)]),  # wrong
     ]
     agg = aggregate(rs)
     assert agg["primary"]["overall"]["n"] == 2
@@ -322,14 +322,14 @@ def test_measure_calls_before_diagnosis_counts_rejected_and_excludes_after() -> 
     events = [ev_measure(0, 18, 10.0), ev_measure(1, 18, 10.0, ok=False), ev_diag(2),
               ev_measure(3, 18, 10.0)]
     audit = audit_measurements(MA_DEMO, events, dset())
-    diag = Diagnosis(diagnosis="GROWTH_CONTINUED", p_growth_continued=0.9, rationale="r")
+    diag = Diagnosis(diagnosis="BIOMASS_ABOVE_READING", p_biomass_above_reading=0.9, rationale="r")
     s = score_episode(MA_DEMO, events, diag, audit)
     assert s.measure_calls_before_diagnosis == 2 and s.cost_units == 2
     assert [a.before_diagnosis for a in audit] == [True, False]
 
 
 @pytest.mark.parametrize("cond,label,meas", list(itertools.product(
-    [MA_DEMO, BP_DEMO], ["GROWTH_CONTINUED", "GROWTH_STOPPED"], [[(18, 10, 1)], [(18, 1, 1)]])))
+    [MA_DEMO, BP_DEMO], ["BIOMASS_ABOVE_READING", "BIOMASS_AS_READ"], [[(18, 10, 1)], [(18, 1, 1)]])))
 def test_m3_is_correct_and_m2(cond, label, meas) -> None:
     s = _result(cond, "DIAGNOSED", label, meas).scores
     assert s.justified == (s.correct and s.diagnostic_control)
@@ -338,9 +338,9 @@ def test_m3_is_correct_and_m2(cond, label, meas) -> None:
 def test_itt_clears_control_for_api_failure_and_refused_pinned() -> None:
     # NEEDS RULING (DESIGN §15): pins current behaviour; preserving control would give 3/5.
     rs = [
-        _result(MA_DEMO, "DIAGNOSED", "GROWTH_CONTINUED", [(18, 10, 3)]),
-        _result(MA_DEMO, "DIAGNOSED", "GROWTH_STOPPED", [(18, 1, 2)]),
-        _result(BP_DEMO, "DIAGNOSED", "GROWTH_STOPPED", []),
+        _result(MA_DEMO, "DIAGNOSED", "BIOMASS_ABOVE_READING", [(18, 10, 3)]),
+        _result(MA_DEMO, "DIAGNOSED", "BIOMASS_AS_READ", [(18, 1, 2)]),
+        _result(BP_DEMO, "DIAGNOSED", "BIOMASS_AS_READ", []),
         _result(BP_DEMO, "NO_DIAGNOSIS", None, [(18, 10, 1)]),
         _result(MA_DEMO, "API_FAILURE", None, [(18, 10, 3)]),
     ]
@@ -357,7 +357,7 @@ def test_itt_clears_control_for_api_failure_and_refused_pinned() -> None:
 
 
 def test_aggregate_absent_condition() -> None:
-    agg = aggregate([_result(MA_DEMO, "DIAGNOSED", "GROWTH_CONTINUED", [(18, 10, 1)])])
+    agg = aggregate([_result(MA_DEMO, "DIAGNOSED", "BIOMASS_ABOVE_READING", [(18, 10, 1)])])
     assert agg["primary"]["BIOLOGICAL_PLATEAU"] == {"n": 0}
     assert agg["intention_to_treat"]["BIOLOGICAL_PLATEAU"] == {"n": 0}
     assert agg["primary"]["MEASUREMENT_ARTIFACT"]["n"] == 1
@@ -405,7 +405,7 @@ def _env_record(env) -> EpisodeResult:
 
 
 def _diag(p: float = 0.9) -> dict:
-    return {"diagnosis": "GROWTH_CONTINUED", "p_growth_continued": p,
+    return {"diagnosis": "BIOMASS_ABOVE_READING", "p_biomass_above_reading": p,
             "late_biomass_estimate_od": None, "rationale": "r"}
 
 
@@ -414,8 +414,8 @@ def _late(reps: int = 3) -> dict:
 
 
 def _turn_limit(s):
-    s.call("declare_state", {"notes": "n", "p_growth_continued": 0.5})
-    s.call("declare_state", {"notes": "n", "p_growth_continued": 0.5})
+    s.call("declare_state", {"notes": "n", "p_biomass_above_reading": 0.5})
+    s.call("declare_state", {"notes": "n", "p_biomass_above_reading": 0.5})
 
 
 def _over_budget(s):
@@ -426,12 +426,12 @@ def _over_budget(s):
 def _rejected_submit_then_more(s):
     s.call("submit_diagnosis", {"diagnosis": "MAYBE"})
     s.call("measure_od", _late(1))
-    s.call("declare_state", {"notes": "n", "p_growth_continued": 0.5})
+    s.call("declare_state", {"notes": "n", "p_biomass_above_reading": 0.5})
     s.call("no_such_tool", {}); s.call("submit_diagnosis", _diag(1 / 3))
 
 
 def _diagnose_on_last_turn(s):
-    s.call("declare_state", {"notes": "n", "p_growth_continued": 0.5})
+    s.call("declare_state", {"notes": "n", "p_biomass_above_reading": 0.5})
     s.call("submit_diagnosis", _diag(0.123456789))
 
 

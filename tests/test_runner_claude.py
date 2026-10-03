@@ -58,8 +58,8 @@ def tool(name, args, i=0):
 
 
 DIAG = {
-    "diagnosis": "GROWTH_CONTINUED",
-    "p_growth_continued": 0.9,
+    "diagnosis": "BIOMASS_ABOVE_READING",
+    "p_biomass_above_reading": 0.9,
     "late_biomass_estimate_od": 4.0,
     "rationale": "1:10 back-corrected reading exceeds the plateau.",
 }
