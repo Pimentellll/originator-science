@@ -86,7 +86,10 @@ def test_t002_exponential_early_phase() -> None:
 def test_t002_vectorised_shape() -> None:
     t = np.arange(19.0).reshape(1, 19)
     assert richards(t, k_odeq=1.0, r_per_h=0.75, x0_odeq=0.01, nu=NU).shape == (1, 19)
-    assert richards(18.0, k_odeq=1.0, r_per_h=0.75, x0_odeq=0.01, nu=NU).shape == ()
+    scalar = richards(18.0, k_odeq=1.0, r_per_h=0.75, x0_odeq=0.01, nu=NU)
+    assert isinstance(scalar, np.ndarray)
+    assert scalar.shape == ()
+    assert scalar.dtype == np.float64
 
 
 @pytest.mark.parametrize("bad", ["k_odeq", "r_per_h", "x0_odeq", "nu"])
@@ -96,6 +99,26 @@ def test_richards_rejects_non_positive_parameters(bad: str, value: float) -> Non
     params[bad] = value
     with pytest.raises(ValueError, match=bad):
         richards(1.0, **params)
+
+
+@pytest.mark.parametrize("bad", ["k_odeq", "r_per_h", "x0_odeq", "nu"])
+@pytest.mark.parametrize("value", [float("nan"), float("inf")])
+def test_richards_rejects_non_finite_parameters(bad: str, value: float) -> None:
+    params = dict(k_odeq=1.0, r_per_h=0.75, x0_odeq=0.01, nu=NU)
+    params[bad] = value
+    with pytest.raises(ValueError, match=bad):
+        richards(1.0, **params)
+
+
+def test_richards_rejects_inoculum_above_capacity() -> None:
+    # Previously returned inf silently (review finding).
+    with pytest.raises(ValueError, match="x0_odeq must not exceed k_odeq"):
+        richards(0.0, k_odeq=1.0, r_per_h=0.75, x0_odeq=1000.0, nu=NU)
+
+
+def test_richards_inoculum_equal_to_capacity_is_stationary() -> None:
+    x = richards(np.arange(19.0), k_odeq=1.0, r_per_h=0.75, x0_odeq=1.0, nu=NU)
+    np.testing.assert_allclose(x, 1.0, rtol=1e-15)
 
 
 # ---- T-003: biological plateau reaches K -----------------------------------------
