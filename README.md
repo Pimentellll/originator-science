@@ -91,13 +91,17 @@ Gate 0                          Passed and frozen (experiments/results/gate0/), 
 Virtual lab                     Implemented (growth, assay, environment, frozen tool interface)
 Evaluator                       Implemented (M1–M4, Q1, O1, O2, Wilson intervals, ITT)
 Scripted baselines              Implemented (GoodScientist, PassiveBayes)
-Claude adapter                  Implemented; tested with a mocked client only
+Claude adapter                  Implemented; mock-tested, then run live (C1)
 Runner, report, replay          Implemented (record-only, offline)
-Evaluation runs (Claude)        Not performed
+Evaluation runs (Claude)        Done: 30 episodes, strong matrix, prompt-v2
 ```
 
-There are no Claude results. The Gate 0 artefacts validate the benchmark itself; they
-are not an agent result.
+C1 results (`claude-opus-5-5`, strong matrix, seeds 500,000–500,029) are in
+[`experiments/results/20261003-2323_claude_strong/`](experiments/results/20261003-2323_claude_strong/):
+`results.md` (generated, with both baselines), `summary.json`, the episode records, replays and an
+[interpretation note](experiments/results/20261003-2323_claude_strong/INTERPRETATION.md). The rulings
+behind them are provisional (docs/mirage-bio/OPEN_RULINGS.md §F–§H). The Gate 0 artefacts validate
+the benchmark itself; they are not an agent result.
 
 ## Quickstart
 
