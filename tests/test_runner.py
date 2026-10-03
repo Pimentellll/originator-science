@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from mirage.agents.claude import DEFAULT_MODEL
 from mirage.config import canonical_sha256, load_prior
 from mirage.evaluation import runner
 from mirage.evaluation.metrics import EpisodeResult, audit_measurements, score_episode
@@ -171,10 +172,10 @@ def test_llm_run_records_model_prompt_and_transcript(tmp_path) -> None:
     res = runner.load_results(d)
     assert len(res) == 4
     for r in res:
-        assert r.agent.kind == "llm" and r.agent.model == runner.DEFAULT_MODEL
+        assert r.agent.kind == "llm" and r.agent.model == DEFAULT_MODEL
         assert r.agent.prompt_sha256 and r.llm_transcript and r.status == "DIAGNOSED"
     man = json.loads((d / "manifest.json").read_text())
-    assert man["model"] == runner.DEFAULT_MODEL and man["effort"] == "high"
+    assert man["model"] == DEFAULT_MODEL and man["effort"] == "high"
 
 
 def test_llm_run_refuses_without_key(tmp_path, monkeypatch) -> None:
