@@ -145,3 +145,18 @@ field of `summary.json` exactly, apart from `runtime_s`, `source_commit` and
   `BIOMASS_AS_READ` (→ BP) and `BIOMASS_ABOVE_READING` (→ MA), `p_growth_continued` is
   renamed `p_biomass_above_reading`, and the record schema is `episode-result-v2`. The
   simulator, scenario-v1, Gate 0 and D_diag are unchanged.
+
+## H. Found in the scored C1 run (3 October 2026)
+
+The assay compresses below S too, so in BP the true late biomass is also slightly above the
+undiluted reading: by 2.3–4.0% across the 15 BP episodes of the strong matrix (K/S 0.82–0.88).
+Prompt-v2 asks whether biomass is "at the level the undiluted readings indicate, or higher". In
+s500028-BP (gap 4.0%), Claude's dilutions overshot the true value and it answered
+`BIOMASS_ABOVE_READING`, which was scored wrong. This is the only C1 miss (M1 29/30).
+
+**Not changed for this run.** The scoring is pre-registered and results are already in. For Arnav:
+should a later prompt version ask about a material difference (for example "substantially
+higher"), or should the BP prior keep K/S lower? Either would be a new prompt or scenario
+version, never a re-score of this run. See
+`experiments/results/20261003-2323_claude_strong/INTERPRETATION.md`.
+
