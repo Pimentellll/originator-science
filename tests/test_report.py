@@ -22,6 +22,9 @@ import mirage.evaluation.report as report
 ROOT = Path(__file__).resolve().parents[1]
 PRIOR = load_prior(runner.SCENARIO)
 SCENARIO_SHA = canonical_sha256(PRIOR)
+Q1_NOTE = (
+    "Q1 is secondary and descriptive (reconstruction adequacy, DESIGN §15); it is not part of M3."
+)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -117,7 +120,7 @@ def _format_row(
     n = len(selected)
     cells = [label, str(n)]
     if n == 0:
-        cells.extend(["n/a (n=0)"] * 4)
+        cells.extend(["n/a (n=0)"] * 5)
     else:
         for attribute in ("correct", "diagnostic_control", "justified"):
             k = sum(
@@ -135,6 +138,8 @@ def _format_row(
             f"{statistics.mean(costs):.2f} "
             f"(median {statistics.median(costs):g}, max {max(costs)})"
         )
+        q1 = sum(record.scores.reconstruction_adequate for record in selected)
+        cells.append(f"{q1}/{n}")
     counts = {
         status: sum(record.status == status for record in records)
         for status in ("API_FAILURE", "REFUSED")
@@ -157,6 +162,40 @@ def _section(markdown: str, heading: str) -> str:
     return markdown[start : end if end >= 0 else len(markdown)]
 
 
+def _cells(line: str) -> list[str]:
+    return [cell.strip() for cell in line.strip("|").split("|")]
+
+
+def _assert_metric_table_shapes(markdown: str) -> None:
+    start = markdown.index("## Primary")
+    end = markdown.index("## Status breakdown", start)
+    section = markdown[start:end]
+    tables = []
+    current = []
+    for line in section.splitlines():
+        if line.startswith("|"):
+            current.append(line)
+        elif current:
+            tables.append(current)
+            current = []
+    if current:
+        tables.append(current)
+
+    for table in tables:
+        header = _cells(table[0])
+        assert header[0] == "Agent"
+        for row in table:
+            assert len(_cells(row)) == len(header)
+
+
+def _q1_cell(markdown: str, heading: str, label: str) -> str:
+    section = _section(markdown, heading)
+    table_lines = [line for line in section.splitlines() if line.startswith("|")]
+    header = _cells(next(line for line in table_lines if _cells(line)[0] == "Agent"))
+    row = _cells(next(line for line in table_lines if _cells(line)[0] == label))
+    return row[header.index("Q1 (descriptive)")]
+
+
 def test_report_writes_markdown_and_png(real_runs: dict[str, Path], tmp_path: Path) -> None:
     out = tmp_path / "report"
     assert report.main(
@@ -170,6 +209,7 @@ def test_report_writes_markdown_and_png(real_runs: dict[str, Path], tmp_path: Pa
         ]
     ) == 0
     markdown = (out / "results.md").read_text(encoding="utf-8")
+    _assert_metric_table_shapes(markdown)
     image = out / "results.png"
     assert image.is_file() and image.stat().st_size > 0
     assert image.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
@@ -196,6 +236,7 @@ def test_not_run_rows_are_explicit_and_never_blank(
         ["--out", str(out), "--good-scientist", str(real_runs["good_scientist"])]
     ) == 0
     markdown = (out / "results.md").read_text(encoding="utf-8")
+    _assert_metric_table_shapes(markdown)
     claude_rows = [
         line for line in markdown.splitlines() if line.startswith("| C1 Claude |")
     ]
@@ -268,6 +309,7 @@ def test_itt_includes_synthetic_claude_failures(
         ["--out", str(out), "--claude", str(claude_dir)]
     ) == 0
     markdown = (out / "results.md").read_text(encoding="utf-8")
+    _assert_metric_table_shapes(markdown)
     status_section = _section(markdown, "## Status breakdown")
     expected_status = (
         "| C1 Claude | "
@@ -292,6 +334,79 @@ def test_itt_includes_synthetic_claude_failures(
     assert _format_row(
         "C1 Claude", records, intention_to_treat=True
     ) in _section(itt_section, "### Overall")
+    for heading, condition in (
+        ("Overall", None),
+        ("BIOLOGICAL_PLATEAU", Condition.BIOLOGICAL_PLATEAU),
+        ("MEASUREMENT_ARTIFACT", Condition.MEASUREMENT_ARTIFACT),
+    ):
+        selected = [
+            record
+            for record in records
+            if condition is None or record.episode.condition is condition
+        ]
+        k = sum(record.scores.reconstruction_adequate for record in selected)
+        assert _q1_cell(itt_section, f"### {heading}", "C1 Claude") == (
+            f"{k}/{len(selected)}"
+        )
+
+
+def test_primary_q1_cells_match_independent_record_counts(
+    real_runs: dict[str, Path],
+) -> None:
+    runs = {
+        key: report.load_run(path, agent)
+        for key, path, agent in (
+            ("good_scientist", real_runs["good_scientist"], "GoodScientist"),
+            ("passive_bayes", real_runs["passive_bayes"], "PassiveBayes"),
+        )
+    }
+    markdown = report.render_markdown(runs)
+    assert markdown.count(Q1_NOTE) == 1
+    assert markdown.index("## Primary") < markdown.index(Q1_NOTE)
+    assert markdown.index(Q1_NOTE) < markdown.index("| Agent | n |")
+
+    for key, label in (
+        ("good_scientist", "B1 GoodScientist"),
+        ("passive_bayes", "B2 PassiveBayes"),
+    ):
+        records, _ = runs[key]
+        for heading, condition in (
+            ("Overall", None),
+            ("BIOLOGICAL_PLATEAU", Condition.BIOLOGICAL_PLATEAU),
+            ("MEASUREMENT_ARTIFACT", Condition.MEASUREMENT_ARTIFACT),
+        ):
+            selected = [
+                record
+                for record in records
+                if record.status in metrics.PRIMARY_STATUSES
+                and (condition is None or record.episode.condition is condition)
+            ]
+            k = sum(record.scores.reconstruction_adequate for record in selected)
+            assert _q1_cell(markdown, f"### {heading}", label) == f"{k}/{len(selected)}"
+
+
+def test_n_zero_metric_rows_have_one_cell_per_column(real_runs: dict[str, Path]) -> None:
+    records = runner.load_results(real_runs["good_scientist"])
+    bp_records = [
+        record
+        for record in records
+        if record.episode.condition is Condition.BIOLOGICAL_PLATEAU
+    ]
+    manifest = json.loads(
+        (real_runs["good_scientist"] / "manifest.json").read_text(encoding="utf-8")
+    )
+    markdown = report.render_markdown(
+        {"good_scientist": (bp_records, manifest)}
+    )
+    _assert_metric_table_shapes(markdown)
+    row = next(
+        line
+        for line in _section(markdown, "### MEASUREMENT_ARTIFACT").splitlines()
+        if line.startswith("| B1 GoodScientist |")
+    )
+    cells = _cells(row)
+    assert cells[1] == "0"
+    assert cells[2:7] == ["n/a (n=0)"] * 5
 
 
 def test_report_reuses_metrics_wilson(
@@ -338,9 +453,10 @@ def test_empty_run_directory_counts_as_not_run(tmp_path: Path) -> None:
     )
     markdown = markdown_path.read_text(encoding="utf-8")
     assert (
-        "| C1 Claude | not run | not run | not run | not run | not run | not run |"
+        "| C1 Claude | not run | not run | not run | not run | not run | not run | not run |"
         in markdown
     )
+    _assert_metric_table_shapes(markdown)
 
 
 def test_report_imports_are_offline_only() -> None:
