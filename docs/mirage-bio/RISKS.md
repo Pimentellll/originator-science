@@ -39,6 +39,7 @@
 | R-024 | **Passive baseline too weak**, inflating the apparent value of experiments. | L | M | `PassiveBayes` far below the analytic ceiling. | Analytic Bayes ceiling (oracle) reported alongside `PassiveBayes` (near-sufficient statistic) and a model-free 15-NN (GATE0_SPEC §5). Wording: "strongest implemented passive baseline", never "optimal". | Add the optional full-trajectory Monte Carlo likelihood classifier. | SCI |
 | R-025 | **"Dilution" becomes a trivial keyword test**: any mention or use of dilution is rewarded. | M | M | High M2 with poorly chosen dilutions. | M2 requires a late window, $d > 1$, a Gate-0-frozen diagnostic factor and pre-diagnosis timing. Undiluted and early samples are non-diagnostic (G0-D). M3 also requires correct interpretation. A late 1:2 dilution counts as diagnostic and is reported as quantitatively inaccurate via Q1. Per-clause audit and M5 (if computed) analyse experiment quality. | Report dilution choices, Q1 and failing clauses per episode. | EVD |
 | R-026 | **Over-dilution story unsupported by the simulator.** | M | M | Pitch or docs claim a U-shaped discrimination optimum. | The design-time sweep shows over-dilution costs precision and reconstruction adequacy (Q1) but barely affects discrimination (100×: balanced accuracy ≈ 0.99). GATE0_SPEC §6 states this. ANALYSIS §18 forbids the claim. | Show `intervention_sweep.png` as is. | SCI |
+| R-027 | **G0-C(iv) support corner.** The slowest corner of the scenario-v1 support ($K=10$, $S=2$, $r=0.6$, $X_0=0.005$, $n=\nu=8$) has $t_{95}=10.13$ h, so $t_{95}+2=12.13$ h > 12 h. The sampled Gate 0 maximum is 11.86 h, which passes. | L | M | A sampled MA scenario near the corner has no clean late-window plateau. | G0-C(iv) is checked on the 10,000 sampled scenarios per condition, as GATE0_SPEC §4 is written (provisional ruling, OPEN_RULINGS §F). The strict xfail `test_t005_window_validity_at_support_corner` pins the corner. | Narrow the support or move the late window as `scenario-v1.1`, then re-run Gate 0 in full. | SCI |
 
 ## 2. Highest-priority risks
 
@@ -56,3 +57,4 @@
 |---|---|---|
 | 2026-10-03 | Plan accepted | Initial register |
 | 2026-10-03 | Final documentation pass | R-005 reframed; R-021 to R-026 added; owner codes ENV/EVD |
+| 2026-10-03 | Gate 0 frozen (provisional rulings) | R-027 added |

@@ -85,8 +85,8 @@ claimed.
 General MIRAGE methodology      Documented
 MIRAGE-Bio design               Documented (v0.1 specification)
 Design-time numerical reference Committed (experiments/reference/); not Gate 0
-Gate 0                          Full run committed as a candidate (experiments/results/gate0/);
-                                not frozen, G0-C(iv) support-corner ruling open
+Gate 0                          Passed and frozen (experiments/results/gate0/), under
+                                provisional rulings (docs/mirage-bio/OPEN_RULINGS.md §F)
 Virtual lab                     Implemented (growth, assay, environment, frozen tool interface)
 Evaluator                       Implemented (M1–M4, Q1, O1, O2, Wilson intervals, ITT)
 Scripted baselines              Implemented (GoodScientist, PassiveBayes)
@@ -95,8 +95,8 @@ Runner, report, replay          Implemented (record-only, offline)
 Evaluation runs (Claude)        Not performed
 ```
 
-There are no Claude results. The Gate 0 artefacts are a candidate validation run of
-the benchmark itself, not an agent result.
+There are no Claude results. The Gate 0 artefacts validate the benchmark itself; they
+are not an agent result.
 
 ## Quickstart
 
