@@ -170,6 +170,34 @@ def test_full_mode_fails_when_plotting_unavailable(tmp_path, monkeypatch) -> Non
     assert (tmp_path / "summary.json").exists() and rc != 0
 
 
+def test_full_mode_ignores_stale_plots_from_earlier_run(tmp_path, monkeypatch) -> None:
+    for name in G.PLOTS:
+        (tmp_path / name).write_bytes(b"stale")
+    monkeypatch.setattr(G, "FULL", dict(G.QUICK))
+    monkeypatch.setattr(G, "g0c_iv_passes", lambda *a: True)
+    monkeypatch.setitem(sys.modules, "gate0_plots", None)
+    rc = G.main(["--out", str(tmp_path)])
+    assert json.loads((tmp_path / "summary.json").read_text())["plots"] == []
+    assert rc == 2
+
+
+def test_every_passed_value_is_wrapped_in_bool() -> None:
+    # numpy comparisons give np.bool_, which json.dumps rejects; every "passed"
+    # value in gate0.py must therefore be built with an explicit bool(...).
+    import ast
+
+    tree = ast.parse(Path(G.__file__).read_text())
+    found = 0
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Dict):
+            for k, v in zip(node.keys, node.values):
+                if isinstance(k, ast.Constant) and k.value in ("passed", "iv_passed"):
+                    found += 1
+                    assert isinstance(v, ast.Call) and getattr(v.func, "id", None) == "bool", (
+                        f"line {v.lineno}: {k.value} is not bool(...)")
+    assert found >= 10
+
+
 def test_quick_mode_may_skip_plots(tmp_path, monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "gate0_plots", None)
     monkeypatch.setattr(G, "g0c_iv_passes", lambda *a: True)

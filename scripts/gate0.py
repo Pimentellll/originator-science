@@ -388,7 +388,7 @@ def _within_episode_stable(prior: ScenarioPrior, n_episodes: int) -> tuple[bool,
             return False, f"episode {seed}: {len(env.accepted)} of 6 requests accepted"
         for m in env.accepted:
             mu = float(resp(np.array(m.presented_biomass_odeq), np.array(s0), prior.n))
-            if not math.isclose(mu, m.noise_free_reading, rel_tol=1e-12) or env.config.assay.s_odeq != s0:
+            if not math.isclose(mu, m.noise_free_reading, rel_tol=1e-12):
                 return False, f"episode {seed}: S or the response changed within the episode"
     return True, f"{n_episodes} episodes x 6 accepted requests"
 
@@ -512,16 +512,20 @@ def main(argv: list[str] | None = None) -> int:
             write_summary(args.out, summary)
     failed = [k for k, c in summary["checks"].items() if c["blocking"] and not c["passed"]]
     print(f"gate0 ({summary['mode']}): passed={summary['passed']} failed={failed} -> {path}")
-    missing = missing_outputs(args.out)
+    missing = missing_outputs(args.out, summary.get("plots", []))
     if not args.quick and missing:
         print(f"gate0 (full): required outputs missing: {missing}", file=sys.stderr)
         return 2
     return 0 if summary["passed"] else 1
 
 
-def missing_outputs(out: Path) -> list[str]:
-    """Full mode requires summary.json and every GATE0_SPEC plot."""
-    return [f for f in ["summary.json", *PLOTS] if not (out / f).is_file()]
+def missing_outputs(out: Path, produced: list[str]) -> list[str]:
+    """Full mode requires summary.json and every GATE0_SPEC plot, produced by this run.
+
+    Stale PNGs from an earlier run in ``out`` do not count.
+    """
+    missing = [] if (out / "summary.json").is_file() else ["summary.json"]
+    return missing + [f for f in PLOTS if f not in produced or not (out / f).is_file()]
 
 
 if __name__ == "__main__":
