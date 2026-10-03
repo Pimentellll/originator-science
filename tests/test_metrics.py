@@ -425,7 +425,8 @@ def _over_budget(s):
 
 def _rejected_submit_then_more(s):
     s.call("submit_diagnosis", {"diagnosis": "MAYBE"})
-    s.call("measure_od", _late(1)); s.call("declare_state", {"notes": "n", "p_growth_continued": 0.5})
+    s.call("measure_od", _late(1))
+    s.call("declare_state", {"notes": "n", "p_growth_continued": 0.5})
     s.call("no_such_tool", {}); s.call("submit_diagnosis", _diag(1 / 3))
 
 
