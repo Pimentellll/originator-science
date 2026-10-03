@@ -65,7 +65,8 @@ def play(responses, **kw):
     env, client = episode(), FakeClient(responses)
     agent = ClaudeAgent(client, **kw)
     agent.run(env.session())
-    env.finish(agent.outcome or "NO_DIAGNOSIS")  # what the runner does
+    if not env.finished:  # finish() raises on a final episode (PR #36); a diagnosis already ended it
+        env.finish(agent.outcome or "NO_DIAGNOSIS")  # what the runner does
     return env, client, agent
 
 
