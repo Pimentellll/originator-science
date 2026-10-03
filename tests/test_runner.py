@@ -72,13 +72,13 @@ def test_t023_summarize_is_recomputed_from_episodes(tmp_path) -> None:
     m1 = s["metrics"]["primary"]["overall"]["M1"]
     assert m1["k"] == 10 and m1["wilson95"][0] == pytest.approx(0.7225, abs=1e-4)
     assert s["metrics"]["primary"]["BIOLOGICAL_PLATEAU"]["n"] == 5
-    # Tampering with an episode file changes the recomputed summary.
-    f = sorted((copy / "episodes").glob("*.json"))[0]
-    d = json.loads(f.read_text(encoding="utf-8"))
-    d["scores"]["correct"] = False
-    f.write_text(json.dumps(d), encoding="utf-8")
+    # The summary is recomputed from the episode files: removing one changes it.
+    # (Editing a single score field would make the record internally inconsistent,
+    # which the evaluator's record validation rejects.)
+    sorted((copy / "episodes").glob("*.json"))[0].unlink()
     runner.summarize(copy)
-    assert json.loads((copy / "summary.json").read_text())["metrics"]["primary"]["overall"]["M1"]["k"] == 9
+    overall = json.loads((copy / "summary.json").read_text())["metrics"]["primary"]["overall"]
+    assert overall["n"] == 9 and overall["M1"]["k"] == 9
 
 
 def test_t031_changed_config_refuses_to_start(tmp_path) -> None:
