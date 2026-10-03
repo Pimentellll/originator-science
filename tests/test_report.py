@@ -263,7 +263,7 @@ def _make_claude_run(source: Path, destination: Path) -> tuple[Path, list[Episod
                 "kind": "llm",
                 "model": "claude-test",
                 "effort": "high",
-                "prompt_version": "test-prompt-v1",
+                "prompt_version": "test-prompt-v2",
                 "prompt_sha256": None,
                 "sdk_version": None,
             }

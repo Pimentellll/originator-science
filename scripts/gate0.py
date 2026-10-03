@@ -234,8 +234,14 @@ def run_checks(prior: ScenarioPrior, sz: dict[str, int]) -> tuple[dict, dict]:
     # G0-A passive ambiguity
     ceiling = tv_ceiling(prior, seed_range("passive_reference", sz["ceiling"]))
     ref = build_reference(prior, seed_range("passive_reference", sz["passive_reference"]))
-    pb = {c: np.array([ref.classify(y)[0] == ("GROWTH_CONTINUED" if c is MA else "GROWTH_STOPPED")
-                       for y in test[c]["passive"]]) for c in (BP, MA)}
+    pb = {
+        c: np.array([
+            ref.classify(y)[0]
+            == ("BIOMASS_ABOVE_READING" if c is MA else "BIOMASS_AS_READ")
+            for y in test[c]["passive"]
+        ])
+        for c in (BP, MA)
+    }
     pbs = balanced(pb[BP], pb[MA])
     knn = knn15(prior, train, test)
     checks["G0-A"] = {"blocking": True, "threshold": 0.65, "threshold_type": "BDT",

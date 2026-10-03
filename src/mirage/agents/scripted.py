@@ -38,7 +38,7 @@ class GoodScientist:
 
     def run(self, session: LabSession) -> None:
         _call(session, self.name, "declare_state",
-              {"notes": GOOD_SCIENTIST_NOTES, "p_growth_continued": 0.5})
+              {"notes": GOOD_SCIENTIST_NOTES, "p_biomass_above_reading": 0.5})
         passive = _passive_by_time(session)
         p_hat = float(np.mean([passive[t] for t in PLATEAU_TIMES_H]))
         res = _call(session, self.name, "measure_od",
@@ -47,8 +47,8 @@ class GoodScientist:
         ratio = c_hat / p_hat
         continued = ratio >= TAU
         _call(session, self.name, "submit_diagnosis", {
-            "diagnosis": "GROWTH_CONTINUED" if continued else "GROWTH_STOPPED",
-            "p_growth_continued": 0.99 if continued else 0.01,
+            "diagnosis": "BIOMASS_ABOVE_READING" if continued else "BIOMASS_AS_READ",
+            "p_biomass_above_reading": 0.99 if continued else 0.01,
             "late_biomass_estimate_od": c_hat,
             "rationale": f"1:10 corrected late OD {c_hat:.4f} / passive plateau {p_hat:.4f} "
                          f"= {ratio:.3f} {'>=' if continued else '<'} {TAU}.",
@@ -69,7 +69,7 @@ class PassiveBayesAgent:
         label, p = self._classifier.classify(readings)
         _call(session, self.name, "submit_diagnosis", {
             "diagnosis": label,
-            "p_growth_continued": p,
+            "p_biomass_above_reading": p,
             "late_biomass_estimate_od": None,
             "rationale": "Late passive mean (13-18 h) under the scenario-prior reference densities.",
         })

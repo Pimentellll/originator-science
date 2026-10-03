@@ -140,7 +140,7 @@ In a balanced two-world benchmark:
 
 - **Lucky guess:** a coin flip scores ≈ 50 % accuracy with no evidence.
 - **Scripted bias:** a fixed rule, such as "dense cultures are always saturated, so
-  answer `GROWTH_CONTINUED`", scores 50 % overall and 100 % on one world. Reported
+  answer `BIOMASS_ABOVE_READING`", scores 50 % overall and 100 % on one world. Reported
   per world, it can look impressive.
 - **Passive inference** can reach the passive ceiling (≈ 0.58 in MIRAGE-Bio) without
   any experiment.

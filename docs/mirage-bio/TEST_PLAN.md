@@ -204,7 +204,7 @@ MA = `MEASUREMENT_ARTIFACT`.
 
 ### T-014 — Diagnosis scoring (unit)
 - **Procedure.** Build synthetic records covering every combination of {BP, MA} ×
-  {`GROWTH_STOPPED`, `GROWTH_CONTINUED`, none} × {diagnostic control, no diagnostic
+  {`BIOMASS_AS_READ`, `BIOMASS_ABOVE_READING`, none} × {diagnostic control, no diagnostic
   control} × {reconstruction-adequate, not}.
 - **Acceptance.**
   - Mapping as in DESIGN §9.1.
@@ -364,7 +364,7 @@ MA = `MEASUREMENT_ARTIFACT`.
   initial user message.
 - **Acceptance.**
   - The system prompt and initial message are byte-identical to the committed
-    `prompt-v1` snapshot.
+    `prompt-v2` snapshot.
   - Neither contains (case-insensitive) `hypothes`, `alternative`, `competing` or
     `explanation`, nor any instruction to call `declare_state`.
   - The `declare_state` description says it is optional.

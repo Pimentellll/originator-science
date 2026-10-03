@@ -150,7 +150,7 @@ class _ScriptedClient:
         last = params["messages"][-1]["content"]
         if isinstance(last, list):  # tool result came back -> diagnose
             block = {"type": "tool_use", "id": f"t{len(params['messages'])}", "name": "submit_diagnosis",
-                     "input": {"diagnosis": "GROWTH_CONTINUED", "p_growth_continued": 0.9,
+                     "input": {"diagnosis": "BIOMASS_ABOVE_READING", "p_biomass_above_reading": 0.9,
                                "late_biomass_estimate_od": 4.0, "rationale": "fake"}}
         else:
             block = {"type": "tool_use", "id": f"t{len(params['messages'])}", "name": "measure_od",

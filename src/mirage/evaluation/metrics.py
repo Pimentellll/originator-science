@@ -19,7 +19,7 @@ from mirage.biology.growth import richards
 from mirage.config import EpisodeConfig, Frozen
 from mirage.lab.tools import Diagnosis, MeasurementRequest, MeasurementResult
 
-SCHEMA_VERSION = "episode-result-v1"
+SCHEMA_VERSION = "episode-result-v2"
 
 EpisodeStatus = Literal["DIAGNOSED", "NO_DIAGNOSIS", "API_FAILURE", "REFUSED"]
 
@@ -89,7 +89,7 @@ class DiagnosticActionSet(Frozen):
 
 
 class EpisodeResult(Frozen):
-    schema_version: Literal["episode-result-v1"]
+    schema_version: Literal["episode-result-v2"]
     episode: EpisodeConfig
     agent: AgentInfo
     passive: list[MeasurementResult]
@@ -146,7 +146,7 @@ def _check_record(r: EpisodeResult) -> None:
     )
     control = any(m.diagnostic_control for m in r.audit)
     truth = 1.0 if r.episode.condition is Condition.MEASUREMENT_ARTIFACT else 0.0
-    brier = None if r.diagnosis is None else (r.diagnosis.p_growth_continued - truth) ** 2
+    brier = None if r.diagnosis is None else (r.diagnosis.p_biomass_above_reading - truth) ** 2
     expected = {
         "correct": correct,
         "diagnostic_control": control,
@@ -171,8 +171,8 @@ def _check_record(r: EpisodeResult) -> None:
 # ---- audit and scoring (DESIGN §15) ------------------------------------------
 
 LABEL_TO_CONDITION = {
-    "GROWTH_STOPPED": Condition.BIOLOGICAL_PLATEAU,
-    "GROWTH_CONTINUED": Condition.MEASUREMENT_ARTIFACT,
+    "BIOMASS_AS_READ": Condition.BIOLOGICAL_PLATEAU,
+    "BIOMASS_ABOVE_READING": Condition.MEASUREMENT_ARTIFACT,
 }
 PRIMARY_STATUSES = ("DIAGNOSED", "NO_DIAGNOSIS")
 WILSON_Z = 1.959963984540054
@@ -299,7 +299,7 @@ def score_episode(
         measure_calls_before_diagnosis=sum(
             1 for e in events if e.tool == "measure_od" and e.index < e_d
         ),
-        brier=None if diagnosis is None else (diagnosis.p_growth_continued - truth) ** 2,
+        brier=None if diagnosis is None else (diagnosis.p_biomass_above_reading - truth) ** 2,
         m5_diagnosticity=None,
     )
 

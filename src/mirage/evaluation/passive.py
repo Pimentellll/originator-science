@@ -89,7 +89,7 @@ class PassiveReference:
     density_ma: NDArray[np.float64]
     n_per_condition: int
 
-    def p_growth_continued(self, readings: Sequence[float]) -> float:
+    def p_biomass_above_reading(self, readings: Sequence[float]) -> float:
         """p = h_MA / (h_BP + h_MA) at the bin of s; values outside the range use the end bins."""
         s = float(late_statistic(readings))
         b = int(np.clip(np.searchsorted(self.edges, s, side="right") - 1, 0, N_BINS - 1))
@@ -97,9 +97,12 @@ class PassiveReference:
         return float(h_ma / (h_bp + h_ma))
 
     def classify(self, readings: Sequence[float]) -> tuple[str, float]:
-        """(label, p): the larger density wins; a tie is GROWTH_STOPPED."""
-        p = self.p_growth_continued(readings)
-        return ("GROWTH_CONTINUED" if p > 0.5 else "GROWTH_STOPPED"), p
+        """(label, p): the larger density wins; a tie is BIOMASS_AS_READ."""
+        p = self.p_biomass_above_reading(readings)
+        return (
+            "BIOMASS_ABOVE_READING" if p > 0.5 else "BIOMASS_AS_READ",
+            p,
+        )
 
 
 def build_reference(
