@@ -90,6 +90,10 @@ def latent_reveal(out: Path, prior: Any) -> str:
 
 def intervention_sweep(out: Path, data: dict, summary_sweep: list[dict]) -> str:
     ds = sorted(data["sweep"])
+    rows = {float(r["d"]): r for r in summary_sweep}
+    if len(rows) != len(summary_sweep) or set(rows) != {float(d) for d in ds}:
+        raise ValueError(f"summary sweep d values {sorted(rows)} do not match the measured grid {ds}")
+    summary_sweep = [rows[float(d)] for d in ds]
     fig, (a, b, c) = plt.subplots(1, 3, figsize=(14, 4.2))
     for cond in (BP, MA):
         q = np.array([np.quantile(data["sweep"][d][cond]["c_over_k"], [0.025, 0.5, 0.975]) for d in ds])
@@ -158,7 +162,9 @@ def make_plots(out: str | Path, data: dict, summary_sweep: list[dict] | None = N
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     prior, checks = data["prior"], data["checks"]
-    sweep_rows = summary_sweep if summary_sweep is not None else data.get("sweep_rows", [])
+    if data.get("sweep") and summary_sweep is None:
+        raise ValueError("make_plots: summary_sweep is required when the sweep is non-empty")
+    sweep_rows = summary_sweep or []
     return [assay_response(out, prior), passive_overlap(out, data), latent_reveal(out, prior),
             intervention_sweep(out, data, sweep_rows), separability(out, checks),
             robustness_map(out, checks)]
