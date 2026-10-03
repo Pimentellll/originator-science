@@ -506,7 +506,7 @@ def main(argv: list[str] | None = None) -> int:
         except ImportError:
             print("gate0: plotting module not available; summary written without plots")
         else:
-            summary["plots"] = make_plots(args.out, data)
+            summary["plots"] = make_plots(args.out, data, summary["sweep"])
             summary["runtime_s"] = time.perf_counter() - t0
             write_summary(args.out, summary)
     failed = [k for k, c in summary["checks"].items() if c["blocking"] and not c["passed"]]
