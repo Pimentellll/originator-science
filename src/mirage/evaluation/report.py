@@ -26,6 +26,7 @@ _TABLE_COLUMNS = (
     "M2",
     "M3",
     "M4 mean (median, max)",
+    "Q1 (descriptive)",
     "Status issues",
 )
 
@@ -48,11 +49,11 @@ def _row(
     status_counts: dict[str, int] | None,
 ) -> str:
     if run is None or block is None or status_counts is None:
-        cells = [label, *(["not run"] * 6)]
+        cells = [label, *(["not run"] * 7)]
     else:
         n = block["n"]
         if n == 0:
-            cells = [label, "0", *(["n/a (n=0)"] * 4)]
+            cells = [label, "0", *(["n/a (n=0)"] * 5)]
         else:
             cells = [label, str(n)]
             for metric_name, _ in _METRIC_ATTRIBUTES:
@@ -66,6 +67,11 @@ def _row(
                 f"{cost['mean']:.2f} "
                 f"(median {cost['median']:g}, max {cost['max']})"
             )
+            q1_rate_count = block["Q1"] * n
+            q1_count = round(q1_rate_count)
+            if abs(q1_count - q1_rate_count) > 1e-9:
+                raise ValueError("Q1 rate does not correspond to an integer count")
+            cells.append(f"{q1_count}/{n}")
         cells.append(
             f"API_FAILURE {status_counts['API_FAILURE']}, "
             f"REFUSED {status_counts['REFUSED']}"
@@ -136,6 +142,9 @@ def render_markdown(
         [
             "",
             "## Primary (DIAGNOSED + NO_DIAGNOSIS)",
+            "",
+            "Q1 is secondary and descriptive (reconstruction adequacy, DESIGN "
+            "§15); it is not part of M3.",
             "",
         ]
     )
