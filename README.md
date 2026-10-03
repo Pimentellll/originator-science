@@ -1,49 +1,171 @@
-# Originator Science
+# MIRAGE
 
-Research project for the Originator track at the London AI x Science Hackathon.
+**A stress-testing environment for autonomous scientists. It asks whether they know
+when evidence is insufficient, and what experiment would make the answer
+knowable.**
 
-## Status
+MIRAGE is a controlled evaluation system for testing whether autonomous scientific
+agents recognise when current observations are insufficient to support a scientific
+conclusion, and whether they select experiments that resolve the underlying
+ambiguity. An agent gets no credit merely for reaching the correct conclusion.
+MIRAGE evaluates whether the agent acquired evidence that actually justified it.
+Built for the Originator track at the London AI x Science Hackathon.
 
-Repository scaffold only. The research question, recursive-loop design and
-implementation stack are pending team agreement. No experimental results or
-working research-agent capabilities are claimed yet.
+## The idea
 
-## Structure
+Construct hidden scientific worlds that are observationally hard to distinguish,
+let the agent choose experiments, and score the quality of the evidence it acquires
+as well as its final answer.
 
 ```text
-src/          Implementation code
-tests/        Automated tests
-experiments/  Reproducible experiment configurations and runners
+Initial observation ─► multiple explanations remain ─► agent chooses an experiment
+   ─► environment executes it ─► new evidence ─► agent updates (or not)
+   ─► evidence-bounded conclusion ─► deterministic MIRAGE evaluation
 ```
+
+> The benchmark does not ask whether an AI scientist knows the answer. It places the
+> scientist in a situation where the answer is deliberately unknowable from current
+> evidence, and asks whether it knows what experiment would make it knowable.
+
+## MIRAGE-Bio, the first environment
+
+**Did the cells stop growing, or did the instrument stop seeing them?**
+
+An AI agent receives an OD600-like bacterial growth curve that rises and flattens.
+- In the hidden world `BIOLOGICAL_PLATEAU`, the culture genuinely stops growing
+  inside the reader's useful range.
+- In `MEASUREMENT_ARTIFACT`, it keeps growing 3–5× beyond that range, and the
+  reader's nonlinear response hides the growth.
+
+The passive curves are constructed to be quantitatively ambiguous. The agent can
+request diluted remeasurements of retained aliquots on a budget of six readings, then
+answers `GROWTH_STOPPED` or `GROWTH_CONTINUED`.
+
+```text
+   HIDDEN (simulator)                        │  VISIBLE (agent)
+                                             │
+   growth model ──► latent biomass X(t)      │
+                        │ aliquot at t,      │
+                        │ dilute by d        │
+                        ▼                    │
+   OD assay  y = f(X(t)/d) + noise ──────────┼──► readings ──► AI scientist
+                                             │                    │
+                                             │   ◄── experiment (t, d, replicates)
+                                             │   ◄── diagnosis
+   deterministic evaluator ◄─────────────────┼── events + diagnosis
+        │                                    │
+        ▼                                    │
+   episode record (JSON) ──► offline demo replay
+```
+
+The MVP: one apparent growth plateau, two hidden causes, one controlled experimental
+environment, active evidence acquisition, deterministic ground truth.
+- **Agents:** a Claude adapter plus two scripted baselines, `GoodScientist` and
+  `PassiveBayes`.
+- **Metrics:** M1 accuracy, M2 valid diagnostic-control rate, M3 justified accuracy,
+  M4 cost. M5 diagnosticity is a stretch metric.
+- **Scale:** 10–30 evaluation episodes, and an offline replay demo.
+
+## Why the benchmark is different
+
+MIRAGE focuses on constructing intentionally ambiguous scientific worlds and scoring
+the evidence-selection process, not only the final answer.
+- Passive ambiguity is a measured property, checked by an analytic Bayes ceiling and
+  strong classifiers.
+- Each experiment can be evaluated against the competing world.
+- Correct-but-unjustified answers are reported separately from justified ones.
+
+The [differentiation document](docs/DIFFERENTIATION.md) sets out what is, and is not,
+claimed.
+
+## Current status
+
+```text
+General MIRAGE methodology      Documented
+MIRAGE-Bio design               Documented (v0.1 specification)
+Design-time numerical reference Committed (experiments/reference/); not Gate 0
+Gate 0                          Not yet executed in repository
+Virtual lab                     Not implemented
+Agent integration               Not implemented
+Evaluation runs                 Not performed
+Demo                            Not built
+```
+
+There are no experimental results.
+
+## Documentation
+
+Start with the [documentation index](docs/README.md).
+
+| Document | Purpose |
+|---|---|
+| [docs/MIRAGE.md](docs/MIRAGE.md) | What MIRAGE is and is not |
+| [docs/BENCHMARK_METHODOLOGY.md](docs/BENCHMARK_METHODOLOGY.md) | Paired worlds, controlled non-identifiability, diagnosticity |
+| [docs/DIFFERENTIATION.md](docs/DIFFERENTIATION.md) | Contribution and novelty boundary |
+| [docs/mirage-bio/TEAM_HANDOFF.md](docs/mirage-bio/TEAM_HANDOFF.md) | Team start here: roles and immediate priorities |
+| [docs/mirage-bio/ANALYSIS.md](docs/mirage-bio/ANALYSIS.md) | MIRAGE-Bio requirements |
+| [docs/mirage-bio/DESIGN.md](docs/mirage-bio/DESIGN.md) | MIRAGE-Bio implementation design |
+| [docs/mirage-bio/GATE0_SPEC.md](docs/mirage-bio/GATE0_SPEC.md) | Scientific validation required before agent integration |
+| [docs/mirage-bio/DEVELOPMENT_PLAN.md](docs/mirage-bio/DEVELOPMENT_PLAN.md) | Milestones, tasks, timeline, stop rules |
+| [docs/mirage-bio/TEST_PLAN.md](docs/mirage-bio/TEST_PLAN.md) · [EXPERIMENT_PLAN](docs/mirage-bio/EXPERIMENT_PLAN.md) · [RISKS](docs/mirage-bio/RISKS.md) · [ADR/](docs/mirage-bio/ADR/) | Verification, measurement, risks, decisions |
+
+## Repository structure
+
+```text
+docs/                    MIRAGE docs (current); docs/mirage-bio/ for the first environment
+experiments/reference/   Design-time numerical reference (current; not Gate 0)
+src/mirage/              Simulator, assay, virtual lab, agents, evaluation, replay (planned)
+scripts/                 Gate 0 validation script (planned)
+experiments/             Frozen configs, episode matrices and committed results (planned content)
+tests/                   Automated tests (planned)
+```
+
+## Scientific integrity
+
+- **Synthetic environment.** MIRAGE-Bio's biology and instrument are controlled
+  abstractions, with every assumption labelled. It is an adversarial identifiability
+  benchmark, not a digital twin of any organism or plate reader.
+- **No biological discovery.** Nothing produced here is a finding about real cells
+  or instruments, and there is no universal OD threshold.
+- **Hidden ground truth.** The simulator configuration is the truth. The agent never
+  sees it. Parameters are frozen before any agent run and are never retuned in
+  response to agent results.
+- **No LLM judge.** Scoring is a deterministic function of saved records.
+- **Limited claims.** Results apply only to this environment, configuration and
+  sample size.
 
 ## Get the repository
 
 ```sh
 git clone https://github.com/Pimentellll/originator-science.git
 cd originator-science
+python3 experiments/reference/design_validation.py --quick   # stdlib only; design-time reference
 ```
 
-Dependency installation and run instructions will follow the agreed technical
-plan. There is no application or test suite to run yet.
+The application and test suite do not exist yet. Planned commands are listed in
+[TEAM_HANDOFF](docs/mirage-bio/TEAM_HANDOFF.md#commands).
 
 ## Collaboration
 
-- Use short-lived branches and focused pull requests into `main`.
-- Coordinate ownership before editing the same component.
+- Use short-lived branches (one per DEV task, e.g. `feat/dev-007-lab-environment`)
+  and focused pull requests into `main`.
+- Coordinate ownership before editing the same component. Owners are listed in
+  [DEVELOPMENT_PLAN §4](docs/mirage-bio/DEVELOPMENT_PLAN.md#4-work-breakdown-structure).
 - Include the commands run and their actual outcomes in each pull request.
 - Keep research claims separate from implementation status.
 
 ## Experiments and evidence
 
-For each experiment, record the hypothesis, baseline, task or dataset version,
-configuration, random seeds where applicable, metrics and limitations. Preserve
-the distinction between development tasks and held-out evaluation tasks.
+For each experiment, record the hypothesis, baseline, scenario version and hash,
+configuration, random seeds, metrics and limitations. Keep development seeds
+separate from held-out evaluation seeds.
 
 Use `.local/` for scratch runs and private logs. Add selected reproducible,
-non-sensitive evidence deliberately rather than committing every raw output.
+non-sensitive evidence to `experiments/results/` deliberately rather than
+committing every raw output.
 
 ## Secrets
 
 Keep API keys in local environment variables or an ignored `.env` file. Never
-commit credentials or put them in issue reports, pull requests or experiment
-logs. Ignoring a file does not remove it if it was already tracked.
+commit credentials or put them in issue reports, pull requests or experiment logs.
+Ignoring a file does not remove it if it was already tracked.

@@ -1,0 +1,58 @@
+# MIRAGE-Bio — Risk Register
+
+| Field | Value |
+|---|---|
+| Status | Active (3 October 2026). Review at every milestone gate. |
+| Role | **How it can fail**, and what we do about it |
+| Scales | Probability and impact: **H** high · **M** medium · **L** low |
+| Owners | SCI science lead · ENV environment lead · AGT agent lead · EVD evaluation & demo lead · QA integrator · ALL team |
+
+---
+
+## 1. Register
+
+| ID | Risk | P | I | Trigger / early signal | Mitigation | Fallback | Owner |
+|---|---|---|---|---|---|---|---|
+| R-001 | **Scientific causal confounding.** `BIOLOGICAL_PLATEAU` is itself distorted by the assay (the earlier-draft flaw), so dilution reveals "hidden" biomass in both conditions. | L | H | T-004 or G0-B fails. $K/K'$ > 1.05 in BP. | Corrected design: $K = 0.80$–$0.90\,S$ with compression ≤ 4.4 % (SVR-003). Checked noise-free (100 % of scenarios) and noisy. | Lower $\kappa$ range (e.g. 0.75–0.85) with a new Gate 0 run and SCI sign-off. Never relax SVR-003. | SCI |
+| R-002 | **Passive curves separable.** A strong passive classifier distinguishes the conditions, for example because an implementation bug breaks family equivalence, $\nu \ne n$, or a narrowed $S$ range. | M | H | G0-A/T-008 > 0.65. G0-E/T-019 deviation > 10⁻⁹. | Exact equivalence (DESIGN §5.4). Unknown $S$ over a ×4 range (ceiling ≈ 0.58). Three independent classifiers at Gate 0 (GATE0_SPEC G0-A). | Pre-approved widening of $S$ to $[0.4, 2.5]$ (ceiling ≈ 0.56) as `scenario-v1.1`. | SCI |
+| R-003 | **Dilution insufficient or mis-specified.** Adequate dilution does not separate the conditions, or the useful region excludes reasonable choices. | L | H | G0-C/T-010 fails. `GoodScientist` M3 < 0.95. | Universal adequate window $d \in [5.44, 13.3]$; 1:10 adequate in every scenario (DESIGN §8). | Re-examine $y_{\text{LoQ}}$ / $\varepsilon_{\text{lin}}$ with SCI sign-off before any LLM run. Never after results. | SCI |
+| R-004 | **Biology-realism criticism** ("not real *E. coli*", "Richards is arbitrary"). | H | M | Judge or peer questions. | ADR-001. Every assumption labelled FACT / MODEL ASSUMPTION / SIMPLIFICATION / DESIGN DECISION (ANALYSIS §10). Pitch states plainly that this is a controlled evaluation world. | Point to ANALYSIS §10 and ADR-007; concede limits openly. | SCI |
+| R-005 | **Constructed ambiguity appears contrived.** The ambiguity depends on an unknown saturation scale, matched sharpness, and biology placed near the instrument limit. | M | M | Questions about why the plateau sits near the limit, or why $\nu = n$. | Describe it as an **adversarial identifiability benchmark** (ANALYSIS §9.6). It is not a claim about typical cultures. ADR-007: with a known $S$ the problem is trivially separable, and real linear ranges are instrument- and sample-dependent (A-003). Test parameter robustness separately: G0-G and `robustness_map.png` (design-time: ambiguity holds for $\nu$ = 6–10 with $n = 8$). | Show the fixed-$S$ result (ceiling 1.00) and the robustness map as evidence that the construction is necessary, declared and not a single point. | SCI |
+| R-006 | **Prompt leakage.** Hidden values or hint words (saturation, artefact, linear range, plateau, condition names) reach the agent. | M | H | T-012 fails. A transcript shows the agent quoting a hidden term it could not have inferred. | Visible/hidden module split. AST import scan. Forbidden-term scan of prompts, tool definitions, observations and API payloads. Neutral tool descriptions (DESIGN §9). | Exclude affected episodes, fix, re-run on the same seeds. If found after the freeze, report it. | QA |
+| R-007 | **Claude already knows the dilution control** (textbook practice), producing a ceiling effect. | H | M | Near-perfect M3 on the first episodes. | Expected and acceptable. The environment measures *action under ambiguity*, not knowledge. Report M2 per condition, dilution adequacy, timing and back-correction. Compare with the passive ceiling. | Frame the result honestly as "succeeds in this scenario". Harder variants are Phase 2 (DEVELOPMENT_PLAN §9). | SCI |
+| R-008 | **Triviality criticism** ("just dilute it"). | M | M | Judge feedback. | Pitch emphasises: (1) passive data provably insufficient; (2) a valid control must be late, diluted and in range; (3) deterministic, LLM-free scoring; (4) a reusable evaluation pattern. | Show `PassiveBayes` vs `GoodScientist` contrast and audit breakdowns. | EVD |
+| R-009 | **Overengineering.** Abstractions, extra assays, a UI or frameworks consume time. | M | H | PRs that touch files outside the task table, or new modules not in DESIGN §3. | Stop rules (DEVELOPMENT_PLAN §8). Thirteen-module layout (DESIGN §3). QA rejects out-of-scope PRs. | Revert out-of-scope work. | QA |
+| R-010 | **API failure, rate limit, or refusal** (including a false-positive safety decline on a microbiology task). | M | M | `API_FAILURE` / `REFUSED` statuses. 429s. | SDK retries (4). One episode-level re-run. Statuses reported separately plus ITT (DESIGN §15). Smoke run measures behaviour early. | Report the incomplete matrix honestly. The demo uses the offline replay. | AGT |
+| R-011 | **Small sample.** n = 10–30 gives wide intervals. | H | M | Wilson intervals span > 0.3. | Pre-registered Wilson reporting. The H2 decision rule uses the lower bound. No significance claims (EXPERIMENT_PLAN §8). | Report as inconclusive if needed. Extend to 30 only if time allows. | SCI |
+| R-012 | **Demo failure** (network, laptop, projector, live API). | M | H | Rehearsal failure. | Offline replay only (ADR-006). Pre-rendered PNGs and terminal capture committed. Rehearsed with networking disabled. | Show committed figures and `results.md` directly. | EVD |
+| R-013 | **Branch or team conflicts** (merge conflicts, overlapping edits, broken `main`). | M | M | Conflicting PRs on the same file. Red `pytest` on `main`. | One branch per DEV task. File ownership. Visible interface frozen early. Small PRs with test output (PR template). | QA resolves; owner of the file decides. | QA |
+| R-014 | **Deadline risk.** Critical-path slips past the freezes. | H | H | MS0 not done by 18:00, or MS2 not by 23:30. | Hard freezes (DEVELOPMENT_PLAN §7). Parallel adapter and replay work. P1/P2 tasks dropped first. | Scripted-only submission path (ANALYSIS §17.4): Gate 0, baselines and replay, with the LLM result marked "not obtained". | ALL |
+| R-015 | **Gate 0 fails due to an implementation bug** rather than the design. | M | H | Gate 0 numbers far from the design-time reference (`experiments/reference/design_validation_output.txt`). | Reference script and output committed for comparison. T-019 equivalence check catches formula errors early. | Pair-debug (SCI + ENV) for one hour before considering parameter changes. | SCI |
+| R-016 | **LLM non-determinism** makes runs unrepeatable. | H | L | Different behaviour on re-run. | Expected (no sampling controls on this model). Transcripts saved and replayable. Re-scoring is deterministic. No claim of seed reproducibility. | Variability study is Phase 2. | AGT |
+| R-017 | **Agent misuses tools** (invalid arguments, loops, never submits). | M | M | Many `ok = False` events. `NO_DIAGNOSIS`. | Clear error messages. 12-turn limit. One reminder on `end_turn`. `NO_DIAGNOSIS` counts as incorrect. | Fix only genuine interface bugs before the prompt freeze (dev seeds only). | AGT |
+| R-018 | **Validity rule disputed** as too strict or arbitrary (5 % compression, lower bound $10\,\sigma_{\text{abs}} = 0.03$, fixed late window 12–18 h). | M | M | Episodes with sensible but "invalid" controls. | Labelled DESIGN DECISION and benchmark threshold (A-019, A-021). The late window uses visible clock time only. Per-clause audit reasons reported. Per-condition M2 explains the BP/MA asymmetry. | Report the audit breakdown alongside M2. Never change the rule after results. | SCI |
+| R-019 | **Cost overrun** on API usage. | L | L | Measured cost per episode > $1. | Measure on 2 dev episodes. 30-episode cap. | Stop at the minimal matrix (10). | AGT |
+| R-020 | **Secrets committed** (API key in logs or records). | L | H | Key-like strings in diffs. | Keys only from the environment or a profile. Request logs exclude headers. `.gitignore` covers `.env`. Pre-commit review of `experiments/results/`. | Rotate the key immediately. Purge from history before making the repository public. | QA |
+| R-021 | **Hidden nuisance variable leaks the label** (e.g. $S$ or $r$ drawn differently by condition, or drawn after the condition). | L | H | T-024/T-025 fail. KS statistic > 0.03. Passive classifier exploits a nuisance. | Nuisance drawn first from the scenario stream, independent of $H$ (GATE0_SPEC §2). Asserted by G0-F, T-024 and T-025. $S$ fixed within the episode (T-026). | Fix the sampler; re-run Gate 0. | SCI |
+| R-022 | **Prompt scaffolds the solution** (asks for alternative hypotheses, names conditions, hints at dilution). | M | H | T-028 fails. Prompt edits proposed to "help" the agent. | Minimal scored prompt (ANALYSIS FR-019, §11.1). `declare_state` optional. Snapshot test T-028. Forbidden-term scan T-012. | Revert to the `prompt-v1` snapshot. Episodes run with a scaffolded prompt are invalid for M1–M4. | QA |
+| R-023 | **Benchmark tuned against the target model** (parameters or thresholds changed after seeing Claude's results). | M | H | Proposals to change $S$, $\kappa$, $\lambda$, thresholds or the validity rule after MS3. | Parameters frozen and hashed at Gate 0 before any LLM run. ER-007; stop rule 16; EXPERIMENT_PLAN §1.1. Runner refuses mismatched hashes (T-031). | Any genuine fix becomes a new scenario version with a full re-run of every agent. Original results are retained and reported. | SCI |
+| R-024 | **Passive baseline too weak**, inflating the apparent value of experiments. | L | M | `PassiveBayes` far below the analytic ceiling. | Analytic Bayes ceiling (oracle) reported alongside `PassiveBayes` (near-sufficient statistic) and a model-free 15-NN (GATE0_SPEC §5). Wording: "strongest implemented passive baseline", never "optimal". | Add the optional full-trajectory Monte Carlo likelihood classifier. | SCI |
+| R-025 | **"Dilution" becomes a trivial keyword test**: any mention or use of dilution is rewarded. | M | M | High M2 with poorly chosen dilutions. | Validity requires a late window, $d > 1$, the useful region and pre-diagnosis timing. Under-dilution (1:2) is diagnostic but not M2-valid. Undiluted and early samples are non-diagnostic (G0-D). Per-clause audit and M5 (if computed) analyse experiment quality. | Report dilution choices and invalid-control reasons per episode. | EVD |
+| R-026 | **Over-dilution story unsupported by the simulator.** | M | M | Pitch or docs claim a U-shaped discrimination optimum. | The design-time sweep shows over-dilution costs precision and validity but barely affects discrimination (100×: balanced accuracy ≈ 0.99). GATE0_SPEC §6 states this. ANALYSIS §18 forbids the claim. | Show `intervention_sweep.png` as is. | SCI |
+
+## 2. Highest-priority risks
+
+1. **R-014 deadline**: managed by the hard freezes and the scripted-only fallback.
+2. **R-002 passive separability** and **R-001 causal confounding**: managed by Gate 0
+   before any LLM work.
+3. **R-006 prompt leakage**: managed by T-012 on every PR that touches agents or
+   prompts.
+4. **R-007/R-008 ceiling and triviality**: managed by honest framing. The
+   contribution is the evaluation design and its guarantees.
+
+## 3. Review log
+
+| Date / time | Milestone | Changes |
+|---|---|---|
+| 2026-10-03 | Plan accepted | Initial register |
+| 2026-10-03 | Final documentation pass | R-005 reframed; R-021 to R-026 added; owner codes ENV/EVD |

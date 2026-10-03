@@ -1,0 +1,48 @@
+MIRAGE-Bio design-time reference (full)  seed=20261004
+x_lin/S = 0.9187; reading at x_lin = 0.8727 S; lower useful bound = 0.030 (= 10 x sigma_abs; per-replicate rel. SD there = 0.120)
+[C1 equivalence] max rel. deviation f(X(t)) vs Richards(K',y0,r,nu): 3.0e-16
+[C2 BP compression at K] min 0.0192 max 0.0438 -> K/K' max 1.0458
+[C3 passive ceiling] Bayes accuracy given exact K' = 0.577
+    S range 1.0-1.00: ceiling 1.000
+    S range 0.8-1.25: ceiling 0.720
+    S range 0.6-1.50: ceiling 0.612
+    S range 0.5-2.00: ceiling 0.576
+    S range 0.4-2.50: ceiling 0.560
+[C4 timing] t95 in [3.56, 9.92] h; max t95+2 = 11.92 h (window starts 12 h)
+    MA: min X(12 h)/K' = 2.995; min X(t95+2)/K' = 2.926
+[C5 GoodScientist] R_BP median 1.030 p99 1.121 max 1.225; R_MA min 2.867 p1 2.982 median 4.002
+    accuracy 1.0000; valid-control rate 1.0000
+[C6 reconstruction] BP C/K 95% [0.929, 1.067]; MA C/K 95% [0.968, 1.034]
+    BP |R-1|<=0.15: 0.997; MA R>=2.5: 1.000
+[C8 intervention sweep] t=18 h, 3 replicates; R = d*mean(y)/P_hat
+     d | BP C/K median [95%]   | MA C/K median [95%]   | BP valid | MA valid | AUROC(R) | tau-rule bal.acc
+     1 | 0.969 [0.940,0.999] | 0.250 [0.202,0.328] | 0.000    | 0.000    | 0.5054   | 0.5000
+     2 | 1.000 [0.970,1.031] | 0.500 [0.402,0.653] | 1.000    | 0.000    | 1.0000   | 1.0000
+     5 | 0.999 [0.953,1.043] | 0.978 [0.916,1.017] | 1.000    | 0.816    | 1.0000   | 1.0000
+    10 | 1.000 [0.930,1.070] | 1.000 [0.967,1.032] | 1.000    | 1.000    | 1.0000   | 1.0000
+    20 | 1.001 [0.875,1.120] | 1.000 [0.959,1.043] | 0.741    | 1.000    | 1.0000   | 1.0000
+    50 | 1.003 [0.746,1.270] | 1.000 [0.925,1.078] | 0.087    | 1.000    | 1.0000   | 0.9990
+   100 | 1.005 [0.503,1.463] | 1.003 [0.872,1.132] | 0.000    | 0.686    | 1.0000   | 0.9864
+[C7 inadequate] undiluted late (t=18, d=1): AUROC(R) = 0.497
+[C7 inadequate] early diluted (t=3, d=10): AUROC(R) = 0.419
+[C9 passive classifiers] plug-in plateau classifier 0.574; 15-NN full trajectory 0.552
+[C10 robustness] variant: 15-NN passive acc | BP max compression | GoodScientist acc
+    nu=6       : 0.580 | 0.0438 | 1.000
+    nu=7       : 0.567 | 0.0438 | 1.000
+    nu=9       : 0.572 | 0.0438 | 1.000
+    nu=10      : 0.565 | 0.0437 | 1.000
+    noise x0.5 : 0.590 | 0.0438 | 1.000
+    noise x2   : 0.575 | 0.0438 | 1.000
+    r x0.8     : 0.515 | 0.0438 | 1.000
+    r x1.2     : 0.573 | 0.0438 | 1.000
+    X0 /2      : 0.582 | 0.0437 | 1.000
+    X0 x2      : 0.530 | 0.0437 | 1.000
+    S 0.6-1.5  : 0.587 | 0.0437 | 1.000
+    n=7 (nu=8) : 0.537 | 0.0543 | 1.000
+    n=10 (nu=8): 0.563 | 0.0295 | 1.000
+[C11 logistic growth nu=1 with assay n=8] 15-NN passive acc 0.822
+[C12 demo pair] BP: S=1.2124 K=1.0306 | MA: S=1.0 K=4.0; max passive difference 3.3e-16; t95 = 6.25 h
+    BIOLOGICAL_PLATEAU   raw 1.000 | d=2 -> 1.030 | d=10 -> 1.031
+    MEASUREMENT_ARTIFACT raw 1.000 | d=2 -> 1.999 | d=10 -> 4.000
+    matched-twin diagnosticity D(a) (single outcome, 3 reps) at t=18 h vs d: d=1: 0.500, d=2: 1.000, d=5: 1.000, d=10: 1.000, d=20: 1.000, d=50: 1.000, d=100: 1.000
+    D(a) at d=10 vs t: t=2: 0.500, t=4: 0.500, t=6: 0.796, t=8: 1.000, t=12: 1.000, t=18: 1.000
