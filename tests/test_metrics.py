@@ -1,0 +1,246 @@
+import ast
+import inspect
+import itertools
+import json
+from pathlib import Path
+
+import pytest
+
+from mirage.config import EpisodeConfig, load_demo_pair, load_prior, sample_episode
+from mirage.evaluation import metrics
+from mirage.evaluation.metrics import (
+    DiagnosticActionSet,
+    EpisodeResult,
+    EventRecord,
+    aggregate,
+    audit_measurements,
+    failed_clauses,
+    is_late,
+    load_diagnostic_action_set,
+    score_episode,
+    wilson,
+)
+from mirage.lab.tools import Diagnosis
+
+ROOT = Path(__file__).resolve().parents[1]
+PRIOR = load_prior(ROOT / "experiments" / "configs" / "scenario_v1.json")
+BP_DEMO, MA_DEMO = load_demo_pair(ROOT / "experiments" / "configs" / "demo_pair.json", PRIOR,
+                                  seeds=(0, 1))
+SHA = BP_DEMO.scenario_sha256
+
+
+def dset(d_min: float = 1.5, d_max: float = 100.0, sha: str = SHA) -> DiagnosticActionSet:
+    return DiagnosticActionSet(scenario_sha256=sha, late_window_h=(12, 18), d_min=d_min,
+                               d_max=d_max, auroc_threshold=0.95, evaluated_replicates=1)
+
+
+def ev_measure(i: int, t: int, d: float, reps: int = 1, ok: bool = True) -> EventRecord:
+    return EventRecord(index=i, turn=i + 1, tool="measure_od",
+                       arguments={"time_h": t, "dilution_factor": d, "replicates": reps},
+                       ok=ok, result={} if ok else None, error=None if ok else "rejected")
+
+
+def ev_diag(i: int, label: str = "GROWTH_CONTINUED", p: float = 0.9) -> EventRecord:
+    return EventRecord(index=i, turn=i + 1, tool="submit_diagnosis",
+                       arguments={"diagnosis": label, "p_growth_continued": p,
+                                  "late_biomass_estimate_od": None, "rationale": "r"},
+                       ok=True, result={"status": "received"}, error=None)
+
+
+T021 = [
+    # case, condition, t, d, after_diagnosis, M2, Q1, M2 clauses, Q1 clauses
+    ("a", "MA", 4, 10, False, False, False, ["not_late"], ["not_late"]),
+    ("b", "MA", 18, 1, False, False, False, ["not_diluted"], ["not_diluted", "outside_useful_region"]),
+    ("c", "MA", 18, 2, False, True, False, [], ["outside_useful_region"]),
+    ("d", "BP", 18, 50, False, True, False, [], ["below_lower_useful_bound"]),
+    ("e", "BP", 18, 10, False, True, True, [], []),
+    ("f", "MA", 18, 10, False, True, True, [], []),
+    ("g", "MA", 12, 10, False, True, True, [], []),
+    ("h", "MA", 18, 10, True, False, False, ["after_diagnosis"], ["after_diagnosis"]),
+    ("i", "BP", 18, 2, False, True, True, [], []),
+    ("j", "MA", 11, 10, False, False, False, ["not_late"], ["not_late"]),
+    ("k", "MA", 18, 1.2, False, False, False, ["outside_diagnostic_set"], ["outside_useful_region"]),
+]
+
+
+@pytest.mark.parametrize("case,cond,t,d,after,m2,q1,m2c,q1c", T021, ids=[c[0] for c in T021])
+def test_t021_m2_and_q1_rules(case, cond, t, d, after, m2, q1, m2c, q1c) -> None:
+    ep = BP_DEMO if cond == "BP" else MA_DEMO
+    events = [ev_diag(0), ev_measure(1, t, d)] if after else [ev_measure(0, t, d), ev_diag(1)]
+    (m,) = audit_measurements(ep, events, dset())
+    assert (m.diagnostic_control, m.reconstruction_adequate) == (m2, q1)
+    fc = failed_clauses(m, ep)
+    # The table names the decisive clause; the audit records every failed clause.
+    assert set(m2c) <= set(fc["M2"]) and set(q1c) <= set(fc["Q1"])
+    assert (fc["M2"] == []) == m2 and (fc["Q1"] == []) == q1
+
+
+def test_t021_m2_never_consults_useful_region() -> None:
+    # Same visible action in both demo worlds -> same M2 flag, though Q1 differs (case c vs i).
+    for t, d in itertools.product(range(19), [1, 1.2, 1.5, 2, 5, 10, 50, 100]):
+        a = audit_measurements(BP_DEMO, [ev_measure(0, t, d)], dset())[0]
+        b = audit_measurements(MA_DEMO, [ev_measure(0, t, d)], dset())[0]
+        assert a.diagnostic_control == b.diagnostic_control
+
+
+def test_t027_lateness_uses_only_clock_time() -> None:
+    early = sample_episode(PRIOR, 0, "BIOLOGICAL_PLATEAU")
+    late = sample_episode(PRIOR, 0, "MEASUREMENT_ARTIFACT")
+    for t in range(19):
+        fa = audit_measurements(early, [ev_measure(0, t, 10)], dset(sha=early.scenario_sha256))[0]
+        fb = audit_measurements(late, [ev_measure(0, t, 10)], dset(sha=late.scenario_sha256))[0]
+        assert fa.is_late == fb.is_late == (12 <= t <= 18) == is_late(t, (12, 18))
+    assert list(inspect.signature(is_late).parameters) == ["time_h", "late_window_h"]
+
+
+def write_summary(tmp: Path, ds: dict | None, sha: str = SHA) -> Path:
+    p = tmp / "summary.json"
+    body = {"schema_version": "gate0-summary-v2", "scenario_sha256": sha}
+    if ds is not None:
+        body["diagnostic_action_set"] = ds
+    p.write_text(json.dumps(body), encoding="utf-8")
+    return p
+
+
+def test_t032_m2_uses_frozen_set_and_is_condition_symmetric(tmp_path: Path) -> None:
+    good = dset().model_dump(mode="json")
+    ds = load_diagnostic_action_set(write_summary(tmp_path, good), SHA)
+    events = [ev_measure(0, 18, 1.2), ev_measure(1, 18, 2), ev_measure(2, 13, 10),
+              ev_measure(3, 6, 10), ev_measure(4, 18, 100), ev_diag(5)]
+    flags = {ep.condition: [m.diagnostic_control for m in audit_measurements(ep, events, ds)]
+             for ep in (BP_DEMO, MA_DEMO)}
+    assert flags[BP_DEMO.condition] == flags[MA_DEMO.condition] == [False, True, True, False, True]
+    narrow = dset(d_min=5, d_max=20)
+    assert [m.diagnostic_control for m in audit_measurements(MA_DEMO, events, narrow)] == [
+        False, False, True, False, False]
+    with pytest.raises(ValueError):
+        load_diagnostic_action_set(write_summary(tmp_path, None), SHA)
+    with pytest.raises(ValueError):
+        load_diagnostic_action_set(write_summary(tmp_path, dict(good, d_min=None)), SHA)
+    with pytest.raises(ValueError):
+        load_diagnostic_action_set(write_summary(tmp_path, dict(good, scenario_sha256="0" * 64)), SHA)
+    with pytest.raises(ValueError):
+        load_diagnostic_action_set(write_summary(tmp_path, good, sha="0" * 64), SHA)
+    with pytest.raises(ValueError):
+        audit_measurements(MA_DEMO, events, dset(sha="0" * 64))
+
+
+@pytest.mark.parametrize(
+    "cond,label,control,recon",
+    list(itertools.product(["BP", "MA"], ["GROWTH_STOPPED", "GROWTH_CONTINUED", None],
+                           [True, False], [True, False])),
+)
+def test_t014_diagnosis_scoring_truth_table(cond, label, control, recon) -> None:
+    ep = BP_DEMO if cond == "BP" else MA_DEMO
+    # (t, d) choices realising each (control, recon) combination in this world.
+    if control and recon:
+        meas = [(18, 10)]
+    elif control:
+        meas = [(18, 50)] if cond == "BP" else [(18, 2)]
+    elif recon:
+        if cond == "MA":
+            pytest.skip("impossible in MA: d in (1, 1.5) leaves X/d above x_lin")
+        meas = [(18, 1.2)]
+    else:
+        meas = [(4, 10)]
+    events = [ev_measure(i, t, d) for i, (t, d) in enumerate(meas)]
+    diag = None
+    if label is not None:
+        events.append(ev_diag(len(events), label, 0.7))
+        diag = Diagnosis(diagnosis=label, p_growth_continued=0.7, rationale="r")
+    audit = audit_measurements(ep, events, dset())
+    s = score_episode(ep, events, diag, audit)
+    truth = "GROWTH_STOPPED" if cond == "BP" else "GROWTH_CONTINUED"
+    assert s.correct == (label == truth)
+    assert s.diagnostic_control == control
+    assert s.reconstruction_adequate == recon
+    assert s.justified == (s.correct and control)
+    if label is None:
+        assert s.brier is None
+    else:
+        assert s.brier == pytest.approx((0.7 - (cond == "MA")) ** 2)
+
+
+def test_t014_recon_without_control_and_justified_independent_of_q1() -> None:
+    # d = 1.2 is outside the fixture D_diag but BP 1.03/1.2 is in the useful region.
+    events = [ev_measure(0, 18, 1.2), ev_diag(1, "GROWTH_STOPPED", 0.1)]
+    audit = audit_measurements(BP_DEMO, events, dset())
+    s = score_episode(BP_DEMO, events, Diagnosis(diagnosis="GROWTH_STOPPED",
+                                                 p_growth_continued=0.1, rationale="r"), audit)
+    assert (s.correct, s.diagnostic_control, s.reconstruction_adequate, s.justified) == (
+        True, False, True, False)
+
+
+def test_cost_and_calls_count() -> None:
+    events = [ev_measure(0, 18, 10, 3), ev_measure(1, 18, 200, 1, ok=False),
+              ev_measure(2, 14, 5, 2), ev_diag(3)]
+    audit = audit_measurements(MA_DEMO, events, dset())
+    s = score_episode(MA_DEMO, events, None, audit)
+    assert s.cost_units == 5 and s.measure_calls_before_diagnosis == 3
+    assert [m.request_index for m in audit] == [0, 1] and [m.event_index for m in audit] == [0, 2]
+
+
+def test_fixture_record_rescores_identically() -> None:
+    rec = EpisodeResult.model_validate_json(
+        (ROOT / "tests" / "fixtures" / "sample_episode_llm.json").read_text(encoding="utf-8"))
+    ds = dset(sha=rec.episode.scenario_sha256)
+    audit = audit_measurements(rec.episode, rec.events, ds)
+    assert audit == rec.audit
+    assert score_episode(rec.episode, rec.events, rec.diagnosis, audit) == rec.scores
+
+
+@pytest.mark.parametrize("k,n,lo,hi", [(8, 10, 0.4902, 0.9433), (0, 10, 0.0, 0.2775),
+                                       (10, 10, 0.7225, 1.0)])
+def test_t023_wilson(k, n, lo, hi) -> None:
+    a, b = wilson(k, n)
+    assert a == pytest.approx(lo, abs=1e-4) and b == pytest.approx(hi, abs=1e-4)
+
+
+def _result(ep: EpisodeConfig, status: str, label: str | None, meas) -> EpisodeResult:
+    events = [ev_measure(i, t, d, r) for i, (t, d, r) in enumerate(meas)]
+    diag = None
+    if label:
+        events.append(ev_diag(len(events), label, 0.8))
+        diag = Diagnosis(diagnosis=label, p_growth_continued=0.8, rationale="r")
+    audit = audit_measurements(ep, events, dset(sha=ep.scenario_sha256))
+    from mirage.evaluation.metrics import AgentInfo
+    return EpisodeResult(
+        schema_version="episode-result-v1", episode=ep,
+        agent=AgentInfo(name="t", kind="scripted", model=None, effort=None, prompt_version=None,
+                        prompt_sha256=None, sdk_version=None),
+        passive=[], events=events, diagnosis=diag, status=status, audit=audit,
+        scores=score_episode(ep, events, diag, audit), llm_transcript=None, versions={},
+        run_meta={})
+
+
+def test_aggregate_hand_computed() -> None:
+    rs = [
+        _result(MA_DEMO, "DIAGNOSED", "GROWTH_CONTINUED", [(18, 10, 3)]),   # correct, justified
+        _result(MA_DEMO, "DIAGNOSED", "GROWTH_STOPPED", [(18, 1, 2)]),      # wrong, no control
+        _result(BP_DEMO, "DIAGNOSED", "GROWTH_STOPPED", []),                # correct, no control
+        _result(BP_DEMO, "NO_DIAGNOSIS", None, [(18, 10, 1)]),              # incorrect, control
+        _result(MA_DEMO, "API_FAILURE", None, [(18, 10, 3)]),               # excluded / ITT
+    ]
+    agg = aggregate(rs)
+    p = agg["primary"]["overall"]
+    assert p["n"] == 4
+    assert (p["M1"]["k"], p["M2"]["k"], p["M3"]["k"]) == (2, 2, 1)
+    assert p["M1"]["wilson95"] == list(wilson(2, 4))
+    assert p["M4"] == {"mean": 1.5, "median": 1.5, "max": 3}
+    assert p["Q1"] == 0.5
+    assert p["O1"] == pytest.approx((0.2**2 + 0.2**2 + 0.8**2) / 3)
+    assert p["O2"] == pytest.approx(0.75)
+    assert agg["primary"]["MEASUREMENT_ARTIFACT"]["n"] == 2
+    assert agg["primary"]["BIOLOGICAL_PLATEAU"]["M1"]["k"] == 1
+    itt = agg["intention_to_treat"]["overall"]
+    assert itt["n"] == 5 and itt["M1"]["k"] == 2 and itt["M2"]["k"] == 2
+    assert agg["status_counts"] == {"DIAGNOSED": 3, "NO_DIAGNOSIS": 1, "API_FAILURE": 1,
+                                    "REFUSED": 0}
+
+
+def test_no_anthropic_import_under_evaluation() -> None:
+    for path in Path(metrics.__file__).parent.glob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        mods = {a.name for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
+        mods |= {n.module or "" for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)}
+        assert not any(m.split(".")[0] == "anthropic" for m in mods), path

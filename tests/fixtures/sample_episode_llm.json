@@ -1,0 +1,485 @@
+{
+  "agent": {
+    "effort": "high",
+    "kind": "llm",
+    "model": "claude-opus-5-5",
+    "name": "claude",
+    "prompt_sha256": "6df242e5a8c22cfa7f2dfdde25ec1038262f5d89d1bc4305456383217d8db12b",
+    "prompt_version": "prompt-v1",
+    "sdk_version": "1.10.0"
+  },
+  "audit": [
+    {
+      "before_diagnosis": true,
+      "diagnostic_control": true,
+      "event_index": 0,
+      "in_diagnostic_set": true,
+      "in_useful_region": true,
+      "is_diluted": true,
+      "is_late": true,
+      "latent_biomass_odeq": 4.103800411152758,
+      "noise_free_reading": 0.41036973684570227,
+      "presented_biomass_odeq": 0.41038004111527576,
+      "reconstruction_adequate": true,
+      "request_index": 0
+    }
+  ],
+  "diagnosis": {
+    "diagnosis": "GROWTH_CONTINUED",
+    "late_biomass_estimate_od": 4.045,
+    "p_growth_continued": 0.95,
+    "rationale": "The undiluted readings level off from about 9 h, but a 1:10 dilution of the 18 h aliquot reads 0.4045, which corresponds to about 4.045 undiluted, far above the late undiluted readings. Biomass therefore continued to increase."
+  },
+  "episode": {
+    "assay": {
+      "eps_lin": 0.05,
+      "n": 8.0,
+      "resolution": 0.0001,
+      "s_odeq": 1.1893645108142452,
+      "sigma_abs": 0.003,
+      "sigma_rel": 0.02,
+      "y_loq": 0.03
+    },
+    "condition": "MEASUREMENT_ARTIFACT",
+    "episode_id": "s7-MA",
+    "growth": {
+      "k_odeq": 4.103800411152758,
+      "nu": 8.0,
+      "r_per_h": 0.8691641402908727,
+      "x0_odeq": 0.014654780713886288
+    },
+    "k_ratio": 3.4504143799811837,
+    "scenario_sha256": "5291e69c061fa42973cf541bd84b78a90770dc971227f32f052acfc404c0ce08",
+    "scenario_version": "scenario-v1",
+    "seed": 7
+  },
+  "events": [
+    {
+      "arguments": {
+        "dilution_factor": 10.0,
+        "replicates": 3,
+        "time_h": 18
+      },
+      "error": null,
+      "index": 0,
+      "ok": true,
+      "result": {
+        "budget_remaining": 3,
+        "dilution_factor": 10.0,
+        "mean_reading": 0.4045,
+        "readings": [
+          0.4123,
+          0.4046,
+          0.3966
+        ],
+        "time_h": 18
+      },
+      "tool": "measure_od",
+      "turn": 1
+    },
+    {
+      "arguments": {
+        "dilution_factor": 200.0,
+        "replicates": 1,
+        "time_h": 18
+      },
+      "error": "dilution_factor (200.0) must be between 1 and 100",
+      "index": 1,
+      "ok": false,
+      "result": null,
+      "tool": "measure_od",
+      "turn": 2
+    },
+    {
+      "arguments": {
+        "diagnosis": "GROWTH_CONTINUED",
+        "late_biomass_estimate_od": 4.045,
+        "p_growth_continued": 0.95,
+        "rationale": "The undiluted readings level off from about 9 h, but a 1:10 dilution of the 18 h aliquot reads 0.4045, which corresponds to about 4.045 undiluted, far above the late undiluted readings. Biomass therefore continued to increase."
+      },
+      "error": null,
+      "index": 2,
+      "ok": true,
+      "result": {
+        "status": "received"
+      },
+      "tool": "submit_diagnosis",
+      "turn": 3
+    }
+  ],
+  "llm_transcript": [
+    {
+      "request": {
+        "max_tokens": 16000,
+        "model": "claude-opus-5-5",
+        "output_config": {
+          "effort": "high"
+        },
+        "tool_choice": {
+          "disable_parallel_tool_use": true,
+          "type": "auto"
+        }
+      },
+      "request_id": "req_fixture_1",
+      "response": {
+        "content": [
+          {
+            "signature": "fixture",
+            "thinking": "(fixture placeholder)",
+            "type": "thinking"
+          },
+          {
+            "id": "toolu_fixture_1",
+            "input": {
+              "dilution_factor": 10.0,
+              "replicates": 3,
+              "time_h": 18
+            },
+            "name": "measure_od",
+            "type": "tool_use"
+          }
+        ],
+        "id": "msg_fixture_1",
+        "model": "claude-opus-5-5",
+        "role": "assistant",
+        "stop_reason": "tool_use",
+        "type": "message",
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      },
+      "turn": 1
+    },
+    {
+      "request": {
+        "max_tokens": 16000,
+        "model": "claude-opus-5-5",
+        "output_config": {
+          "effort": "high"
+        },
+        "tool_choice": {
+          "disable_parallel_tool_use": true,
+          "type": "auto"
+        }
+      },
+      "request_id": "req_fixture_2",
+      "response": {
+        "content": [
+          {
+            "id": "toolu_fixture_2",
+            "input": {
+              "dilution_factor": 200.0,
+              "replicates": 1,
+              "time_h": 18
+            },
+            "name": "measure_od",
+            "type": "tool_use"
+          }
+        ],
+        "id": "msg_fixture_2",
+        "model": "claude-opus-5-5",
+        "role": "assistant",
+        "stop_reason": "tool_use",
+        "type": "message",
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      },
+      "turn": 2
+    },
+    {
+      "request": {
+        "max_tokens": 16000,
+        "model": "claude-opus-5-5",
+        "output_config": {
+          "effort": "high"
+        },
+        "tool_choice": {
+          "disable_parallel_tool_use": true,
+          "type": "auto"
+        }
+      },
+      "request_id": "req_fixture_3",
+      "response": {
+        "content": [
+          {
+            "id": "toolu_fixture_3",
+            "input": {
+              "diagnosis": "GROWTH_CONTINUED",
+              "late_biomass_estimate_od": 4.045,
+              "p_growth_continued": 0.95,
+              "rationale": "The undiluted readings level off from about 9 h, but a 1:10 dilution of the 18 h aliquot reads 0.4045, which corresponds to about 4.045 undiluted, far above the late undiluted readings. Biomass therefore continued to increase."
+            },
+            "name": "submit_diagnosis",
+            "type": "tool_use"
+          }
+        ],
+        "id": "msg_fixture_3",
+        "model": "claude-opus-5-5",
+        "role": "assistant",
+        "stop_reason": "tool_use",
+        "type": "message",
+        "usage": {
+          "input_tokens": 0,
+          "output_tokens": 0
+        }
+      },
+      "turn": 3
+    }
+  ],
+  "passive": [
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.0158,
+      "readings": [
+        0.0158
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 0
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.0263,
+      "readings": [
+        0.0263
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 1
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.0818,
+      "readings": [
+        0.0818
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 2
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.194,
+      "readings": [
+        0.194
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 3
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.4823,
+      "readings": [
+        0.4823
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 4
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.0619,
+      "readings": [
+        1.0619
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 5
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.129,
+      "readings": [
+        1.129
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 6
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.206,
+      "readings": [
+        1.206
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 7
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.155,
+      "readings": [
+        1.155
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 8
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.1816,
+      "readings": [
+        1.1816
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 9
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.1431,
+      "readings": [
+        1.1431
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 10
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.2056,
+      "readings": [
+        1.2056
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 11
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.1962,
+      "readings": [
+        1.1962
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 12
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.1989,
+      "readings": [
+        1.1989
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 13
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.2035,
+      "readings": [
+        1.2035
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 14
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.1542,
+      "readings": [
+        1.1542
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 15
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.225,
+      "readings": [
+        1.225
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 16
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.1821,
+      "readings": [
+        1.1821
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 17
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.1489,
+      "readings": [
+        1.1489
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 18
+    }
+  ],
+  "run_meta": {
+    "diagnostic_action_set": "test fixture D_diag = [1.5, 100] (TEST_PLAN T-021), not a Gate 0 result",
+    "fixture": "hand-built test fixture; no API call was made; transcript content is placeholder"
+  },
+  "schema_version": "episode-result-v1",
+  "scores": {
+    "brier": 0.0025000000000000044,
+    "correct": true,
+    "cost_units": 3,
+    "diagnostic_control": true,
+    "justified": true,
+    "m5_diagnosticity": null,
+    "measure_calls_before_diagnosis": 2,
+    "reconstruction_adequate": true
+  },
+  "status": "DIAGNOSED",
+  "versions": {
+    "anthropic": "1.10.0",
+    "mirage": "0.1.0",
+    "numpy": "2.3.5",
+    "pydantic": "2.12.5",
+    "python": "3.11.17"
+  }
+}
