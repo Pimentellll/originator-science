@@ -107,7 +107,7 @@ Off the critical path, in parallel, from the 16:00 interface freeze:
 | Scope | `agents/claude.py` (DESIGN §9.4), the minimal prompt and tool definitions of DESIGN §9.2–9.3, failure statuses, transcript logging. |
 | Tasks | DEV-012, DEV-013 |
 | Dependencies | MS1. DEV-012 itself only needs the frozen visible interface. |
-| Definition of done | 4 development-seed episodes (2 per condition) complete with valid records. The prompt-leakage test passes. Cost per episode is measured. `prompt-v1` is frozen and tagged in the records. |
+| Definition of done | 4 development-seed episodes (2 per condition) complete with valid records. The prompt-leakage test passes. Cost per episode is measured. `prompt-v2` is frozen and tagged in the records. |
 | Tests required | T-012, T-022, T-028 |
 | Fallback | The model stays `claude-opus-5-5`. If the API is unavailable, keep retrying, and prepare the scripted-only submission path in parallel. |
 | Stop rule | Prompt edits are allowed only to fix **bugs** (tool misuse, schema errors), never to improve score, and only on dev seeds. Freeze at **23:30**. |
@@ -188,7 +188,7 @@ Owner types: SCI, ENV, AGT, EVD, QA (§6).
 | DEV-010 | Scripted agents | `src/mirage/agents/scripted.py` | `GoodScientist` exactly as in DESIGN §16.1. `PassiveBayesAgent` with injected classifier. T-015 and T-016 pass on 1,000 episodes per condition. | DEV-005, DEV-007 | ENV | P0 |
 | DEV-011 | Trust-boundary tests | `tests/test_trust_boundary.py` | AST import scan, prompt-leakage scan and prompt snapshot (DESIGN §12). T-012 and T-028 pass. | DEV-007, DEV-012 (prompt part) | QA (ENV if no QA) | P0 |
 | DEV-012 | Claude adapter | `src/mirage/agents/claude.py`, `tests/test_claude_adapter.py` | Loop per DESIGN §9.4. Minimal prompt and tool definitions per DESIGN §9.2–9.3 (no hypothesis scaffolding). Statuses per DESIGN §19. Full transcript, model ID and prompt hash logged. No model substitution. T-022 passes with a mocked client (no network). | DEV-007a interface | AGT | P0 |
-| DEV-013 | Dev-seed smoke run and prompt freeze | `.local/runs/*` (not committed), records of 4 dev episodes optionally committed under `experiments/results/dev_smoke/` | 4 dev episodes complete. Cost per episode measured and noted. Bugs fixed. `prompt-v1` frozen. | DEV-009, DEV-012 | AGT | P0 |
+| DEV-013 | Dev-seed smoke run and prompt freeze | `.local/runs/*` (not committed), records of 4 dev episodes optionally committed under `experiments/results/dev_smoke/` | 4 dev episodes complete. Cost per episode measured and noted. Bugs fixed. `prompt-v2` frozen (prompt-v1 superseded, OPEN_RULINGS §G). | DEV-009, DEV-012 | AGT | P0 |
 | DEV-014 | First empirical result | `experiments/results/<run_id>/` (Claude + baselines, eval seeds 500,000–500,009) | 10 Claude records plus baseline records. `summary.json`. Interpretation note. | DEV-013 | AGT | P0 |
 | DEV-015 | Evaluation completion and freeze | same run family, eval seeds 500,010–500,029 | Up to 30 balanced Claude records by 11:30. `API_FAILURE` re-run once. Freeze declared in `manifest.json`. | DEV-014 | AGT | P0 |
 | DEV-016 | Results report and figure | `experiments/results/<run_id>/results.md`, `results.png` | Table of M1–M4 (overall and per condition, Wilson intervals) for Claude, `GoodScientist` and `PassiveBayes`. Failure breakdown. Generated from records by a script or `summarize --report`. | DEV-015 | EVD (SCI interprets) | P1 |
@@ -303,7 +303,7 @@ lab against the frozen interfaces.
 | 18:30–21:30 | DEV-007 to DEV-011. Baselines at scale. | — |
 | 21:30 | Lab complete | **MS1** |
 | 21:30–23:30 | DEV-013 smoke run on dev seeds. Measure cost. Fix bugs. | — |
-| **23:30** | **Prompt freeze (`prompt-v1`)**. Run the demo-pair episodes once. | **MS2** |
+| **23:30** | **Prompt freeze (`prompt-v2`)**. Run the demo-pair episodes once. | **MS2** |
 | 23:30–01:00 | DEV-014: 10 eval episodes and baselines | **MS3** (target) |
 
 ### Sunday 4 October

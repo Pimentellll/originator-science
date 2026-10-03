@@ -58,14 +58,14 @@ def test_reference_is_deterministic_and_well_formed() -> None:
 def test_classify_and_out_of_range(ref50k) -> None:
     y = np.full(19, 1e-3)
     label, p = ref50k.classify(y)  # far below the pooled range -> first bin
-    assert 0 <= p <= 1 and label in ("GROWTH_STOPPED", "GROWTH_CONTINUED")
-    assert ref50k.classify(np.full(19, 1e6))[1] == ref50k.p_growth_continued(np.full(19, 1e3))
+    assert 0 <= p <= 1 and label in ("BIOMASS_AS_READ", "BIOMASS_ABOVE_READING")
+    assert ref50k.classify(np.full(19, 1e6))[1] == ref50k.p_biomass_above_reading(np.full(19, 1e3))
 
 
 def test_t008_passive_bayes_balanced_accuracy(ref50k) -> None:
     acc = []
-    for cond, truth in (("BIOLOGICAL_PLATEAU", "GROWTH_STOPPED"),
-                        ("MEASUREMENT_ARTIFACT", "GROWTH_CONTINUED")):
+    for cond, truth in (("BIOLOGICAL_PLATEAU", "BIOMASS_AS_READ"),
+                        ("MEASUREMENT_ARTIFACT", "BIOMASS_ABOVE_READING")):
         ys = simulate_passive(PRIOR, TEST_SEEDS, cond)
         acc.append(np.mean([ref50k.classify(y)[0] == truth for y in ys]))
     balanced = float(np.mean(acc))

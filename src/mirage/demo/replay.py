@@ -80,8 +80,8 @@ def _print_agent_notes(record: EpisodeResult) -> None:
         return
     for event in declarations:
         print(
-            f"turn={event.turn} p_growth_continued="
-            f"{event.arguments['p_growth_continued']} notes={event.arguments['notes']}"
+            f"turn={event.turn} p_biomass_above_reading="
+            f"{event.arguments['p_biomass_above_reading']} notes={event.arguments['notes']}"
         )
 
 
@@ -124,7 +124,7 @@ def _print_diagnosis(record: EpisodeResult) -> None:
     rationale = diagnosis.rationale
     excerpt = rationale[:300] + ("…" if len(rationale) > 300 else "")
     print(f"diagnosis={diagnosis.diagnosis}")
-    print(f"p_growth_continued={diagnosis.p_growth_continued}")
+    print(f"p_biomass_above_reading={diagnosis.p_biomass_above_reading}")
     print(f"late_biomass_estimate_od={diagnosis.late_biomass_estimate_od}")
     print(f"rationale={excerpt}")
 

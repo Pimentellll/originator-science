@@ -1,15 +1,18 @@
 import hashlib
 import json
 import math
+from typing import get_args
 
 import pytest
 from pydantic import ValidationError
 
 from mirage.agents.base import Agent, LabSession
+from mirage.evaluation import metrics
 from mirage.lab import tools
 from mirage.lab.tools import (
     AgentState,
     Diagnosis,
+    GrowthLabel,
     MeasurementRequest,
     MeasurementResult,
     Observation,
@@ -57,18 +60,18 @@ def test_request_accepts_valid_dilution(d: float) -> None:
 
 
 def test_diagnosis_validation() -> None:
-    Diagnosis(diagnosis="GROWTH_CONTINUED", p_growth_continued=1.0, rationale="")
+    Diagnosis(diagnosis="BIOMASS_ABOVE_READING", p_biomass_above_reading=1.0, rationale="")
     for bad in (
-        {"diagnosis": "MEASUREMENT_ARTIFACT", "p_growth_continued": 0.5, "rationale": ""},
-        {"diagnosis": "GROWTH_STOPPED", "p_growth_continued": 1.5, "rationale": ""},
-        {"diagnosis": "GROWTH_STOPPED", "p_growth_continued": 0.5, "rationale": "x" * 4001},
-        {"diagnosis": "GROWTH_STOPPED", "p_growth_continued": 0.5, "rationale": "",
+        {"diagnosis": "MEASUREMENT_ARTIFACT", "p_biomass_above_reading": 0.5, "rationale": ""},
+        {"diagnosis": "BIOMASS_AS_READ", "p_biomass_above_reading": 1.5, "rationale": ""},
+        {"diagnosis": "BIOMASS_AS_READ", "p_biomass_above_reading": 0.5, "rationale": "x" * 4001},
+        {"diagnosis": "BIOMASS_AS_READ", "p_biomass_above_reading": 0.5, "rationale": "",
          "late_biomass_estimate_od": -1.0},
     ):
         with pytest.raises(ValidationError):
             Diagnosis(**bad)
     with pytest.raises(ValidationError):
-        AgentState(notes="x" * 2001, p_growth_continued=0.5)
+        AgentState(notes="x" * 2001, p_biomass_above_reading=0.5)
 
 
 def test_models_are_frozen() -> None:
@@ -184,21 +187,21 @@ def test_measurement_result_rejects_nonfinite(field, bad) -> None:
 @pytest.mark.parametrize("bad", NONFINITE)
 def test_diagnosis_rejects_nonfinite_estimate(bad) -> None:
     with pytest.raises(ValidationError):
-        Diagnosis(diagnosis="GROWTH_STOPPED", p_growth_continued=0.5,
+        Diagnosis(diagnosis="BIOMASS_AS_READ", p_biomass_above_reading=0.5,
                   late_biomass_estimate_od=bad, rationale="r")
 
 
 @pytest.mark.parametrize("bad", [True, False, "1.0"])
 def test_diagnosis_rejects_non_number_estimate(bad) -> None:
     with pytest.raises(ValidationError):
-        Diagnosis(diagnosis="GROWTH_STOPPED", p_growth_continued=0.5,
+        Diagnosis(diagnosis="BIOMASS_AS_READ", p_biomass_above_reading=0.5,
                   late_biomass_estimate_od=bad, rationale="r")
 
 
 def test_diagnosis_accepts_integer_estimate_and_probability() -> None:
-    d = Diagnosis(diagnosis="GROWTH_STOPPED", p_growth_continued=1,
+    d = Diagnosis(diagnosis="BIOMASS_AS_READ", p_biomass_above_reading=1,
                   late_biomass_estimate_od=4, rationale="r")
-    assert d.p_growth_continued == 1.0 and d.late_biomass_estimate_od == 4.0
+    assert d.p_biomass_above_reading == 1.0 and d.late_biomass_estimate_od == 4.0
 
 
 def test_negative_blank_subtracted_readings_are_valid_and_render_as_json() -> None:
@@ -225,12 +228,12 @@ def test_rendering_rounds_to_four_decimals_both_signs() -> None:
 @pytest.mark.parametrize("model", [AgentState, Diagnosis])
 def test_probability_bounds(model) -> None:
     extra = {"notes": "n"} if model is AgentState else {
-        "diagnosis": "GROWTH_STOPPED", "late_biomass_estimate_od": None, "rationale": "r"}
+        "diagnosis": "BIOMASS_AS_READ", "late_biomass_estimate_od": None, "rationale": "r"}
     for p in (0.0, 0.5, 1.0):
-        assert model(p_growth_continued=p, **extra).p_growth_continued == p
+        assert model(p_biomass_above_reading=p, **extra).p_biomass_above_reading == p
     for p in (-1e-9, 1 + 1e-9, float("nan"), float("inf"), True, False, "0.5"):
         with pytest.raises(ValidationError):
-            model(p_growth_continued=p, **extra)
+            model(p_biomass_above_reading=p, **extra)
 
 
 @pytest.mark.parametrize("value", [True, False, 2.0, "2", None, [2]])
@@ -250,28 +253,62 @@ def test_tool_property_types_enums_and_wording_exact() -> None:
     types_ = {name: {k: v["type"] for k, v in p.items()} for name, p in props.items()}
     assert types_ == {
         "measure_od": {"time_h": "integer", "dilution_factor": "number", "replicates": "integer"},
-        "declare_state": {"notes": "string", "p_growth_continued": "number"},
-        "submit_diagnosis": {"diagnosis": "string", "p_growth_continued": "number",
+        "declare_state": {"notes": "string", "p_biomass_above_reading": "number"},
+        "submit_diagnosis": {"diagnosis": "string", "p_biomass_above_reading": "number",
                              "late_biomass_estimate_od": ["number", "null"], "rationale": "string"},
     }
-    assert props["submit_diagnosis"]["diagnosis"]["enum"] == ["GROWTH_STOPPED", "GROWTH_CONTINUED"]
+    assert props["submit_diagnosis"]["diagnosis"]["enum"] == [
+        "BIOMASS_AS_READ",
+        "BIOMASS_ABOVE_READING",
+    ]
     assert sum("enum" in v for p in props.values() for v in p.values()) == 1
     assert [d["required"] for d in (t["input_schema"] for t in tools.TOOL_DEFINITIONS)] == [
-        ["time_h", "dilution_factor", "replicates"], ["notes", "p_growth_continued"],
-        ["diagnosis", "p_growth_continued", "late_biomass_estimate_od", "rationale"]]
+        ["time_h", "dilution_factor", "replicates"], ["notes", "p_biomass_above_reading"],
+        ["diagnosis", "p_biomass_above_reading", "late_biomass_estimate_od", "rationale"]]
     assert props["measure_od"]["replicates"]["description"] == "Number of independent replicate reads: 1, 2 or 3."
     assert tools.TOOL_DEFINITIONS[2]["description"] == (
         "Submit your conclusion. This ends the experiment; no further measurements are possible.")
+    probability_description = (
+        "Probability from 0 to 1 that, over the final hours, biomass is higher than the "
+        "undiluted readings indicate."
+    )
+    assert tools.TOOL_DEFINITIONS[1]["description"] == (
+        "Optional. Record your current notes and your current probability that, over the "
+        "final hours, the culture's biomass is higher than the undiluted readings indicate. "
+        "Free of charge; never required."
+    )
+    assert props["declare_state"]["p_biomass_above_reading"]["description"] == (
+        probability_description
+    )
+    assert props["submit_diagnosis"]["p_biomass_above_reading"]["description"] == (
+        probability_description
+    )
+    assert props["submit_diagnosis"]["diagnosis"]["description"] == (
+        "Whether, over the final hours, the culture's biomass is at the level the undiluted "
+        "readings indicate (BIOMASS_AS_READ) or higher than they indicate "
+        "(BIOMASS_ABOVE_READING)."
+    )
     assert tools.SYSTEM_PROMPT.startswith(
         "You are an autonomous scientist working in a virtual microbiology laboratory.\n\n")
     assert tools.SYSTEM_PROMPT.endswith("Finish by calling submit_diagnosis. You have\nat most 12 turns.")
+    assert (
+        "Your task is to decide whether, over the final hours of the experiment, the\n"
+        "culture's biomass is at the level the undiluted readings indicate, or higher than\n"
+        "the undiluted readings indicate, and to support your conclusion with evidence."
+    ) in tools.SYSTEM_PROMPT
 
 
-PROMPT_V1_SHA256 = "6df242e5a8c22cfa7f2dfdde25ec1038262f5d89d1bc4305456383217d8db12b"
+def test_prompt_is_about_biomass_level_not_growth() -> None:
+    assert "increas" not in tools.SYSTEM_PROMPT.lower()
+    assert "increas" not in json.dumps(tools.TOOL_DEFINITIONS).lower()
+    assert set(get_args(GrowthLabel)) == set(metrics.LABEL_TO_CONDITION)
 
 
-def test_prompt_v1_digest_frozen_and_independently_computed() -> None:
+PROMPT_V2_SHA256 = "dc07da980883558de995de94ed9c3affc1c8982f31fc5f149f9bfcacda1d91d1"
+
+
+def test_prompt_v2_digest_frozen_and_independently_computed() -> None:
     canonical = json.dumps({"system": tools.SYSTEM_PROMPT, "tools": tools.TOOL_DEFINITIONS},
                            sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    assert hashlib.sha256(canonical.encode("utf-8")).hexdigest() == PROMPT_V1_SHA256
-    assert tools.prompt_sha256() == PROMPT_V1_SHA256 and tools.PROMPT_VERSION == "prompt-v1"
+    assert hashlib.sha256(canonical.encode("utf-8")).hexdigest() == PROMPT_V2_SHA256
+    assert tools.prompt_sha256() == PROMPT_V2_SHA256 and tools.PROMPT_VERSION == "prompt-v2"

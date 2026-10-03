@@ -17,9 +17,9 @@ MAX_REPLICATES = 3
 BUDGET_UNITS = 6
 MAX_TURNS = 12
 
-PROMPT_VERSION = "prompt-v1"
+PROMPT_VERSION = "prompt-v2"
 
-GrowthLabel = Literal["GROWTH_STOPPED", "GROWTH_CONTINUED"]
+GrowthLabel = Literal["BIOMASS_AS_READ", "BIOMASS_ABOVE_READING"]
 FiniteFloat = Annotated[float, Field(allow_inf_nan=False)]
 
 
@@ -47,12 +47,12 @@ class MeasurementResult(Frozen):
 
 class AgentState(Frozen):
     notes: str = Field(max_length=2000)
-    p_growth_continued: float = Field(ge=0, le=1, strict=True)
+    p_biomass_above_reading: float = Field(ge=0, le=1, strict=True)
 
 
 class Diagnosis(Frozen):
     diagnosis: GrowthLabel
-    p_growth_continued: float = Field(ge=0, le=1, strict=True)
+    p_biomass_above_reading: float = Field(ge=0, le=1, strict=True)
     late_biomass_estimate_od: float | None = Field(
         default=None, ge=0, allow_inf_nan=False, strict=True
     )
@@ -81,9 +81,9 @@ optical density at 600 nm (OD600) was read every hour on a plate reader, and an
 aliquot of the culture was withdrawn and retained every hour. The hourly readings
 are provided in the first message.
 
-Your task is to decide whether the culture's biomass stopped increasing, or
-continued to increase, over the final hours of the experiment, and to support your
-conclusion with evidence.
+Your task is to decide whether, over the final hours of the experiment, the
+culture's biomass is at the level the undiluted readings indicate, or higher than
+the undiluted readings indicate, and to support your conclusion with evidence.
 
 You may request additional measurements with measure_od; each replicate reading
 costs 1 unit from a budget of 6 units. Finish by calling submit_diagnosis. You have
@@ -107,15 +107,15 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     },
     {
         "name": "declare_state",
-        "description": "Optional. Record your current notes and your current probability that the culture's biomass continued to increase over the final hours. Free of charge; never required.",
+        "description": "Optional. Record your current notes and your current probability that, over the final hours, the culture's biomass is higher than the undiluted readings indicate. Free of charge; never required.",
         "strict": True,
         "input_schema": {
             "type": "object",
             "properties": {
                 "notes": {"type": "string", "description": "Free-text notes on your current thinking."},
-                "p_growth_continued": {"type": "number", "description": "Probability from 0 to 1."},
+                "p_biomass_above_reading": {"type": "number", "description": "Probability from 0 to 1 that, over the final hours, biomass is higher than the undiluted readings indicate."},
             },
-            "required": ["notes", "p_growth_continued"],
+            "required": ["notes", "p_biomass_above_reading"],
             "additionalProperties": False,
         },
     },
@@ -126,12 +126,12 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "diagnosis": {"type": "string", "enum": ["GROWTH_STOPPED", "GROWTH_CONTINUED"], "description": "Whether the culture's biomass stopped increasing or continued to increase over the final hours of the experiment."},
-                "p_growth_continued": {"type": "number", "description": "Probability from 0 to 1 that biomass continued to increase."},
+                "diagnosis": {"type": "string", "enum": ["BIOMASS_AS_READ", "BIOMASS_ABOVE_READING"], "description": "Whether, over the final hours, the culture's biomass is at the level the undiluted readings indicate (BIOMASS_AS_READ) or higher than they indicate (BIOMASS_ABOVE_READING)."},
+                "p_biomass_above_reading": {"type": "number", "description": "Probability from 0 to 1 that, over the final hours, biomass is higher than the undiluted readings indicate."},
                 "late_biomass_estimate_od": {"type": ["number", "null"], "description": "Your estimate of the culture's OD600 at 18 h, expressed as the reading an undiluted sample would give if the reader responded proportionally; null if you have no estimate."},
                 "rationale": {"type": "string", "description": "Evidence-based justification."},
             },
-            "required": ["diagnosis", "p_growth_continued", "late_biomass_estimate_od", "rationale"],
+            "required": ["diagnosis", "p_biomass_above_reading", "late_biomass_estimate_od", "rationale"],
             "additionalProperties": False,
         },
     },

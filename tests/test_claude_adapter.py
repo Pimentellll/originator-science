@@ -37,8 +37,12 @@ def tool(name, args, i=0):
     return {"type": "tool_use", "id": f"toolu_{i}", "name": name, "input": args}
 
 
-DIAG = {"diagnosis": "GROWTH_CONTINUED", "p_growth_continued": 0.9, "late_biomass_estimate_od": 4.0,
-        "rationale": "1:10 back-corrected reading exceeds the plateau."}
+DIAG = {
+    "diagnosis": "BIOMASS_ABOVE_READING",
+    "p_biomass_above_reading": 0.9,
+    "late_biomass_estimate_od": 4.0,
+    "rationale": "1:10 back-corrected reading exceeds the plateau.",
+}
 
 
 class FakeClient:
@@ -79,7 +83,7 @@ def check_request_settings(client):
 
 
 def test_case1_full_loop_diagnosed():
-    r1 = msg({"type": "text", "text": "Noting state."}, tool("declare_state", {"notes": "n", "p_growth_continued": 0.5}, 1))
+    r1 = msg({"type": "text", "text": "Noting state."}, tool("declare_state", {"notes": "n", "p_biomass_above_reading": 0.5}, 1))
     r2 = msg(tool("measure_od", {"time_h": 18, "dilution_factor": 10, "replicates": 3}, 2))
     r3 = msg(tool("submit_diagnosis", DIAG, 3))
     env, client, agent = play([r1, r2, r3])
@@ -152,5 +156,5 @@ def test_case6_model_mismatch_aborts():
 
 def test_records_identity_fields():
     agent = ClaudeAgent(FakeClient([]))
-    assert agent.prompt_version == "prompt-v1" and len(agent.prompt_sha256) == 64
+    assert agent.prompt_version == "prompt-v2" and len(agent.prompt_sha256) == 64
     assert agent.sdk_version == anthropic.__version__ and agent.model == MODEL

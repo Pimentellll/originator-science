@@ -319,7 +319,7 @@ claim about nature.
 | FR-008 | **Finite budget.** Each episode must have a budget of 6 replicate-readings. Each accepted replicate costs 1. Requests exceeding the remaining budget must be rejected without charge. |
 | FR-009 | **Request validation.** Invalid requests (time outside the grid, $d$ outside $[1, 100]$, replicates outside 1–3, malformed input) must be rejected with an error message and no charge. |
 | FR-010 | **Agent interaction.** Agents must interact only through three tools: `measure_od`, `declare_state` and `submit_diagnosis`. An episode must end after at most 12 agent turns. |
-| FR-011 | **Diagnosis submission.** `submit_diagnosis` must accept a label (`GROWTH_STOPPED` or `GROWTH_CONTINUED`), a probability that growth continued, an optional late-biomass estimate and a rationale, and must end the episode. |
+| FR-011 | **Diagnosis submission.** `submit_diagnosis` must accept a label (`BIOMASS_AS_READ` or `BIOMASS_ABOVE_READING`), a probability that, over the final hours, biomass is higher than the undiluted readings indicate, an optional late-biomass estimate and a rationale, and must end the episode. |
 | FR-012 | **Belief declaration (optional).** `declare_state` must record free-text notes and a probability at no budget cost. Its use is optional and never required by the scored prompt. |
 | FR-013 | **Deterministic scoring.** The evaluator must compute per-episode scores and M1–M4 from the saved episode record and hidden configuration only, without any LLM. |
 | FR-014 | **Episode persistence.** Every episode, including failed ones, must be saved as one self-contained JSON record (configuration, configuration hash, passive data, all events, diagnosis, audit, scores, software versions, and the LLM transcript where applicable). |
@@ -336,7 +336,7 @@ capability being evaluated: recognising that alternatives exist. The scored prom
 therefore does not ask for hypotheses. `declare_state` remains available, optional and
 logged when used, which is useful for the demo. The agent must decide for itself
 whether alternatives need consideration. Agent-facing diagnosis labels are
-`GROWTH_STOPPED` and `GROWTH_CONTINUED`. The internal names `BIOLOGICAL_PLATEAU` and
+`BIOMASS_AS_READ` and `BIOMASS_ABOVE_READING`. The internal names `BIOLOGICAL_PLATEAU` and
 `MEASUREMENT_ARTIFACT` never appear on any agent-visible surface.
 
 ## 12. Non-functional requirements
@@ -383,7 +383,7 @@ per condition. Exact computations are in [DESIGN §15](DESIGN.md#15-evaluation).
 Two properties of a measurement are kept separate:
 
 - **Diagnostic sufficiency (M2):** does the experiment provide evidence that
-  distinguishes `GROWTH_STOPPED` from `GROWTH_CONTINUED`?
+  distinguishes `BIOMASS_AS_READ` from `BIOMASS_ABOVE_READING`?
 - **Quantitative reconstruction quality (Q1):** does it place the presented sample
   inside the assay's useful region, so that back-correction gives an accurate
   estimate of the latent biomass?
@@ -426,10 +426,10 @@ Key example (design-time reference, GATE0_SPEC §6):
 | M4 | Experimental cost | Mean replicate-readings consumed per episode (report median and maximum too). |
 | M5 (stretch, non-blocking) | Experiment diagnosticity / selection efficiency | How informative the chosen experiment was compared with the alternatives: matched-twin single-outcome AUROC $D(a)$ ([BENCHMARK_METHODOLOGY §3](../BENCHMARK_METHODOLOGY.md#3-experiment-diagnosticity)). The MVP ships without it. |
 | Q1 (secondary, descriptive) | Quantitative reconstruction adequacy | Fraction of episodes with at least one reconstruction-adequate measurement. Reported per condition; not part of M3 and not a headline metric. |
-| O1 (optional) | Belief calibration | Brier score of the final `p_growth_continued`. |
+| O1 (optional) | Belief calibration | Brier score of the final `p_biomass_above_reading`. |
 | O2 (optional) | Rounds to diagnosis | Number of `measure_od` calls before diagnosis. |
 
-Label mapping: `GROWTH_STOPPED` ↔ `BIOLOGICAL_PLATEAU`; `GROWTH_CONTINUED` ↔
+Label mapping: `BIOMASS_AS_READ` ↔ `BIOLOGICAL_PLATEAU`; `BIOMASS_ABOVE_READING` ↔
 `MEASUREMENT_ARTIFACT`. The agent never sees the condition names
 ([DESIGN §9](DESIGN.md#9-agent-tool-api)).
 

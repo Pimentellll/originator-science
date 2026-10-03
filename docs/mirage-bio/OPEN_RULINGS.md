@@ -1,8 +1,8 @@
 # Open science rulings (for Arnav)
 
 This is not a specification. It collects every "Needs ruling" item from the merged
-implementation PRs, as of `wip/integration` at `d37497b`. Nothing in this list has been
-decided in code. For each item, the current behaviour is stated, and the code keeps that
+implementation PRs, as of `wip/integration` at `d37497b`. Provisional decisions are
+recorded at the end (§F); none of them changed any code. For each item, the current behaviour is stated, and the code keeps that
 behaviour until a ruling is made. The numbers come from the committed candidate Gate 0
 run `experiments/results/gate0/summary.json` (#40, source `a05155e`, full mode,
 `passed: true`) or from recomputation with `mirage.assay.od_reader.t_q`.
@@ -96,3 +96,67 @@ run `experiments/results/gate0/summary.json` (#40, source `a05155e`, full mode,
     - $X \le K$;
     - strictly increasing where $X < K(1 - 10^{-9})$;
     - non-decreasing overall.
+
+## F. Provisional decisions (3 October 2026)
+
+The science lead was unavailable. Ben (code owner) took the decisions below as
+**provisional, pending Arnav**. Items 1–14 keep the current behaviour, so no code,
+threshold, schema or config changed for them. Item 15 (§G, from the DEV-013 smoke run)
+changes the prompt to `prompt-v2` and the record schema to `episode-result-v2`.
+Arnav may overturn any of them. Overturning item 1 means a new scenario version and a full Gate 0 re-run (GATE0_SPEC §8).
+
+| # | Decision |
+|---|---|
+| 1 | Option (a). G0-C(iv) is the sampled check as written, and the support corner is recorded as RISKS R-027. Gate 0 is frozen (below). |
+| 2 | Keep the seed-parity assignment: even seeds `BIOLOGICAL_PLATEAU`, odd seeds `MEASUREMENT_ARTIFACT`. |
+| 3 | `tests/snapshots/prompt_v1.json` is approved as the frozen `prompt-v1`. |
+| 4 | Keep ITT clearing `diagnostic_control` and `justified` for `API_FAILURE` / `REFUSED`. |
+| 5 | Deferred. Doesn't block scored runs. |
+| 6 | No schema change. Failed clauses stay computed on demand by `metrics.failed_clauses()`. |
+| 7 | Keep rejecting events after an accepted diagnosis. |
+| 8–10 | Keep the current validation. No extra restrictions. |
+| 11–14 | The current reading is confirmed. |
+| 15 | prompt-v2: ask whether late biomass is at or above the level the undiluted readings indicate; labels `BIOMASS_AS_READ` / `BIOMASS_ABOVE_READING`; record schema `episode-result-v2`. |
+
+**Gate 0 freeze.** The frozen artefacts are the committed full run in
+`experiments/results/gate0/` (#40, `source_commit` `a05155e`, `scenario_sha256`
+`5291e69c…c0ce08`). No Gate 0 input (`scripts/gate0.py`, `src/mirage/assay`,
+`src/mirage/biology`, `src/mirage/config.py`, `experiments/configs/scenario_v1.json`)
+has changed since `a05155e`. A full re-run on `main` at `4bcf15b` reproduced every
+field of `summary.json` exactly, apart from `runtime_s`, `source_commit` and
+`versions`. The strict xfail
+`test_t005_window_validity_at_support_corner` stays in place: it documents R-027.
+
+## G. Found in the DEV-013 smoke run (3 October 2026)
+
+**15. The question asked did not match the scoring.**
+- prompt-v1 asked whether biomass "stopped increasing, or continued to increase, over
+  the final hours", and scored `GROWTH_CONTINUED` as correct for
+  `MEASUREMENT_ARTIFACT`.
+- By design (G0-C(iv)), latent biomass reaches ≥ 95 % of $K$ before 12 h in both
+  conditions. Over 2,000 sampled MA scenarios, $X(18)/X(12) - 1$ has median 0.0000 and
+  maximum 0.0317. The truthful answer to the prompt-v1 question is therefore "stopped"
+  in both conditions.
+- In the 4 dev episodes (seeds 0–3), Claude made a diagnostic dilution in all 4, found
+  biomass about 4–5× the undiluted reading in both MA episodes, and answered
+  `GROWTH_STOPPED`, which was scored incorrect.
+- **Provisional decision (Ben):** prompt-v2 asks whether, over the final hours, biomass
+  is at the level the undiluted readings indicate or higher. The labels are renamed
+  `BIOMASS_AS_READ` (→ BP) and `BIOMASS_ABOVE_READING` (→ MA), `p_growth_continued` is
+  renamed `p_biomass_above_reading`, and the record schema is `episode-result-v2`. The
+  simulator, scenario-v1, Gate 0 and D_diag are unchanged.
+
+## H. Found in the scored C1 run (3 October 2026)
+
+The assay compresses below S too, so in BP the true late biomass is also slightly above the
+undiluted reading: by 2.3–4.0% across the 15 BP episodes of the strong matrix (K/S 0.82–0.88).
+Prompt-v2 asks whether biomass is "at the level the undiluted readings indicate, or higher". In
+s500028-BP (gap 4.0%), Claude's dilutions overshot the true value and it answered
+`BIOMASS_ABOVE_READING`, which was scored wrong. This is the only C1 miss (M1 29/30).
+
+**Not changed for this run.** The scoring is pre-registered and results are already in. For Arnav:
+should a later prompt version ask about a material difference (for example "substantially
+higher"), or should the BP prior keep K/S lower? Either would be a new prompt or scenario
+version, never a re-score of this run. See
+`experiments/results/20261003-2323_claude_strong/INTERPRETATION.md`.
+

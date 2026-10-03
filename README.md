@@ -29,7 +29,7 @@ Initial observation ─► multiple explanations remain ─► agent chooses an 
 
 ## MIRAGE-Bio, the first environment
 
-**Did the cells stop growing, or did the instrument stop seeing them?**
+**Is late biomass at the level the undiluted readings indicate, or higher?**
 
 An AI agent receives an OD600-like bacterial growth curve that rises and flattens.
 - In the hidden world `BIOLOGICAL_PLATEAU`, the culture genuinely stops growing
@@ -39,7 +39,8 @@ An AI agent receives an OD600-like bacterial growth curve that rises and flatten
 
 The passive curves are constructed to be quantitatively ambiguous. The agent can
 request diluted remeasurements of retained aliquots on a budget of six readings, then
-answers `GROWTH_STOPPED` or `GROWTH_CONTINUED`.
+answers `BIOMASS_AS_READ` if late biomass is at the level the undiluted readings
+indicate, or `BIOMASS_ABOVE_READING` if it is higher.
 
 ```text
    HIDDEN (simulator)                        │  VISIBLE (agent)
@@ -85,18 +86,22 @@ claimed.
 General MIRAGE methodology      Documented
 MIRAGE-Bio design               Documented (v0.1 specification)
 Design-time numerical reference Committed (experiments/reference/); not Gate 0
-Gate 0                          Full run committed as a candidate (experiments/results/gate0/);
-                                not frozen, G0-C(iv) support-corner ruling open
+Gate 0                          Passed and frozen (experiments/results/gate0/), under
+                                provisional rulings (docs/mirage-bio/OPEN_RULINGS.md §F)
 Virtual lab                     Implemented (growth, assay, environment, frozen tool interface)
 Evaluator                       Implemented (M1–M4, Q1, O1, O2, Wilson intervals, ITT)
 Scripted baselines              Implemented (GoodScientist, PassiveBayes)
-Claude adapter                  Implemented; tested with a mocked client only
+Claude adapter                  Implemented; mock-tested, then run live (C1)
 Runner, report, replay          Implemented (record-only, offline)
-Evaluation runs (Claude)        Not performed
+Evaluation runs (Claude)        Done: 30 episodes, strong matrix, prompt-v2
 ```
 
-There are no Claude results. The Gate 0 artefacts are a candidate validation run of
-the benchmark itself, not an agent result.
+C1 results (`claude-opus-5-5`, strong matrix, seeds 500,000–500,029) are in
+[`experiments/results/20261003-2323_claude_strong/`](experiments/results/20261003-2323_claude_strong/):
+`results.md` (generated, with both baselines), `summary.json`, the episode records, replays and an
+[interpretation note](experiments/results/20261003-2323_claude_strong/INTERPRETATION.md). The rulings
+behind them are provisional (docs/mirage-bio/OPEN_RULINGS.md §F–§H). The Gate 0 artefacts validate
+the benchmark itself; they are not an agent result.
 
 ## Quickstart
 

@@ -71,7 +71,7 @@ interleaved (ER-001): even seed offsets are `BIOLOGICAL_PLATEAU` and odd offsets
 
 | ID | Configuration | When |
 |---|---|---|
-| C1 (primary) | Claude adapter: `claude-opus-5-5`, effort `high`, adaptive thinking (model default), `prompt-v1` (minimal; no hypothesis scaffolding; `declare_state` optional), ≤ 12 turns, budget 6, no model fallback | MVP |
+| C1 (primary) | Claude adapter: `claude-opus-5-5`, effort `high`, adaptive thinking (model default), `prompt-v2` (minimal; no hypothesis scaffolding; `declare_state` optional), ≤ 12 turns, budget 6, no model fallback | MVP |
 | B1 | `GoodScientist` (DESIGN §16.1) | MVP |
 | B2 | `PassiveBayes` (DESIGN §16.2) | MVP |
 | C2 | One additional configuration (another model or effort level) on the same matrix and prompt | **Phase 2 only**, after MS4 is frozen ([DEVELOPMENT_PLAN §9](DEVELOPMENT_PLAN.md#9-expansion-plan)) |
@@ -189,7 +189,7 @@ The same table is repeated per condition.
   using passive data only, reaches X accuracy (ceiling Y)."
 - "One adequately diluted late-stage measurement separates the two hidden conditions
   (`GoodScientist` M3 = …)."
-- "On n evaluation episodes, Claude Opus 5.5 (effort high, prompt-v1) achieved
+- "On n evaluation episodes, Claude Opus 5.5 (effort high, prompt-v2) achieved
   justified accuracy k/n [Wilson 95 % CI], diagnostic-control rate …, at mean cost …"
 - "Failures were of type … (audit breakdown)."
 - "The environment, evaluator and every reported number are reproducible from the
@@ -216,7 +216,7 @@ The same table is repeated per condition.
 1. Confirm Gate 0 passed and `scenario_sha256` matches
    `experiments/results/gate0/summary.json`. From this point the scenario is frozen
    (§1.1).
-2. Confirm `prompt_version = prompt-v1` is frozen. Note the model, effort and SDK
+2. Confirm `prompt_version = prompt-v2` is frozen. Note the model, effort and SDK
    version.
 3. Run B1 and B2 on the matrix and the reference block. Check that H1 holds before
    running C1.
