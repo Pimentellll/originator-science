@@ -62,8 +62,9 @@ The MVP: one apparent growth plateau, two hidden causes, one controlled experime
 environment, active evidence acquisition, deterministic ground truth.
 - **Agents:** a Claude adapter plus two scripted baselines, `GoodScientist` and
   `PassiveBayes`.
-- **Metrics:** M1 accuracy, M2 valid diagnostic-control rate, M3 justified accuracy,
-  M4 cost. M5 diagnosticity is a stretch metric.
+- **Metrics:** M1 accuracy, M2 diagnostic-control rate, M3 justified accuracy,
+  M4 cost. M5 diagnosticity is a stretch metric. Quantitative reconstruction
+  adequacy (Q1) is reported separately.
 - **Scale:** 10–30 evaluation episodes, and an offline replay demo.
 
 ## Why the benchmark is different
