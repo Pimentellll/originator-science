@@ -2,6 +2,7 @@
 
 Usage:
   python -m mirage.evaluation.runner run --agent good_scientist --matrix minimal [--out DIR]
+  python -m mirage.evaluation.runner run --agent claude --matrix minimal [--model ID] [--resume RUN_ID]
   python -m mirage.evaluation.runner summarize RUN_DIR
 """
 
@@ -19,8 +20,9 @@ from importlib import metadata
 from pathlib import Path
 from typing import Any
 
+from mirage.agents.claude import DEFAULT_MODEL, ClaudeAgent
 from mirage.agents.scripted import GoodScientist, PassiveBayesAgent
-from mirage.biology.conditions import Condition
+from mirage.biology.conditions import ABBREVIATION, Condition
 from mirage.config import ScenarioPrior, canonical_sha256, load_prior, sample_episode
 from mirage.evaluation.metrics import (
     SCHEMA_VERSION,
@@ -42,7 +44,8 @@ MATRIX = ROOT / "experiments" / "configs" / "eval_matrix_v1.json"
 GATE0_SUMMARY = ROOT / "experiments" / "results" / "gate0" / "summary.json"
 SCRATCH = ROOT / ".local" / "runs"
 SUMMARY_VERSION = "run-summary-v1"
-AGENTS = ("good_scientist", "passive_bayes")
+AGENTS = ("good_scientist", "passive_bayes", "claude")
+API_KEY_ENV = "ANTHROPIC_API_KEY"
 
 
 def dumps(obj: Any) -> str:
@@ -96,12 +99,29 @@ def frozen_dset(prior: ScenarioPrior, gate0_summary: Path) -> DiagnosticActionSe
         raise ValueError(f"hash mismatch: refusing to start ({err})") from err
 
 
-def make_agent(name: str, prior: ScenarioPrior, reference_seeds=REFERENCE_SEEDS):
+def make_agent(name: str, prior: ScenarioPrior, reference_seeds=REFERENCE_SEEDS, *,
+               client: Any | None = None, model: str = DEFAULT_MODEL):
+    if name == "claude":
+        # Never falls back to another model; ``client`` is injectable for tests only.
+        return ClaudeAgent(client, model=model)
     if name == "good_scientist":
         return GoodScientist()
     if name == "passive_bayes":
         return PassiveBayesAgent(build_reference(prior, reference_seeds))
     raise ValueError(f"unknown agent {name!r}; expected one of {AGENTS}")
+
+
+def is_llm(agent: Any) -> bool:
+    return getattr(agent, "kind", "scripted") == "llm"
+
+
+def agent_info(agent: Any) -> AgentInfo:
+    if not is_llm(agent):
+        return AgentInfo(name=agent.name, kind="scripted", model=None, effort=None,
+                         prompt_version=None, prompt_sha256=None, sdk_version=None)
+    return AgentInfo(name=agent.name, kind="llm", model=agent.model, effort=agent.effort,
+                     prompt_version=agent.prompt_version, prompt_sha256=agent.prompt_sha256,
+                     sdk_version=agent.sdk_version)
 
 
 def run_episode(prior: ScenarioPrior, seed: int, condition: Condition, agent: Any,
@@ -110,21 +130,21 @@ def run_episode(prior: ScenarioPrior, seed: int, condition: Condition, agent: An
     env = LabEnvironment(cfg)
     started = _now()
     agent.run(env.session())  # scripted agents propagate errors: a bug is a test failure
+    llm = is_llm(agent)
     if not env.finished:  # finish() raises on an already-final episode (PR #36)
-        env.finish("NO_DIAGNOSIS")
+        env.finish((agent.outcome if llm else None) or "NO_DIAGNOSIS")
     audit = audit_measurements(cfg, env.events, dset)
     return EpisodeResult(
         schema_version=SCHEMA_VERSION,
         episode=cfg,
-        agent=AgentInfo(name=agent.name, kind="scripted", model=None, effort=None,
-                        prompt_version=None, prompt_sha256=None, sdk_version=None),
+        agent=agent_info(agent),
         passive=env.passive,
         events=env.events,
         diagnosis=env.diagnosis,
         status=env.status,
         audit=audit,
         scores=score_episode(cfg, env.events, env.diagnosis, audit),
-        llm_transcript=None,
+        llm_transcript=list(agent.transcript) if llm else None,
         versions=versions(),
         run_meta={**run_meta, "started_at": started, "finished_at": _now()},
     )
@@ -132,16 +152,27 @@ def run_episode(prior: ScenarioPrior, seed: int, condition: Condition, agent: An
 
 def run(agent_name: str, matrix_name: str, out_root: Path, *, scenario: Path = SCENARIO,
         matrix: Path = MATRIX, gate0_summary: Path = GATE0_SUMMARY, run_id: str | None = None,
-        reference_seeds=REFERENCE_SEEDS) -> Path:
-    """Run every matrix episode; write manifest.json, episodes/*.json, then summary.json."""
+        reference_seeds=REFERENCE_SEEDS, client: Any | None = None, model: str = DEFAULT_MODEL,
+        resume: bool = False) -> Path:
+    """Run every matrix episode; write manifest.json, episodes/*.json, then summary.json.
+
+    ``resume`` continues an interrupted run in place: the manifest must match exactly and
+    finished episode files are skipped, never rewritten.
+    """
     prior = load_prior(scenario)
     dset = frozen_dset(prior, gate0_summary)
     episodes = load_matrix(matrix, matrix_name)
-    agent = make_agent(agent_name, prior, reference_seeds)
+    if agent_name == "claude" and client is None and not os.environ.get(API_KEY_ENV):
+        raise ValueError(f"{API_KEY_ENV} is not set; refusing to start a paid run without it")
+    agent = make_agent(agent_name, prior, reference_seeds, client=client, model=model)
+    if resume and not run_id:
+        raise ValueError("--resume needs the RUN_ID of the run to continue")
     run_id = run_id or f"{datetime.now(timezone.utc):%Y%m%d-%H%M}_{agent_name}_{matrix_name}"
     run_dir = out_root / run_id
-    if run_dir.exists():
+    if run_dir.exists() and not resume:
         raise FileExistsError(f"{run_dir} already exists; runs are never overwritten")
+    if resume and not (run_dir / "manifest.json").exists():
+        raise FileNotFoundError(f"{run_dir} has no manifest.json to resume")
     manifest = {
         "run_id": run_id, "agent": agent_name, "matrix": matrix_name,
         "matrix_sha256": file_sha256(matrix), "scenario_sha256": canonical_sha256(prior),
@@ -149,9 +180,21 @@ def run(agent_name: str, matrix_name: str, out_root: Path, *, scenario: Path = S
             dset.model_dump(mode="json"), "prompt_version": PROMPT_VERSION,
         "n_episodes": len(episodes), "versions": versions(), "created_at": _now(),
     }
-    write_atomic(run_dir / "manifest.json", dumps(manifest))
+    if is_llm(agent):
+        manifest |= {"model": agent.model, "effort": agent.effort,
+                     "prompt_sha256": agent.prompt_sha256}
+    if resume:
+        old = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+        changed = sorted(k for k in manifest if k not in ("created_at", "versions")
+                         and manifest[k] != old.get(k))
+        if changed:
+            raise ValueError(f"cannot resume {run_id}: manifest differs in {', '.join(changed)}")
+    else:
+        write_atomic(run_dir / "manifest.json", dumps(manifest))
     meta = {"run_id": run_id}
     for seed, cond in episodes:
+        if resume and (run_dir / "episodes" / f"s{seed}-{ABBREVIATION[cond]}.json").exists():
+            continue  # atomic writes: a file is a finished episode, never a partial one
         res = run_episode(prior, seed, cond, agent, dset, meta)
         write_atomic(run_dir / "episodes" / f"{res.episode.episode_id}.json",
                      dumps(res.model_dump(mode="json")))
@@ -192,6 +235,8 @@ def main(argv: list[str] | None = None) -> int:
     r = sub.add_parser("run")
     r.add_argument("--agent", choices=AGENTS, required=True)
     r.add_argument("--matrix", required=True)
+    r.add_argument("--model", default=DEFAULT_MODEL, help="LLM agent only; never substituted")
+    r.add_argument("--resume", metavar="RUN_ID", help="continue an interrupted run in --out")
     r.add_argument("--out", type=Path, default=SCRATCH)
     r.add_argument("--gate0-summary", type=Path, default=GATE0_SUMMARY)
     s = sub.add_parser("summarize")
@@ -199,7 +244,8 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     if args.cmd == "run":
         try:
-            path = run(args.agent, args.matrix, args.out, gate0_summary=args.gate0_summary)
+            path = run(args.agent, args.matrix, args.out, gate0_summary=args.gate0_summary,
+                       model=args.model, run_id=args.resume, resume=bool(args.resume))
         except (FileNotFoundError, ValueError, FileExistsError) as err:
             print(f"runner: {err}", file=sys.stderr)
             return 2

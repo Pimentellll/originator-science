@@ -132,3 +132,78 @@ def test_eval_matrix_v1() -> None:
         assert sum(c.value == "BIOLOGICAL_PLATEAU" for _, c in m) == half
     assert len(ref) == 2000 and {s for s, _ in ref} == set(range(900_000, 901_000))
     assert not {s for s, _ in strong} & set(range(0, 10_000))  # dev block disjoint (ER-002)
+
+
+# --- LLM path (DEV-013): fake client only; no network, no API key -----------------------------
+class _ScriptedClient:
+    """Answers every episode with: one measurement, then a diagnosis (or raises on request)."""
+
+    def __init__(self, fail_after: int | None = None):
+        self.messages, self.calls, self.fail_after = self, 0, fail_after
+
+    def create(self, **params):
+        from anthropic.types import Message
+        self.calls += 1
+        if self.fail_after is not None and self.calls > self.fail_after:
+            raise KeyboardInterrupt  # simulates the operator stopping a paid run
+        last = params["messages"][-1]["content"]
+        if isinstance(last, list):  # tool result came back -> diagnose
+            block = {"type": "tool_use", "id": f"t{len(params['messages'])}", "name": "submit_diagnosis",
+                     "input": {"diagnosis": "GROWTH_CONTINUED", "p_growth_continued": 0.9,
+                               "late_biomass_estimate_od": 4.0, "rationale": "fake"}}
+        else:
+            block = {"type": "tool_use", "id": f"t{len(params['messages'])}", "name": "measure_od",
+                     "input": {"time_h": 14.0, "dilution_factor": 10, "replicates": 2}}
+        return Message.model_validate({
+            "id": "m", "type": "message", "role": "assistant", "model": params["model"],
+            "content": [block], "stop_reason": "tool_use", "stop_sequence": None,
+            "stop_details": None, "usage": {"input_tokens": 1, "output_tokens": 1}})
+
+
+def go_llm(tmp: Path, out: str, client, n: int = 4, run_id: str = "L", **kw) -> Path:
+    return runner.run("claude", "t", tmp / out, matrix=small_matrix(tmp, n), run_id=run_id,
+                      gate0_summary=fixture_gate0(tmp / "g0.json"), client=client,
+                      reference_seeds=REFERENCE_SEEDS[:5000], **kw)
+
+
+def test_llm_run_records_model_prompt_and_transcript(tmp_path) -> None:
+    d = go_llm(tmp_path, "o", _ScriptedClient())
+    res = runner.load_results(d)
+    assert len(res) == 4
+    for r in res:
+        assert r.agent.kind == "llm" and r.agent.model == runner.DEFAULT_MODEL
+        assert r.agent.prompt_sha256 and r.llm_transcript and r.status == "DIAGNOSED"
+    man = json.loads((d / "manifest.json").read_text())
+    assert man["model"] == runner.DEFAULT_MODEL and man["effort"] == "high"
+
+
+def test_llm_run_refuses_without_key(tmp_path, monkeypatch) -> None:
+    monkeypatch.delenv(runner.API_KEY_ENV, raising=False)
+    with pytest.raises(ValueError, match=runner.API_KEY_ENV):
+        go_llm(tmp_path, "o", None)
+    assert not (tmp_path / "o").exists()
+
+
+def test_llm_resume_skips_finished_and_matches_uninterrupted(tmp_path) -> None:
+    full = go_llm(tmp_path, "full", _ScriptedClient(), run_id="R")
+    with pytest.raises(KeyboardInterrupt):
+        go_llm(tmp_path, "part", _ScriptedClient(fail_after=3), run_id="R")  # 1.5 episodes in
+    part = tmp_path / "part" / "R"
+    done = sorted(p.name for p in (part / "episodes").glob("*.json"))
+    assert 0 < len(done) < 4 and not list(part.rglob("*.tmp"))
+    c = _ScriptedClient()
+    go_llm(tmp_path, "part", c, run_id="R", resume=True)
+    assert c.calls == 2 * (4 - len(done))  # only the unfinished episodes were paid for
+    assert strip_meta_all(part) == strip_meta_all(full)
+
+
+def test_resume_refuses_changed_config(tmp_path) -> None:
+    go_llm(tmp_path, "o", _ScriptedClient(), n=2, run_id="R")
+    with pytest.raises(ValueError, match="manifest differs"):
+        go_llm(tmp_path, "o", _ScriptedClient(), n=2, run_id="R", resume=True, model="claude-other")
+    with pytest.raises(FileExistsError):
+        go_llm(tmp_path, "o", _ScriptedClient(), n=2, run_id="R")
+
+
+def strip_meta_all(run_dir: Path) -> list[str]:
+    return [strip_meta(f) for f in sorted((run_dir / "episodes").glob("*.json"))]
