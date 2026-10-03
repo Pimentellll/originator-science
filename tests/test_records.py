@@ -108,3 +108,75 @@ def test_metrics_does_not_import_anthropic() -> None:
     names = {a.name for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
     names |= {n.module or "" for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)}
     assert not any(m.split(".")[0] == "anthropic" for m in names)
+
+
+# ---- review fixes (fix/evaluator-consistency) -----------------------------------------------
+
+def _diag_args(d: dict) -> dict:
+    return next(e for e in d["events"] if e["tool"] == "submit_diagnosis" and e["ok"])["arguments"]
+
+
+CONTRADICTIONS = {
+    "status_without_diagnosis": lambda d: d.update(diagnosis=None),
+    "no_diagnosis_status_with_diagnosis": lambda d: d.update(status="NO_DIAGNOSIS"),
+    "api_failure_with_diagnosis": lambda d: d.update(status="API_FAILURE"),
+    "diagnosis_differs_from_event": lambda d: d["diagnosis"].update(p_growth_continued=0.5),
+    "diagnosis_label_differs_from_event": lambda d: d["diagnosis"].update(
+        diagnosis="GROWTH_STOPPED"),
+    "diagnosis_event_rejected": lambda d: d["events"][2].update(ok=False, result=None, error="x"),
+    "audit_points_at_rejected_event": lambda d: d["audit"][0].update(event_index=1),
+    "audit_missing": lambda d: d.update(audit=[]),
+    "audit_duplicated": lambda d: d.update(audit=d["audit"] * 2),
+    "audit_request_index": lambda d: d["audit"][0].update(request_index=1),
+    "audit_control_contradicts_clauses": lambda d: d["audit"][0].update(diagnostic_control=False),
+    "audit_recon_contradicts_clauses": lambda d: d["audit"][0].update(
+        reconstruction_adequate=False),
+    "audit_before_diagnosis_wrong": lambda d: d["audit"][0].update(
+        before_diagnosis=False, diagnostic_control=False, reconstruction_adequate=False),
+    "audit_negative_latent": lambda d: d["audit"][0].update(latent_biomass_odeq=-1.0),
+    "audit_nan_reading": lambda d: d["audit"][0].update(noise_free_reading=float("nan")),
+    "audit_inf_presented": lambda d: d["audit"][0].update(presented_biomass_odeq=float("inf")),
+    "scores_cost": lambda d: d["scores"].update(cost_units=2),
+    "scores_negative_cost": lambda d: d["scores"].update(cost_units=-3),
+    "scores_control": lambda d: d["scores"].update(diagnostic_control=False, justified=False),
+    "scores_justified": lambda d: d["scores"].update(justified=False),
+    "scores_recon": lambda d: d["scores"].update(reconstruction_adequate=False),
+    "scores_correct": lambda d: d["scores"].update(correct=False, justified=False),
+    "scores_brier": lambda d: d["scores"].update(brier=0.5),
+    "scores_brier_nan": lambda d: d["scores"].update(brier=float("nan")),
+    "scores_calls": lambda d: d["scores"].update(measure_calls_before_diagnosis=1),
+    "event_indices_gap": lambda d: d["events"][1].update(index=5),
+    "event_turns_not_increasing": lambda d: d["events"][2].update(turn=1),
+    "event_after_diagnosis": lambda d: d["events"].append(
+        {**d["events"][0], "index": 3, "turn": 4}),
+    "second_accepted_diagnosis": lambda d: d["events"].append(
+        {**d["events"][2], "index": 3, "turn": 4}),
+    "audit_is_diluted_disagrees_with_event": lambda d: (
+        d["audit"][0].update(is_diluted=False, diagnostic_control=False,
+                             reconstruction_adequate=False),
+        d["scores"].update(diagnostic_control=False, justified=False,
+                           reconstruction_adequate=False)),
+    "audit_latent_not_presented_times_dilution": lambda d: d["audit"][0].update(
+        latent_biomass_odeq=123.0),
+    "scores_m5_nan": lambda d: d["scores"].update(m5_diagnosticity=float("nan")),
+    "scores_m5_above_one": lambda d: d["scores"].update(m5_diagnosticity=1.5),
+    "event_turns_not_positive": lambda d: [
+        e.update(turn=t) for e, t in zip(d["events"], (-10, -9, -8))],
+}
+
+
+@pytest.mark.parametrize("name", sorted(CONTRADICTIONS))
+def test_contradictory_records_rejected(raw: dict, name: str) -> None:
+    d = json.loads(json.dumps(raw))
+    CONTRADICTIONS[name](d)
+    with pytest.raises(ValidationError):
+        EpisodeResult.model_validate(d)
+
+
+def test_fixture_accepted_mean_vs_noise_free(rec: EpisodeResult) -> None:
+    ev = rec.events[0]
+    readings = ev.result["readings"]
+    assert ev.result["mean_reading"] == round(sum(readings) / len(readings), 4) == 0.4045
+    assert round(rec.audit[0].noise_free_reading, 4) == 0.4104
+    assert rec.diagnosis.late_biomass_estimate_od == pytest.approx(10 * 0.4045)
+    assert "0.4045" in rec.diagnosis.rationale and "0.4104" not in rec.diagnosis.rationale
