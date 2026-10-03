@@ -6,8 +6,9 @@ returned by :meth:`LabEnvironment.session`.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, get_args
 
 import numpy as np
 from pydantic import ValidationError
@@ -31,6 +32,7 @@ from mirage.lab.tools import (
 
 PASSIVE_STREAM = 1
 MEASUREMENT_STREAM = 2
+STATUSES = frozenset(get_args(EpisodeStatus))
 
 
 @dataclass(frozen=True)
@@ -59,6 +61,8 @@ class LabEnvironment:
     """One episode: passive history, validated measurements, budget, turns, event log."""
 
     def __init__(self, config: EpisodeConfig, *, max_turns: int = MAX_TURNS) -> None:
+        if type(max_turns) is not int or max_turns < 1:
+            raise ValueError(f"max_turns must be a positive integer, got {max_turns!r}")
         self.config = config
         self.max_turns = max_turns
         self.budget_total = BUDGET_UNITS
@@ -104,9 +108,17 @@ class LabEnvironment:
         ]
 
     def finish(self, status: EpisodeStatus) -> None:
-        """End the episode with ``status`` (the runner uses this for API_FAILURE / REFUSED)."""
-        if self.status is None:
-            self.status = status
+        """End the episode with ``status`` (the runner uses this for API_FAILURE / REFUSED).
+
+        Terminal statuses are final: finishing an already finished episode raises.
+        """
+        if status not in STATUSES:
+            raise ValueError(f"invalid episode status: {status!r}")
+        if self.status is not None:
+            raise RuntimeError(f"episode already finished with {self.status}; cannot set {status}")
+        if status == "DIAGNOSED" and self.diagnosis is None:
+            raise ValueError("DIAGNOSED requires an accepted diagnosis")
+        self.status = status
 
     @property
     def finished(self) -> bool:
