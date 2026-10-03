@@ -9,11 +9,50 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from mirage.biology.conditions import Condition
+from mirage.config import canonical_sha256, load_prior
 from mirage.demo import replay
+from mirage.evaluation import runner
 from mirage.evaluation.metrics import EpisodeResult
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = REPO_ROOT / "tests" / "fixtures" / "sample_episode_llm.json"
+PRIOR = load_prior(runner.SCENARIO)
+SCENARIO_SHA = canonical_sha256(PRIOR)
+
+
+def fixture_gate0(path: Path, sha: str = SCENARIO_SHA) -> Path:
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": "gate0-summary-v2",
+                "scenario_sha256": sha,
+                "diagnostic_action_set": {
+                    "scenario_sha256": sha,
+                    "late_window_h": [12, 18],
+                    "d_min": 1.5,
+                    "d_max": 100.0,
+                    "auroc_threshold": 0.95,
+                    "evaluated_replicates": 1,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def small_matrix(path: Path) -> Path:
+    matrix_path = path / "matrix.json"
+    episodes = [
+        {"seed": 930_000, "condition": Condition.BIOLOGICAL_PLATEAU.value},
+        {"seed": 930_001, "condition": Condition.MEASUREMENT_ARTIFACT.value},
+    ]
+    matrix_path.write_text(
+        json.dumps({"matrices": {"gs_replay": {"episodes": episodes}}}),
+        encoding="utf-8",
+    )
+    return matrix_path
 
 
 @pytest.fixture(autouse=True)
@@ -165,3 +204,48 @@ def test_module_cli_smoke() -> None:
         text=True,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_good_scientist_records_replay_offline(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    run_dir = runner.run(
+        "good_scientist",
+        "gs_replay",
+        tmp_path / "runs",
+        matrix=small_matrix(tmp_path),
+        gate0_summary=fixture_gate0(tmp_path / "gate0.json"),
+        run_id="gs",
+    )
+    episode_files = sorted((run_dir / "episodes").glob("*.json"))
+    assert len(episode_files) == 2
+
+    for episode_path in episode_files:
+        record = EpisodeResult.model_validate_json(
+            episode_path.read_text(encoding="utf-8")
+        )
+        figure = tmp_path / f"{record.episode.episode_id}.png"
+        assert replay.main(
+            [str(episode_path), "--pace", "0", "--figure", str(figure)]
+        ) == 0
+        output = capsys.readouterr().out
+        section_positions = [output.index(header) for header in replay.SECTIONS]
+        assert section_positions == sorted(section_positions)
+        assert "REJECTED" not in output
+        assert f"condition={record.episode.condition.value}" in output
+        assert figure.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+
+        measurement_index = next(
+            index
+            for index, event in enumerate(record.events)
+            if event.tool == "measure_od" and event.ok
+        )
+        latent = float(
+            replay.latent_curve(
+                record.episode,
+                record.events[measurement_index].arguments["time_h"],
+            )
+        )
+        assert latent == pytest.approx(
+            record.audit[0].latent_biomass_odeq, rel=1e-9
+        )
