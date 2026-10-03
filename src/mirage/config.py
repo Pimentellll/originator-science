@@ -109,8 +109,8 @@ def canonical_sha256(prior: ScenarioPrior) -> str:
 def load_prior(path: str | Path) -> ScenarioPrior:
     """Load and validate ``scenario_v1.json``. Raises on invalid JSON or schema violation."""
     with open(path, encoding="utf-8") as fh:
-        # NaN/Infinity tokens parse to floats here; the schema then rejects them as non-finite.
-        data: Any = json.load(fh, parse_constant=float)
+        # json.load maps NaN/Infinity tokens to floats; the schema rejects them (allow_inf_nan).
+        data: Any = json.load(fh)
     prior = ScenarioPrior.model_validate(data)
     _check_visible_limits(prior)
     return prior
@@ -122,7 +122,7 @@ def _check_visible_limits(prior: ScenarioPrior) -> None:
 
     pairs = {
         "max_time_h": (prior.max_time_h, tools.MAX_TIME_H),
-        "dilution_range": (prior.dilution_range[1], tools.MAX_DILUTION),
+        "dilution_range": (prior.dilution_range, (1.0, tools.MAX_DILUTION)),
         "max_replicates": (prior.max_replicates, tools.MAX_REPLICATES),
         "budget_units": (prior.budget_units, tools.BUDGET_UNITS),
         "max_turns": (prior.max_turns, tools.MAX_TURNS),

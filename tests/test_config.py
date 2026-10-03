@@ -140,9 +140,8 @@ def test_t024_same_seed_same_nuisance(prior: ScenarioPrior) -> None:
 
 
 def test_t024_assay_code_path_takes_no_condition() -> None:
-    od_reader = pytest.importorskip(
-        "mirage.assay.od_reader", reason="enabled once DEV-004 is merged into wip/integration"
-    )
+    from mirage.assay import od_reader
+
     for name, fn in inspect.getmembers(od_reader, inspect.isfunction):
         if fn.__module__ == od_reader.__name__:
             assert "condition" not in inspect.signature(fn).parameters, name
@@ -225,7 +224,8 @@ def _write(tmp_path: Path, mutate) -> Path:
 
 
 @pytest.mark.parametrize("field,value", [
-    ("max_time_h", 17), ("dilution_range", [1, 50]), ("max_replicates", 4),
+    ("max_time_h", 17), ("dilution_range", [1, 50]), ("dilution_range", [2, 100]),
+    ("dilution_range", [0.5, 100]), ("max_replicates", 4),
     ("budget_units", 5), ("max_turns", 13)])
 def test_limits_mismatch_with_tools_raises_at_load(tmp_path: Path, field, value) -> None:
     p = _write(tmp_path, lambda d: d.update({field: value}))
