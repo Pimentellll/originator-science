@@ -8,11 +8,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-
 from mirage.biology.conditions import Condition
 from mirage.evaluation import metrics, runner
 from mirage.evaluation.metrics import EpisodeResult
@@ -156,7 +151,7 @@ def render_markdown(
         )
         for aggregate in aggregates.values()
     )
-    lines.extend(["", "## Intention-to-treat", ""])
+    lines.extend(["## Intention-to-treat", ""])
     if failures_present:
         for block_name, title in _condition_blocks():
             lines.extend([f"### {title}", ""])
@@ -199,6 +194,11 @@ def render_markdown(
 def write_figure(
     runs: dict[str, tuple[list[EpisodeResult], dict] | None], path: Path
 ) -> None:
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
     path.parent.mkdir(parents=True, exist_ok=True)
     aggregates = {
         key: metrics.aggregate(run[0]) if run is not None else None
@@ -244,11 +244,12 @@ def write_figure(
         axis.set_title(title)
         axis.set_xticks(range(len(AGENT_SLOTS)), [slot[1] for slot in AGENT_SLOTS])
         axis.tick_params(axis="x", labelrotation=15, labelsize=8)
+        axis.set_xlim(-0.5, len(AGENT_SLOTS) - 0.5)
         axis.set_ylim(0, 1)
-        axis.set_ylabel("Rate")
         handles, labels = axis.get_legend_handles_labels()
         if handles:
             axis.legend(handles, labels)
+    axes[0].set_ylabel("Rate")
     figure.tight_layout()
     figure.savefig(path, metadata={"Software": None})
     plt.close(figure)
