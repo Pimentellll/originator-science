@@ -239,10 +239,15 @@ def test_t015_t016_specification_scale(full_reference) -> None:
     """TEST_PLAN scale: 1,000 episodes per condition; PassiveBayes on the 200,000-seed reference."""
     seeds = range(900_000, 900_000 + SPEC_N)
     gs = {c: [s for _, s in play(GoodScientist(), c, seeds)] for c in Condition}
+    assert full_reference.n_per_condition == 200_000
     for c in Condition:
+        assert len(gs[c]) == SPEC_N
         assert sum(s.correct for s in gs[c]) / SPEC_N >= 0.98
         assert all(s.diagnostic_control for s in gs[c]) and all(s.cost_units == 3 for s in gs[c])
+        assert all(s.justified == s.correct for s in gs[c])
+        assert all(s.reconstruction_adequate for s in gs[c])
     pb = {c: play(PassiveBayesAgent(full_reference), c, seeds) for c in Condition}
+    assert all(len(pb[c]) == SPEC_N for c in Condition)
     ba = sum(sum(s.correct for _, s in pb[c]) / SPEC_N for c in Condition) / 2
     assert 0.50 <= ba <= 0.65
     assert all(not any(e.tool == "measure_od" for e in env.events) for c in Condition for env, _ in pb[c])
