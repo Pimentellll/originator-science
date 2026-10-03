@@ -289,3 +289,95 @@ def test_aggregate_itt_refused_and_per_condition() -> None:
         "k": 1, "rate": 1.0, "wilson95": list(wilson(1, 1))}
     assert agg["status_counts"]["REFUSED"] == 1
     assert aggregate([])["primary"]["overall"] == {"n": 0}
+
+
+T021_FLAGS = {
+    # case: (is_late, is_diluted, in_diagnostic_set, before_diagnosis)
+    "a": (False, True, True, True), "b": (True, False, False, True),
+    "c": (True, True, True, True), "d": (True, True, True, True),
+    "h": (True, True, True, False),
+}
+
+
+@pytest.mark.parametrize("case", sorted(T021_FLAGS))
+def test_audit_flags_independently(case) -> None:
+    _, cond, t, d, after, m2, q1, _, _ = next(c for c in T021 if c[0] == case)
+    ep = MA_DEMO if cond == "MA" else BP_DEMO
+    events = [ev_measure(0, 0, 1.0), ev_measure(1, t, float(d), ok=True)]
+    events.insert(0 if after else 2, ev_diag(0))
+    events = [e.model_copy(update={"index": i, "turn": i + 1}) for i, e in enumerate(events)]
+    audit = audit_measurements(ep, events, dset())
+    m = audit[-1]
+    assert (m.is_late, m.is_diluted, m.in_diagnostic_set, m.before_diagnosis) == T021_FLAGS[case]
+    assert [a.request_index for a in audit] == [0, 1]
+    assert (m.diagnostic_control, m.reconstruction_adequate) == (m2, q1)
+
+
+def test_measure_calls_before_diagnosis_counts_rejected_and_excludes_after() -> None:
+    events = [ev_measure(0, 18, 10.0), ev_measure(1, 18, 10.0, ok=False), ev_diag(2),
+              ev_measure(3, 18, 10.0)]
+    audit = audit_measurements(MA_DEMO, events, dset())
+    diag = Diagnosis(diagnosis="GROWTH_CONTINUED", p_growth_continued=0.9, rationale="r")
+    s = score_episode(MA_DEMO, events, diag, audit)
+    assert s.measure_calls_before_diagnosis == 2 and s.cost_units == 2
+    assert [a.before_diagnosis for a in audit] == [True, False]
+
+
+@pytest.mark.parametrize("cond,label,meas", list(itertools.product(
+    [MA_DEMO, BP_DEMO], ["GROWTH_CONTINUED", "GROWTH_STOPPED"], [[(18, 10, 1)], [(18, 1, 1)]])))
+def test_m3_is_correct_and_m2(cond, label, meas) -> None:
+    s = _result(cond, "DIAGNOSED", label, meas).scores
+    assert s.justified == (s.correct and s.diagnostic_control)
+
+
+def test_itt_clears_control_for_api_failure_and_refused_pinned() -> None:
+    # NEEDS RULING (DESIGN §15): pins current behaviour; preserving control would give 3/5.
+    rs = [
+        _result(MA_DEMO, "DIAGNOSED", "GROWTH_CONTINUED", [(18, 10, 3)]),
+        _result(MA_DEMO, "DIAGNOSED", "GROWTH_STOPPED", [(18, 1, 2)]),
+        _result(BP_DEMO, "DIAGNOSED", "GROWTH_STOPPED", []),
+        _result(BP_DEMO, "NO_DIAGNOSIS", None, [(18, 10, 1)]),
+        _result(MA_DEMO, "API_FAILURE", None, [(18, 10, 3)]),
+    ]
+    itt = aggregate(rs)["intention_to_treat"]["overall"]
+    assert itt["M2"]["k"] == 2 and itt["n"] == 5
+    assert itt["M2"]["wilson95"] == list(wilson(2, 5))
+    assert itt["M3"]["k"] == 1
+    assert itt["M4"] == {"mean": 9 / 5, "median": 2, "max": 3}
+    assert itt["Q1"] == pytest.approx(3 / 5)
+    assert itt["O1"] == pytest.approx((0.2**2 + 0.2**2 + 0.8**2) / 3)
+    assert itt["O2"] == pytest.approx(4 / 5)
+    ma = aggregate(rs)["primary"]["MEASUREMENT_ARTIFACT"]
+    assert ma["Q1"] == 0.5 and ma["M1"]["rate"] == 0.5
+
+
+def test_aggregate_absent_condition() -> None:
+    agg = aggregate([_result(MA_DEMO, "DIAGNOSED", "GROWTH_CONTINUED", [(18, 10, 1)])])
+    assert agg["primary"]["BIOLOGICAL_PLATEAU"] == {"n": 0}
+    assert agg["intention_to_treat"]["BIOLOGICAL_PLATEAU"] == {"n": 0}
+    assert agg["primary"]["MEASUREMENT_ARTIFACT"]["n"] == 1
+
+
+def test_fixture_readings_recomputed_from_claimed_streams() -> None:
+    import numpy as np
+
+    from mirage.assay.od_reader import read
+    from mirage.biology.growth import richards
+
+    rec = EpisodeResult.model_validate_json(
+        (ROOT / "tests" / "fixtures" / "sample_episode_llm.json").read_text(encoding="utf-8"))
+    assert rec.episode.seed == 7
+    g, a = rec.episode.growth, rec.episode.assay
+    kw = dict(s_odeq=a.s_odeq, n=a.n, sigma_abs=a.sigma_abs, sigma_rel=a.sigma_rel)
+    x = richards(np.arange(19, dtype=float), **g.model_dump())
+    passive = read(x, np.random.default_rng(np.random.SeedSequence([7, 1])), **kw)
+    assert [p.readings[0] for p in rec.passive] == [float(v) for v in passive]
+    assert all(p.mean_reading == p.readings[0] for p in rec.passive)
+    ev = rec.events[0]
+    args = ev.arguments
+    x18 = float(richards(args["time_h"], **g.model_dump()))
+    reps = read(np.full(args["replicates"], x18 / args["dilution_factor"]),
+                np.random.default_rng(np.random.SeedSequence([7, 2, 0])), **kw)
+    assert ev.result["readings"] == [float(v) for v in reps]
+    assert ev.result["mean_reading"] == round(float(np.mean(reps)), 4) == 0.4045
+    assert ev.result["budget_remaining"] == 6 - args["replicates"] == 3
