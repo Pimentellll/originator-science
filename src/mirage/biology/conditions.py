@@ -34,5 +34,5 @@ def k_from_condition(
         lo, hi = kappa_uniform
     else:
         lo, hi = lambda_uniform
-    ratio = lo + (1 - u) * (hi - lo)
+    ratio = lo + u * (hi - lo)
     return ratio * s_odeq, ratio
