@@ -168,6 +168,7 @@ def _write_figure(record: EpisodeResult, path: str | Path) -> None:
         passive_means = [measurement.mean_reading for measurement in record.passive]
         axes.scatter(passive_times, passive_means, marker="o", label="Passive readings")
 
+        measurement_label_added = False
         for event in record.events:
             if event.tool != "measure_od" or not event.ok:
                 continue
@@ -179,7 +180,7 @@ def _write_figure(record: EpisodeResult, path: str | Path) -> None:
                 [time_h],
                 [back_corrected],
                 marker="D",
-                label="measure_od mean",
+                label="measure_od mean" if not measurement_label_added else None,
             )
             corrected_replicates = [
                 reading * dilution_factor for reading in result["readings"]
@@ -189,8 +190,9 @@ def _write_figure(record: EpisodeResult, path: str | Path) -> None:
                 corrected_replicates,
                 marker="x",
                 s=20,
-                label="measure_od replicates",
+                label="measure_od replicates" if not measurement_label_added else None,
             )
+            measurement_label_added = True
 
         max_time = max(passive_times, default=0)
         times = np.linspace(0, max_time, 400)
