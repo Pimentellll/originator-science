@@ -47,20 +47,21 @@ class ScenarioPrior(Frozen):
     x0_odeq_loguniform: tuple[float, float]
     kappa_uniform: tuple[float, float]
     lambda_uniform: tuple[float, float]
-    nu: float
-    n: float
-    sigma_abs: float
-    sigma_rel: float
-    resolution: float
-    eps_lin: float
-    y_loq: float
-    passive_times_h: list[int]
+    # Bounds mirror GrowthConfig / AssayConfig, which every sampled episode must satisfy.
+    nu: float = Field(gt=0, allow_inf_nan=False)
+    n: float = Field(gt=0, allow_inf_nan=False)
+    sigma_abs: float = Field(ge=0, allow_inf_nan=False)
+    sigma_rel: float = Field(ge=0, allow_inf_nan=False)
+    resolution: float = Field(gt=0, allow_inf_nan=False)
+    eps_lin: float = Field(gt=0, lt=1, allow_inf_nan=False)
+    y_loq: float = Field(gt=0, allow_inf_nan=False)
+    passive_times_h: list[int] = Field(min_length=1)
     max_time_h: int
     dilution_range: tuple[float, float]
     max_replicates: int
     budget_units: int
     max_turns: int
-    plateau_fraction: float
+    plateau_fraction: float = Field(allow_inf_nan=False)
     late_window_h: tuple[int, int]
 
     @model_validator(mode="after")
@@ -77,6 +78,9 @@ class ScenarioPrior(Frozen):
             lo, hi = getattr(self, name)
             if not (math.isfinite(lo) and math.isfinite(hi) and lo < hi):
                 raise ValueError(f"{name} must be a finite (lo, hi) with lo < hi")
+        for name in ("s_odeq_loguniform", "x0_odeq_loguniform"):
+            if getattr(self, name)[0] <= 0:
+                raise ValueError(f"{name} is log-uniform and needs lo > 0")
         return self
 
 
@@ -105,8 +109,27 @@ def canonical_sha256(prior: ScenarioPrior) -> str:
 def load_prior(path: str | Path) -> ScenarioPrior:
     """Load and validate ``scenario_v1.json``. Raises on invalid JSON or schema violation."""
     with open(path, encoding="utf-8") as fh:
-        data: Any = json.load(fh)
-    return ScenarioPrior.model_validate(data)
+        # NaN/Infinity tokens parse to floats here; the schema then rejects them as non-finite.
+        data: Any = json.load(fh, parse_constant=float)
+    prior = ScenarioPrior.model_validate(data)
+    _check_visible_limits(prior)
+    return prior
+
+
+def _check_visible_limits(prior: ScenarioPrior) -> None:
+    """The scenario's limits must equal the frozen visible constants the agent is told."""
+    from mirage.lab import tools
+
+    pairs = {
+        "max_time_h": (prior.max_time_h, tools.MAX_TIME_H),
+        "dilution_range": (prior.dilution_range[1], tools.MAX_DILUTION),
+        "max_replicates": (prior.max_replicates, tools.MAX_REPLICATES),
+        "budget_units": (prior.budget_units, tools.BUDGET_UNITS),
+        "max_turns": (prior.max_turns, tools.MAX_TURNS),
+    }
+    for name, (got, want) in pairs.items():
+        if got != want:
+            raise ValueError(f"{name} {got!r} does not match mirage.lab.tools ({want!r})")
 
 
 def _loguniform(u: float, lo: float, hi: float) -> float:

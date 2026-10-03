@@ -1,4 +1,5 @@
 import ast
+import hashlib
 import inspect
 import json
 import math
@@ -48,9 +49,8 @@ def test_scenario_v1_values_match_design_5_8(prior: ScenarioPrior) -> None:
 
 
 def test_limits_agree_with_visible_tools_constants(prior: ScenarioPrior) -> None:
-    tools = pytest.importorskip(
-        "mirage.lab.tools", reason="enabled once DEV-007a is merged into wip/integration"
-    )
+    from mirage.lab import tools
+
     assert prior.max_time_h == tools.MAX_TIME_H
     assert prior.dilution_range[1] == tools.MAX_DILUTION
     assert prior.max_replicates == tools.MAX_REPLICATES
@@ -212,3 +212,98 @@ def test_demo_pair_matches_design_7(prior: ScenarioPrior) -> None:
 
     assert kprime(bp) == pytest.approx(kprime(ma), rel=1e-12)
     assert round(kprime(ma), 3) == 1.000
+
+
+# ---- review fixes (fix/config-limits) -------------------------------------------------------
+
+def _write(tmp_path: Path, mutate) -> Path:
+    data = json.loads(SCENARIO.read_text(encoding="utf-8"))
+    mutate(data)
+    p = tmp_path / "s.json"
+    p.write_text(json.dumps(data), encoding="utf-8")
+    return p
+
+
+@pytest.mark.parametrize("field,value", [
+    ("max_time_h", 17), ("dilution_range", [1, 50]), ("max_replicates", 4),
+    ("budget_units", 5), ("max_turns", 13)])
+def test_limits_mismatch_with_tools_raises_at_load(tmp_path: Path, field, value) -> None:
+    p = _write(tmp_path, lambda d: d.update({field: value}))
+    with pytest.raises(ValueError, match=f"{field} .* does not match mirage.lab.tools"):
+        load_prior(p)
+
+
+@pytest.mark.parametrize("mutate", [
+    lambda d: d.update(s_odeq_loguniform=[-0.5, 2.0]),
+    lambda d: d.update(x0_odeq_loguniform=[0.0, 0.02]),
+    lambda d: d.update(x0_odeq_loguniform=[-0.02, -0.005]),
+    lambda d: d.update(r_per_h_uniform=[0.6, 0.6]),
+    lambda d: d.update(s_odeq_loguniform=[2.0, 2.0]),
+    lambda d: d.update(passive_times_h=[]),
+    lambda d: d.update(nu=-8),
+    lambda d: d.update(n=-8),
+    lambda d: d.update(nu=0),
+    lambda d: d.update(sigma_abs=-0.003),
+    lambda d: d.update(sigma_rel=-0.02),
+    lambda d: d.update(resolution=-0.0001),
+    lambda d: d.update(y_loq=-0.03),
+    lambda d: d.update(eps_lin=1.5),
+], ids=["S<0", "X0=0", "X0<0", "r-equal", "S-equal", "empty-schedule", "nu<0", "n<0", "nu=0",
+        "sigma_abs<0", "sigma_rel<0", "resolution<0", "y_loq<0", "eps_lin>1"])
+def test_invalid_prior_values_raise(tmp_path: Path, mutate) -> None:
+    with pytest.raises(ValidationError):
+        load_prior(_write(tmp_path, mutate))
+
+
+@pytest.mark.parametrize("field", ["nu", "n", "sigma_abs", "sigma_rel", "eps_lin", "y_loq", "plateau_fraction"])
+@pytest.mark.parametrize("token", ["NaN", "Infinity", "-Infinity"])
+def test_nonfinite_json_tokens_rejected(tmp_path: Path, field, token) -> None:
+    text = SCENARIO.read_text(encoding="utf-8")
+    data = json.loads(text)
+    text = text.replace(f'"{field}": {json.dumps(data[field])}', f'"{field}": {token}', 1)
+    assert token in text
+    p = tmp_path / "s.json"
+    p.write_text(text, encoding="utf-8")
+    with pytest.raises(ValidationError, match="finite"):
+        load_prior(p)
+
+
+@pytest.mark.parametrize("field", ["nu", "n", "sigma_abs", "sigma_rel", "resolution", "eps_lin", "y_loq"])
+def test_nan_values_rejected_by_schema(field, prior: ScenarioPrior) -> None:
+    with pytest.raises(ValidationError):
+        ScenarioPrior.model_validate({**prior.model_dump(), field: float("nan")})
+
+
+@pytest.mark.parametrize("cond", [BP, MA])
+def test_sampled_constants_copied_from_prior(prior: ScenarioPrior, cond) -> None:
+    for seed in range(20):
+        e = sample_episode(prior, seed, cond)
+        assert e.growth.nu == prior.nu == 8
+        assert (e.assay.n, e.assay.sigma_abs, e.assay.sigma_rel) == (8, 0.003, 0.02)
+        assert (e.assay.resolution, e.assay.eps_lin, e.assay.y_loq) == (0.0001, 0.05, 0.03)
+
+
+def test_episode_models_frozen_and_extra_forbidden(prior: ScenarioPrior) -> None:
+    e = sample_episode(prior, 3, MA)
+    for obj, field in ((e, "seed"), (e.growth, "k_odeq"), (e.assay, "s_odeq")):
+        with pytest.raises(ValidationError):
+            setattr(obj, field, 1.0)
+    for model, obj in ((EpisodeConfig, e), (config.GrowthConfig, e.growth), (config.AssayConfig, e.assay)):
+        with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+            model.model_validate({**obj.model_dump(), "leak": 1})
+
+
+CANONICAL_V1 = (
+    '{"budget_units":6,"dilution_range":[1.0,100.0],"eps_lin":0.05,"kappa_uniform":[0.8,0.9],'
+    '"lambda_uniform":[3.0,5.0],"late_window_h":[12,18],"max_replicates":3,"max_time_h":18,'
+    '"max_turns":12,"n":8.0,"nu":8.0,"passive_times_h":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,'
+    '16,17,18],"plateau_fraction":0.95,"r_per_h_uniform":[0.6,0.9],"resolution":0.0001,'
+    '"s_odeq_loguniform":[0.5,2.0],"scenario_version":"scenario-v1","sigma_abs":0.003,'
+    '"sigma_rel":0.02,"x0_odeq_loguniform":[0.005,0.02],"y_loq":0.03}'
+)
+SCENARIO_V1_SHA256 = "5291e69c061fa42973cf541bd84b78a90770dc971227f32f052acfc404c0ce08"
+
+
+def test_canonical_sha256_from_specified_bytes(prior: ScenarioPrior) -> None:
+    assert hashlib.sha256(CANONICAL_V1.encode("utf-8")).hexdigest() == SCENARIO_V1_SHA256
+    assert canonical_sha256(prior) == SCENARIO_V1_SHA256
