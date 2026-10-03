@@ -100,9 +100,10 @@ run `experiments/results/gate0/summary.json` (#40, source `a05155e`, full mode,
 ## F. Provisional decisions (3 October 2026)
 
 The science lead was unavailable. Ben (code owner) took the decisions below as
-**provisional, pending Arnav**. Every one of them keeps the current behaviour, so no
-code, threshold, schema or config changed. Arnav may overturn any of them. Overturning
-item 1 means a new scenario version and a full Gate 0 re-run (GATE0_SPEC §8).
+**provisional, pending Arnav**. Items 1–14 keep the current behaviour, so no code,
+threshold, schema or config changed for them. Item 15 (§G, from the DEV-013 smoke run)
+changes the prompt to `prompt-v2` and the record schema to `episode-result-v2`.
+Arnav may overturn any of them. Overturning item 1 means a new scenario version and a full Gate 0 re-run (GATE0_SPEC §8).
 
 | # | Decision |
 |---|---|
