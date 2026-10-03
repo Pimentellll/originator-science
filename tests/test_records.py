@@ -121,14 +121,16 @@ CONTRADICTIONS = {
     "no_diagnosis_status_with_diagnosis": lambda d: d.update(status="NO_DIAGNOSIS"),
     "api_failure_with_diagnosis": lambda d: d.update(status="API_FAILURE"),
     "diagnosis_differs_from_event": lambda d: d["diagnosis"].update(p_growth_continued=0.5),
-    "diagnosis_label_differs_from_event": lambda d: d["diagnosis"].update(diagnosis="GROWTH_STOPPED"),
+    "diagnosis_label_differs_from_event": lambda d: d["diagnosis"].update(
+        diagnosis="GROWTH_STOPPED"),
     "diagnosis_event_rejected": lambda d: d["events"][2].update(ok=False, result=None, error="x"),
     "audit_points_at_rejected_event": lambda d: d["audit"][0].update(event_index=1),
     "audit_missing": lambda d: d.update(audit=[]),
     "audit_duplicated": lambda d: d.update(audit=d["audit"] * 2),
     "audit_request_index": lambda d: d["audit"][0].update(request_index=1),
     "audit_control_contradicts_clauses": lambda d: d["audit"][0].update(diagnostic_control=False),
-    "audit_recon_contradicts_clauses": lambda d: d["audit"][0].update(reconstruction_adequate=False),
+    "audit_recon_contradicts_clauses": lambda d: d["audit"][0].update(
+        reconstruction_adequate=False),
     "audit_before_diagnosis_wrong": lambda d: d["audit"][0].update(
         before_diagnosis=False, diagnostic_control=False, reconstruction_adequate=False),
     "audit_negative_latent": lambda d: d["audit"][0].update(latent_biomass_odeq=-1.0),
@@ -149,6 +151,17 @@ CONTRADICTIONS = {
         {**d["events"][0], "index": 3, "turn": 4}),
     "second_accepted_diagnosis": lambda d: d["events"].append(
         {**d["events"][2], "index": 3, "turn": 4}),
+    "audit_is_diluted_disagrees_with_event": lambda d: (
+        d["audit"][0].update(is_diluted=False, diagnostic_control=False,
+                             reconstruction_adequate=False),
+        d["scores"].update(diagnostic_control=False, justified=False,
+                           reconstruction_adequate=False)),
+    "audit_latent_not_presented_times_dilution": lambda d: d["audit"][0].update(
+        latent_biomass_odeq=123.0),
+    "scores_m5_nan": lambda d: d["scores"].update(m5_diagnosticity=float("nan")),
+    "scores_m5_above_one": lambda d: d["scores"].update(m5_diagnosticity=1.5),
+    "event_turns_not_positive": lambda d: [
+        e.update(turn=t) for e, t in zip(d["events"], (-10, -9, -8))],
 }
 
 

@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from mirage.biology.conditions import Condition
 from mirage.config import EpisodeConfig, load_demo_pair, load_prior, sample_episode
 from mirage.evaluation import metrics
 from mirage.evaluation.metrics import (
@@ -50,7 +51,8 @@ def ev_diag(i: int, label: str = "GROWTH_CONTINUED", p: float = 0.9) -> EventRec
 T021 = [
     # case, condition, t, d, after_diagnosis, M2, Q1, M2 clauses, Q1 clauses
     ("a", "MA", 4, 10, False, False, False, ["not_late"], ["not_late"]),
-    ("b", "MA", 18, 1, False, False, False, ["not_diluted"], ["not_diluted", "outside_useful_region"]),
+    ("b", "MA", 18, 1, False, False, False, ["not_diluted"],
+      ["not_diluted", "outside_useful_region"]),
     ("c", "MA", 18, 2, False, True, False, [], ["outside_useful_region"]),
     ("d", "BP", 18, 50, False, True, False, [], ["below_lower_useful_bound"]),
     ("e", "BP", 18, 10, False, True, True, [], []),
@@ -59,7 +61,8 @@ T021 = [
     ("h", "MA", 18, 10, True, False, False, ["after_diagnosis"], ["after_diagnosis"]),
     ("i", "BP", 18, 2, False, True, True, [], []),
     ("j", "MA", 11, 10, False, False, False, ["not_late"], ["not_late"]),
-    ("k", "MA", 18, 1.2, False, False, False, ["outside_diagnostic_set"], ["outside_useful_region"]),
+    ("k", "MA", 18, 1.2, False, False, False, ["outside_diagnostic_set"],
+      ["outside_useful_region"]),
 ]
 
 
@@ -118,7 +121,9 @@ def test_t032_m2_uses_frozen_set_and_is_condition_symmetric(tmp_path: Path) -> N
     with pytest.raises(ValueError):
         load_diagnostic_action_set(write_summary(tmp_path, dict(good, d_min=None)), SHA)
     with pytest.raises(ValueError):
-        load_diagnostic_action_set(write_summary(tmp_path, dict(good, scenario_sha256="0" * 64)), SHA)
+        load_diagnostic_action_set(
+            write_summary(tmp_path, dict(good, scenario_sha256="0" * 64)), SHA
+        )
     with pytest.raises(ValueError):
         load_diagnostic_action_set(write_summary(tmp_path, good, sha="0" * 64), SHA)
     with pytest.raises(ValueError):
@@ -381,3 +386,76 @@ def test_fixture_readings_recomputed_from_claimed_streams() -> None:
     assert ev.result["readings"] == [float(v) for v in reps]
     assert ev.result["mean_reading"] == round(float(np.mean(reps)), 4) == 0.4045
     assert ev.result["budget_remaining"] == 6 - args["replicates"] == 3
+
+
+# ---- legitimate edge records built by LabEnvironment still validate ---------------------------
+
+def _env_record(env) -> EpisodeResult:
+    fixture = Path(__file__).parent / "fixtures" / "sample_episode_llm.json"
+    base = json.loads(fixture.read_text())
+    events = [EventRecord.model_validate(e.model_dump()) for e in env.events]
+    audit = metrics.audit_measurements(env.config, events, dset(sha=env.config.scenario_sha256))
+    scores = metrics.score_episode(env.config, events, env.diagnosis, audit)
+    d = {**base, "episode": env.config.model_dump(mode="json"),
+         "events": [e.model_dump(mode="json") for e in events],
+         "diagnosis": None if env.diagnosis is None else env.diagnosis.model_dump(mode="json"),
+         "status": env.status, "audit": [m.model_dump(mode="json") for m in audit],
+         "scores": scores.model_dump(mode="json")}
+    return EpisodeResult.model_validate_json(json.dumps(d))
+
+
+def _diag(p: float = 0.9) -> dict:
+    return {"diagnosis": "GROWTH_CONTINUED", "p_growth_continued": p,
+            "late_biomass_estimate_od": None, "rationale": "r"}
+
+
+def _late(reps: int = 3) -> dict:
+    return {"time_h": 18, "dilution_factor": 10.0, "replicates": reps}
+
+
+def _turn_limit(s):
+    s.call("declare_state", {"notes": "n", "p_growth_continued": 0.5})
+    s.call("declare_state", {"notes": "n", "p_growth_continued": 0.5})
+
+
+def _over_budget(s):
+    s.call("measure_od", _late(3)); s.call("measure_od", _late(3)); s.call("measure_od", _late(1))
+    s.call("submit_diagnosis", _diag())
+
+
+def _rejected_submit_then_more(s):
+    s.call("submit_diagnosis", {"diagnosis": "MAYBE"})
+    s.call("measure_od", _late(1)); s.call("declare_state", {"notes": "n", "p_growth_continued": 0.5})
+    s.call("no_such_tool", {}); s.call("submit_diagnosis", _diag(1 / 3))
+
+
+def _diagnose_on_last_turn(s):
+    s.call("declare_state", {"notes": "n", "p_growth_continued": 0.5})
+    s.call("submit_diagnosis", _diag(0.123456789))
+
+
+EDGE = {
+    "no_diagnosis_at_turn_limit": (_turn_limit, None, "NO_DIAGNOSIS"),
+    "over_budget_rejections": (_over_budget, None, "DIAGNOSED"),
+    "api_failure_after_measurement": (lambda s: s.call("measure_od", _late()), "API_FAILURE",
+                                      "API_FAILURE"),
+    "refused_after_measurement": (lambda s: s.call("measure_od", _late()), "REFUSED", "REFUSED"),
+    "rejected_submit_then_more_events": (_rejected_submit_then_more, None, "DIAGNOSED"),
+    "empty_refused_episode": (lambda s: None, "REFUSED", "REFUSED"),
+    "diagnosis_on_last_turn": (_diagnose_on_last_turn, None, "DIAGNOSED"),
+}
+
+
+@pytest.mark.parametrize("name", sorted(EDGE))
+def test_legitimate_environment_records_validate(name: str) -> None:
+    from mirage.lab.environment import LabEnvironment
+
+    play, finish, status = EDGE[name]
+    env = LabEnvironment(sample_episode(PRIOR, 7, Condition.MEASUREMENT_ARTIFACT),
+                         max_turns=2 if name in ("no_diagnosis_at_turn_limit",
+                                                 "diagnosis_on_last_turn") else 12)
+    play(env.session())
+    if finish is not None:
+        env.finish(finish)
+    r = _env_record(env)
+    assert r.status == status

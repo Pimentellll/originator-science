@@ -25,8 +25,8 @@ EpisodeStatus = Literal["DIAGNOSED", "NO_DIAGNOSIS", "API_FAILURE", "REFUSED"]
 
 
 class EventRecord(Frozen):
-    index: int
-    turn: int
+    index: int = Field(ge=0)
+    turn: int = Field(ge=1)
     tool: str
     arguments: dict[str, Any]
     ok: bool
@@ -66,7 +66,7 @@ class EpisodeScores(Frozen):
     cost_units: int = Field(ge=0)
     measure_calls_before_diagnosis: int = Field(ge=0)
     brier: float | None = Field(ge=0, le=1, allow_inf_nan=False)
-    m5_diagnosticity: float | None
+    m5_diagnosticity: float | None = Field(ge=0, le=1, allow_inf_nan=False)
 
 
 class AgentInfo(Frozen):
@@ -134,6 +134,12 @@ def _check_record(r: EpisodeResult) -> None:
     e_d = _diagnosis_event_index(ev)
     if any(m.before_diagnosis != (m.event_index < e_d) for m in r.audit):
         raise ValueError("audit before_diagnosis disagrees with the event order")
+    for m, e in zip(r.audit, accepted):
+        d = MeasurementRequest(**e.arguments).dilution_factor
+        if m.is_diluted != (d > 1):
+            raise ValueError("audit is_diluted disagrees with the event's dilution_factor")
+        if not math.isclose(m.presented_biomass_odeq, m.latent_biomass_odeq / d, rel_tol=1e-9):
+            raise ValueError("audit presented_biomass_odeq != latent_biomass_odeq / dilution")
     sc = r.scores
     correct = r.diagnosis is not None and (
         LABEL_TO_CONDITION[r.diagnosis.diagnosis] is r.episode.condition
@@ -155,7 +161,9 @@ def _check_record(r: EpisodeResult) -> None:
         if getattr(sc, name) != want:
             raise ValueError(f"scores.{name} disagrees with the record")
     if (sc.brier is None) != (brier is None) or (
-        brier is not None and sc.brier is not None and not math.isclose(sc.brier, brier, abs_tol=1e-12)
+        brier is not None
+        and sc.brier is not None
+        and not math.isclose(sc.brier, brier, abs_tol=1e-12)
     ):
         raise ValueError("scores.brier disagrees with the diagnosis")
 
