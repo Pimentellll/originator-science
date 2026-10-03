@@ -1,8 +1,8 @@
 # Open science rulings (for Arnav)
 
 This is not a specification. It collects every "Needs ruling" item from the merged
-implementation PRs, as of `wip/integration` at `d37497b`. Nothing in this list has been
-decided in code. For each item, the current behaviour is stated, and the code keeps that
+implementation PRs, as of `wip/integration` at `d37497b`. Provisional decisions are
+recorded at the end (§F); none of them changed any code. For each item, the current behaviour is stated, and the code keeps that
 behaviour until a ruling is made. The numbers come from the committed candidate Gate 0
 run `experiments/results/gate0/summary.json` (#40, source `a05155e`, full mode,
 `passed: true`) or from recomputation with `mirage.assay.od_reader.t_q`.
@@ -96,3 +96,31 @@ run `experiments/results/gate0/summary.json` (#40, source `a05155e`, full mode,
     - $X \le K$;
     - strictly increasing where $X < K(1 - 10^{-9})$;
     - non-decreasing overall.
+
+## F. Provisional decisions (3 October 2026)
+
+The science lead was unavailable. Ben (code owner) took the decisions below as
+**provisional, pending Arnav**. Every one of them keeps the current behaviour, so no
+code, threshold, schema or config changed. Arnav may overturn any of them. Overturning
+item 1 means a new scenario version and a full Gate 0 re-run (GATE0_SPEC §8).
+
+| # | Decision |
+|---|---|
+| 1 | Option (a). G0-C(iv) is the sampled check as written, and the support corner is recorded as RISKS R-027. Gate 0 is frozen (below). |
+| 2 | Keep the seed-parity assignment: even seeds `BIOLOGICAL_PLATEAU`, odd seeds `MEASUREMENT_ARTIFACT`. |
+| 3 | `tests/snapshots/prompt_v1.json` is approved as the frozen `prompt-v1`. |
+| 4 | Keep ITT clearing `diagnostic_control` and `justified` for `API_FAILURE` / `REFUSED`. |
+| 5 | Deferred. Doesn't block scored runs. |
+| 6 | No schema change. Failed clauses stay computed on demand by `metrics.failed_clauses()`. |
+| 7 | Keep rejecting events after an accepted diagnosis. |
+| 8–10 | Keep the current validation. No extra restrictions. |
+| 11–14 | The current reading is confirmed. |
+
+**Gate 0 freeze.** The frozen artefacts are the committed full run in
+`experiments/results/gate0/` (#40, `source_commit` `a05155e`, `scenario_sha256`
+`5291e69c…c0ce08`). No Gate 0 input (`scripts/gate0.py`, `src/mirage/assay`,
+`src/mirage/biology`, `src/mirage/config.py`, `experiments/configs/scenario_v1.json`)
+has changed since `a05155e`. A full re-run on `main` at `4bcf15b` reproduced every
+field of `summary.json` exactly, apart from `runtime_s`, `source_commit` and
+`versions`. The strict xfail
+`test_t005_window_validity_at_support_corner` stays in place: it documents R-027.
