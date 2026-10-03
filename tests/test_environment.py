@@ -180,12 +180,22 @@ def test_diagnosis_on_last_turn_counts() -> None:
     assert env.status == "DIAGNOSED" and env.diagnosis is not None
 
 
-def test_finish_keeps_first_status() -> None:
+def test_second_finish_raises_and_keeps_first_status() -> None:
     env = LabEnvironment(cfg())
     env.finish("REFUSED")
     with pytest.raises(RuntimeError, match="already finished"):
         env.finish("API_FAILURE")
     assert env.status == "REFUSED" and env.session().finished
+
+
+def test_finish_after_turn_limit_raises() -> None:
+    env = LabEnvironment(cfg(), max_turns=1)
+    s = env.session()
+    s.call("declare_state", {"notes": "n", "p_growth_continued": 0.5})
+    assert env.status == "NO_DIAGNOSIS"
+    with pytest.raises(RuntimeError, match="already finished"):
+        env.finish("API_FAILURE")
+    assert env.status == "NO_DIAGNOSIS"
 
 
 def test_session_facade_exposes_only_the_protocol() -> None:

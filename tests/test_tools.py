@@ -188,6 +188,19 @@ def test_diagnosis_rejects_nonfinite_estimate(bad) -> None:
                   late_biomass_estimate_od=bad, rationale="r")
 
 
+@pytest.mark.parametrize("bad", [True, False, "1.0"])
+def test_diagnosis_rejects_non_number_estimate(bad) -> None:
+    with pytest.raises(ValidationError):
+        Diagnosis(diagnosis="GROWTH_STOPPED", p_growth_continued=0.5,
+                  late_biomass_estimate_od=bad, rationale="r")
+
+
+def test_diagnosis_accepts_integer_estimate_and_probability() -> None:
+    d = Diagnosis(diagnosis="GROWTH_STOPPED", p_growth_continued=1,
+                  late_biomass_estimate_od=4, rationale="r")
+    assert d.p_growth_continued == 1.0 and d.late_biomass_estimate_od == 4.0
+
+
 def test_negative_blank_subtracted_readings_are_valid_and_render_as_json() -> None:
     res = MeasurementResult(**_result(readings=[-0.0031, 0.0004], mean_reading=-0.0014))
     payload = tools.render_measurement(res)
@@ -215,7 +228,7 @@ def test_probability_bounds(model) -> None:
         "diagnosis": "GROWTH_STOPPED", "late_biomass_estimate_od": None, "rationale": "r"}
     for p in (0.0, 0.5, 1.0):
         assert model(p_growth_continued=p, **extra).p_growth_continued == p
-    for p in (-1e-9, 1 + 1e-9, float("nan"), float("inf")):
+    for p in (-1e-9, 1 + 1e-9, float("nan"), float("inf"), True, False, "0.5"):
         with pytest.raises(ValidationError):
             model(p_growth_continued=p, **extra)
 

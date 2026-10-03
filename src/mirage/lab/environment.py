@@ -6,7 +6,6 @@ returned by :meth:`LabEnvironment.session`.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 from typing import Any, get_args
 
@@ -110,7 +109,8 @@ class LabEnvironment:
     def finish(self, status: EpisodeStatus) -> None:
         """End the episode with ``status`` (the runner uses this for API_FAILURE / REFUSED).
 
-        Terminal statuses are final: finishing an already finished episode raises.
+        Terminal statuses are final: finishing an already finished episode raises, so
+        callers must check ``finished`` first (e.g. after the turn limit or a diagnosis).
         """
         if status not in STATUSES:
             raise ValueError(f"invalid episode status: {status!r}")

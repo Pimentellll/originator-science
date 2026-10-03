@@ -47,13 +47,15 @@ class MeasurementResult(Frozen):
 
 class AgentState(Frozen):
     notes: str = Field(max_length=2000)
-    p_growth_continued: float = Field(ge=0, le=1)
+    p_growth_continued: float = Field(ge=0, le=1, strict=True)
 
 
 class Diagnosis(Frozen):
     diagnosis: GrowthLabel
-    p_growth_continued: float = Field(ge=0, le=1)
-    late_biomass_estimate_od: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    p_growth_continued: float = Field(ge=0, le=1, strict=True)
+    late_biomass_estimate_od: float | None = Field(
+        default=None, ge=0, allow_inf_nan=False, strict=True
+    )
     rationale: str = Field(max_length=4000)
 
 
