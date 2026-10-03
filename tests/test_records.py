@@ -80,7 +80,7 @@ def test_fixture_internal_consistency(rec: EpisodeResult) -> None:
 @pytest.mark.parametrize(
     "mutate",
     [
-        lambda d: d.update(schema_version="episode-result-v2"),
+        lambda d: d.update(schema_version="episode-result-v1"),
         lambda d: d.update(status="TIMEOUT"),
         lambda d: d.update(unexpected=1),
         lambda d: d.pop("scores"),

@@ -257,7 +257,10 @@ def test_tool_property_types_enums_and_wording_exact() -> None:
         "submit_diagnosis": {"diagnosis": "string", "p_biomass_above_reading": "number",
                              "late_biomass_estimate_od": ["number", "null"], "rationale": "string"},
     }
-    assert props["submit_diagnosis"]["diagnosis"]["enum"] == ["BIOMASS_AS_READ", "BIOMASS_ABOVE_READING"]
+    assert props["submit_diagnosis"]["diagnosis"]["enum"] == [
+        "BIOMASS_AS_READ",
+        "BIOMASS_ABOVE_READING",
+    ]
     assert sum("enum" in v for p in props.values() for v in p.values()) == 1
     assert [d["required"] for d in (t["input_schema"] for t in tools.TOOL_DEFINITIONS)] == [
         ["time_h", "dilution_factor", "replicates"], ["notes", "p_biomass_above_reading"],

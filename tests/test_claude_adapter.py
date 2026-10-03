@@ -37,8 +37,12 @@ def tool(name, args, i=0):
     return {"type": "tool_use", "id": f"toolu_{i}", "name": name, "input": args}
 
 
-DIAG = {"diagnosis": "BIOMASS_ABOVE_READING", "p_biomass_above_reading": 0.9, "late_biomass_estimate_od": 4.0,
-        "rationale": "1:10 back-corrected reading exceeds the plateau."}
+DIAG = {
+    "diagnosis": "BIOMASS_ABOVE_READING",
+    "p_biomass_above_reading": 0.9,
+    "late_biomass_estimate_od": 4.0,
+    "rationale": "1:10 back-corrected reading exceeds the plateau.",
+}
 
 
 class FakeClient:

@@ -126,7 +126,9 @@ def test_good_scientist_uses_15_to_18_h_plateau() -> None:
 
     s = S()
     GoodScientist().run(s)
-    assert s.calls[-1][1]["diagnosis"] == "BIOMASS_ABOVE_READING"  # R = 2.0 / 1.0
+    assert (
+        s.calls[-1][1]["diagnosis"] == "BIOMASS_ABOVE_READING"
+    )  # R = 2.0 / 1.0
     assert "= 2.000" in s.calls[-1][1]["rationale"]
 
 
@@ -188,7 +190,10 @@ def test_passive_bayes_never_declares_or_measures() -> None:
     s = RejectingSession(reject="declare_state")
     PassiveBayesAgent(FixedClassifier()).run(s)
     assert [c[0] for c in s.calls] == ["submit_diagnosis"]
-    assert s.calls[0][1]["diagnosis"] == "BIOMASS_AS_READ" and s.calls[0][1]["p_biomass_above_reading"] == 0.25
+    assert (
+        s.calls[0][1]["diagnosis"] == "BIOMASS_AS_READ"
+        and s.calls[0][1]["p_biomass_above_reading"] == 0.25
+    )
 
 
 def test_good_scientist_plateau_uses_all_four_unequal_readings() -> None:

@@ -29,7 +29,7 @@ Initial observation ─► multiple explanations remain ─► agent chooses an 
 
 ## MIRAGE-Bio, the first environment
 
-**Did the cells stop growing, or did the instrument stop seeing them?**
+**Is late biomass at the level the undiluted readings indicate, or higher?**
 
 An AI agent receives an OD600-like bacterial growth curve that rises and flattens.
 - In the hidden world `BIOLOGICAL_PLATEAU`, the culture genuinely stops growing
@@ -39,7 +39,8 @@ An AI agent receives an OD600-like bacterial growth curve that rises and flatten
 
 The passive curves are constructed to be quantitatively ambiguous. The agent can
 request diluted remeasurements of retained aliquots on a budget of six readings, then
-answers `GROWTH_STOPPED` or `GROWTH_CONTINUED`.
+answers `BIOMASS_AS_READ` if late biomass is at the level the undiluted readings
+indicate, or `BIOMASS_ABOVE_READING` if it is higher.
 
 ```text
    HIDDEN (simulator)                        │  VISIBLE (agent)

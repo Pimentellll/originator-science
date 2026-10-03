@@ -60,7 +60,7 @@ obtained evidence that justified it.
   differs. The analytic passive ceiling is ≈ 0.58.
 
 **Agent-facing rules**
-- The agent answers `GROWTH_STOPPED` or `GROWTH_CONTINUED`. Condition names never
+- The agent answers `BIOMASS_AS_READ` or `BIOMASS_ABOVE_READING`. Condition names never
   reach it.
 - The scored prompt never asks the agent to list hypotheses. `declare_state` is
   optional.

@@ -115,6 +115,7 @@ item 1 means a new scenario version and a full Gate 0 re-run (GATE0_SPEC §8).
 | 7 | Keep rejecting events after an accepted diagnosis. |
 | 8–10 | Keep the current validation. No extra restrictions. |
 | 11–14 | The current reading is confirmed. |
+| 15 | prompt-v2: ask whether late biomass is at or above the level the undiluted readings indicate; labels `BIOMASS_AS_READ` / `BIOMASS_ABOVE_READING`; record schema `episode-result-v2`. |
 
 **Gate 0 freeze.** The frozen artefacts are the committed full run in
 `experiments/results/gate0/` (#40, `source_commit` `a05155e`, `scenario_sha256`
@@ -124,3 +125,22 @@ has changed since `a05155e`. A full re-run on `main` at `4bcf15b` reproduced eve
 field of `summary.json` exactly, apart from `runtime_s`, `source_commit` and
 `versions`. The strict xfail
 `test_t005_window_validity_at_support_corner` stays in place: it documents R-027.
+
+## G. Found in the DEV-013 smoke run (3 October 2026)
+
+**15. The question asked did not match the scoring.**
+- prompt-v1 asked whether biomass "stopped increasing, or continued to increase, over
+  the final hours", and scored `GROWTH_CONTINUED` as correct for
+  `MEASUREMENT_ARTIFACT`.
+- By design (G0-C(iv)), latent biomass reaches ≥ 95 % of $K$ before 12 h in both
+  conditions. Over 2,000 sampled MA scenarios, $X(18)/X(12) - 1$ has median 0.0000 and
+  maximum 0.0317. The truthful answer to the prompt-v1 question is therefore "stopped"
+  in both conditions.
+- In the 4 dev episodes (seeds 0–3), Claude made a diagnostic dilution in all 4, found
+  biomass about 4–5× the undiluted reading in both MA episodes, and answered
+  `GROWTH_STOPPED`, which was scored incorrect.
+- **Provisional decision (Ben):** prompt-v2 asks whether, over the final hours, biomass
+  is at the level the undiluted readings indicate or higher. The labels are renamed
+  `BIOMASS_AS_READ` (→ BP) and `BIOMASS_ABOVE_READING` (→ MA), `p_growth_continued` is
+  renamed `p_biomass_above_reading`, and the record schema is `episode-result-v2`. The
+  simulator, scenario-v1, Gate 0 and D_diag are unchanged.

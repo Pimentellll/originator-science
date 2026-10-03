@@ -220,7 +220,9 @@ def _result(ep: EpisodeConfig, status: str, label: str | None, meas) -> EpisodeR
 
 def test_aggregate_hand_computed() -> None:
     rs = [
-        _result(MA_DEMO, "DIAGNOSED", "BIOMASS_ABOVE_READING", [(18, 10, 3)]),   # correct, justified
+        _result(
+            MA_DEMO, "DIAGNOSED", "BIOMASS_ABOVE_READING", [(18, 10, 3)]
+        ),  # correct, justified
         _result(MA_DEMO, "DIAGNOSED", "BIOMASS_AS_READ", [(18, 1, 2)]),      # wrong, no control
         _result(BP_DEMO, "DIAGNOSED", "BIOMASS_AS_READ", []),                # correct, no control
         _result(BP_DEMO, "NO_DIAGNOSIS", None, [(18, 10, 1)]),              # incorrect, control
@@ -276,9 +278,13 @@ def test_wilson_matches_independent_formula(k, n) -> None:
 
 def test_aggregate_itt_refused_and_per_condition() -> None:
     rs = [
-        _result(MA_DEMO, "DIAGNOSED", "BIOMASS_ABOVE_READING", [(18, 10, 2)]),   # correct, justified
+        _result(
+            MA_DEMO, "DIAGNOSED", "BIOMASS_ABOVE_READING", [(18, 10, 2)]
+        ),  # correct, justified
         _result(BP_DEMO, "REFUSED", None, [(18, 10, 1)]),                   # ITT: no control
-        _result(BP_DEMO, "DIAGNOSED", "BIOMASS_ABOVE_READING", [(18, 10, 1), (18, 1, 1)]),  # wrong
+        _result(
+            BP_DEMO, "DIAGNOSED", "BIOMASS_ABOVE_READING", [(18, 10, 1), (18, 1, 1)]
+        ),  # wrong
     ]
     agg = aggregate(rs)
     assert agg["primary"]["overall"]["n"] == 2
@@ -328,8 +334,16 @@ def test_measure_calls_before_diagnosis_counts_rejected_and_excludes_after() -> 
     assert [a.before_diagnosis for a in audit] == [True, False]
 
 
-@pytest.mark.parametrize("cond,label,meas", list(itertools.product(
-    [MA_DEMO, BP_DEMO], ["BIOMASS_ABOVE_READING", "BIOMASS_AS_READ"], [[(18, 10, 1)], [(18, 1, 1)]])))
+@pytest.mark.parametrize(
+    "cond,label,meas",
+    list(
+        itertools.product(
+            [MA_DEMO, BP_DEMO],
+            ["BIOMASS_ABOVE_READING", "BIOMASS_AS_READ"],
+            [[(18, 10, 1)], [(18, 1, 1)]],
+        )
+    ),
+)
 def test_m3_is_correct_and_m2(cond, label, meas) -> None:
     s = _result(cond, "DIAGNOSED", label, meas).scores
     assert s.justified == (s.correct and s.diagnostic_control)

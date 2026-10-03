@@ -370,9 +370,9 @@ forbidden-term list is in §12.
 
 ```text
 measure_od(time_h: int, dilution_factor: float, replicates: int) -> MeasurementResult | error
-declare_state(notes: str, p_growth_continued: float) -> ack            # optional; never prompted
-submit_diagnosis(diagnosis: "GROWTH_STOPPED" | "GROWTH_CONTINUED",
-                 p_growth_continued: float,
+declare_state(notes: str, p_biomass_above_reading: float) -> ack            # optional; never prompted
+submit_diagnosis(diagnosis: "BIOMASS_AS_READ" | "BIOMASS_ABOVE_READING",
+                 p_biomass_above_reading: float,
                  late_biomass_estimate_od: float | None,
                  rationale: str) -> ack   # ends the episode
 ```
@@ -388,10 +388,10 @@ LLM schema. The scripted API may use defaults `dilution_factor = 1.0` and
 | `declare_state` (optional) | 0 | notes ≤ 2,000 chars; $p \in [0,1]$ | Logged and shown in the demo; not scored |
 | `submit_diagnosis` | 0 | label in enum; $p \in [0,1]$; estimate ≥ 0 or null; rationale ≤ 4,000 chars | Ends the episode |
 
-Label mapping, applied **only** in `evaluation/metrics.py`: `GROWTH_STOPPED` →
-`BIOLOGICAL_PLATEAU`; `GROWTH_CONTINUED` → `MEASUREMENT_ARTIFACT`.
+Label mapping, applied **only** in `evaluation/metrics.py`: `BIOMASS_AS_READ` →
+`BIOLOGICAL_PLATEAU`; `BIOMASS_ABOVE_READING` → `MEASUREMENT_ARTIFACT`.
 
-### 9.2 Agent-facing tool definitions (Anthropic format, `prompt-v1`)
+### 9.2 Agent-facing tool definitions (Anthropic format, `prompt-v2`)
 
 Numeric bounds are stated in descriptions and enforced server side. Strict tool
 schemas do not support `minimum` or `maximum`.
@@ -405,25 +405,47 @@ schemas do not support `minimum` or `maximum`.
     "input_schema": {
       "type": "object",
       "properties": {
-        "time_h": {"type": "integer", "description": "Hour at which the aliquot was withdrawn: an integer from 0 to 18."},
-        "dilution_factor": {"type": "number", "description": "Total dilution factor applied before reading: from 1 (undiluted) to 100."},
-        "replicates": {"type": "integer", "description": "Number of independent replicate reads: 1, 2 or 3."}
+        "time_h": {
+          "type": "integer",
+          "description": "Hour at which the aliquot was withdrawn: an integer from 0 to 18."
+        },
+        "dilution_factor": {
+          "type": "number",
+          "description": "Total dilution factor applied before reading: from 1 (undiluted) to 100."
+        },
+        "replicates": {
+          "type": "integer",
+          "description": "Number of independent replicate reads: 1, 2 or 3."
+        }
       },
-      "required": ["time_h", "dilution_factor", "replicates"],
+      "required": [
+        "time_h",
+        "dilution_factor",
+        "replicates"
+      ],
       "additionalProperties": false
     }
   },
   {
     "name": "declare_state",
-    "description": "Optional. Record your current notes and your current probability that the culture's biomass continued to increase over the final hours. Free of charge; never required.",
+    "description": "Optional. Record your current notes and your current probability that, over the final hours, the culture's biomass is higher than the undiluted readings indicate. Free of charge; never required.",
     "strict": true,
     "input_schema": {
       "type": "object",
       "properties": {
-        "notes": {"type": "string", "description": "Free-text notes on your current thinking."},
-        "p_growth_continued": {"type": "number", "description": "Probability from 0 to 1."}
+        "notes": {
+          "type": "string",
+          "description": "Free-text notes on your current thinking."
+        },
+        "p_biomass_above_reading": {
+          "type": "number",
+          "description": "Probability from 0 to 1 that, over the final hours, biomass is higher than the undiluted readings indicate."
+        }
       },
-      "required": ["notes", "p_growth_continued"],
+      "required": [
+        "notes",
+        "p_biomass_above_reading"
+      ],
       "additionalProperties": false
     }
   },
@@ -434,12 +456,36 @@ schemas do not support `minimum` or `maximum`.
     "input_schema": {
       "type": "object",
       "properties": {
-        "diagnosis": {"type": "string", "enum": ["GROWTH_STOPPED", "GROWTH_CONTINUED"], "description": "Whether the culture's biomass stopped increasing or continued to increase over the final hours of the experiment."},
-        "p_growth_continued": {"type": "number", "description": "Probability from 0 to 1 that biomass continued to increase."},
-        "late_biomass_estimate_od": {"type": ["number", "null"], "description": "Your estimate of the culture's OD600 at 18 h, expressed as the reading an undiluted sample would give if the reader responded proportionally; null if you have no estimate."},
-        "rationale": {"type": "string", "description": "Evidence-based justification."}
+        "diagnosis": {
+          "type": "string",
+          "enum": [
+            "BIOMASS_AS_READ",
+            "BIOMASS_ABOVE_READING"
+          ],
+          "description": "Whether, over the final hours, the culture's biomass is at the level the undiluted readings indicate (BIOMASS_AS_READ) or higher than they indicate (BIOMASS_ABOVE_READING)."
+        },
+        "p_biomass_above_reading": {
+          "type": "number",
+          "description": "Probability from 0 to 1 that, over the final hours, biomass is higher than the undiluted readings indicate."
+        },
+        "late_biomass_estimate_od": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "description": "Your estimate of the culture's OD600 at 18 h, expressed as the reading an undiluted sample would give if the reader responded proportionally; null if you have no estimate."
+        },
+        "rationale": {
+          "type": "string",
+          "description": "Evidence-based justification."
+        }
       },
-      "required": ["diagnosis", "p_growth_continued", "late_biomass_estimate_od", "rationale"],
+      "required": [
+        "diagnosis",
+        "p_biomass_above_reading",
+        "late_biomass_estimate_od",
+        "rationale"
+      ],
       "additionalProperties": false
     }
   }
@@ -451,7 +497,7 @@ schemas do not support `minimum` or `maximum`.
 > intended control. The science lead must approve any wording change; any change
 > bumps `prompt_version`.
 
-### 9.3 System prompt (`prompt-v1`)
+### 9.3 System prompt (`prompt-v2`)
 
 ```text
 You are an autonomous scientist working in a virtual microbiology laboratory.
@@ -461,9 +507,9 @@ optical density at 600 nm (OD600) was read every hour on a plate reader, and an
 aliquot of the culture was withdrawn and retained every hour. The hourly readings
 are provided in the first message.
 
-Your task is to decide whether the culture's biomass stopped increasing, or
-continued to increase, over the final hours of the experiment, and to support your
-conclusion with evidence.
+Your task is to decide whether, over the final hours of the experiment, the
+culture's biomass is at the level the undiluted readings indicate, or higher than
+the undiluted readings indicate, and to support your conclusion with evidence.
 
 You may request additional measurements with measure_od; each replicate reading
 costs 1 unit from a budget of 6 units. Finish by calling submit_diagnosis. You have
@@ -649,7 +695,7 @@ class EpisodeConfig(Frozen):
     assay: AssayConfig
 
 # ---- VISIBLE: src/mirage/lab/tools.py ----
-GrowthLabel = Literal["GROWTH_STOPPED", "GROWTH_CONTINUED"]
+GrowthLabel = Literal["BIOMASS_AS_READ", "BIOMASS_ABOVE_READING"]
 
 class MeasurementRequest(Frozen):
     time_h: int = Field(ge=0, le=MAX_TIME_H)
@@ -668,11 +714,11 @@ class MeasurementResult(Frozen):
 
 class AgentState(Frozen):                      # declare_state payload (optional tool)
     notes: str = Field(max_length=2000)
-    p_growth_continued: float = Field(ge=0, le=1)
+    p_biomass_above_reading: float = Field(ge=0, le=1)
 
 class Diagnosis(Frozen):                       # submit_diagnosis payload
     diagnosis: GrowthLabel
-    p_growth_continued: float = Field(ge=0, le=1)
+    p_biomass_above_reading: float = Field(ge=0, le=1)
     late_biomass_estimate_od: float | None = Field(default=None, ge=0)
     rationale: str = Field(max_length=4000)
 
@@ -736,7 +782,7 @@ class DiagnosticActionSet(Frozen):             # frozen Gate 0 output (summary.j
     evaluated_replicates: int                  # 1 (least favourable)
 
 class EpisodeResult(Frozen):
-    schema_version: Literal["episode-result-v1"]
+    schema_version: Literal["episode-result-v2"]
     episode: EpisodeConfig                     # revealed only in the record
     agent: AgentInfo
     passive: list[MeasurementResult]
@@ -850,13 +896,13 @@ Each is reported overall and per condition, with Wilson 95 % intervals for M1–
 ### 16.1 `GoodScientist` (scripted; demonstrates solvability)
 
 1. `declare_state(notes="Passive data alone cannot separate a real stop from readings
-   that no longer track biomass.", p_growth_continued=0.5)`. This is a scripted
+   that no longer track biomass.", p_biomass_above_reading=0.5)`. This is a scripted
    baseline, so it may name hypotheses; the scored prompt never asks for them.
 2. $\hat P$ = mean of passive readings at $t = 15, 16, 17, 18$.
 3. `measure_od(time_h=18, dilution_factor=10, replicates=3)` (3 units).
 4. $\hat C = 10\cdot\bar y$ and $R = \hat C/\hat P$.
-5. If $R \ge \tau = 1.5$, submit `GROWTH_CONTINUED` with $p = 0.99$; otherwise
-   `GROWTH_STOPPED` with $p = 0.01$. Set `late_biomass_estimate_od` to $\hat C$.
+5. If $R \ge \tau = 1.5$, submit `BIOMASS_ABOVE_READING` with $p = 0.99$; otherwise
+   `BIOMASS_AS_READ` with $p = 0.01$. Set `late_biomass_estimate_od` to $\hat C$.
 
 **Threshold rationale.**
 - Noise-free $R$ is $K/K' \le 1.046$ in `BIOLOGICAL_PLATEAU` and $\approx \lambda \ge 3$

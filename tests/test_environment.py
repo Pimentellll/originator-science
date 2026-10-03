@@ -101,8 +101,12 @@ def test_t013_budget_accounting() -> None:
     assert sum(m.replicates for m in env.accepted) == 6 and env.budget_remaining == 0
     assert all(p.cost_units == 0 for p in env.passive)
     assert not env.finished
-    assert env.call("submit_diagnosis", {"diagnosis": "BIOMASS_ABOVE_READING", "p_biomass_above_reading": 0.9,
-                                         "late_biomass_estimate_od": None, "rationale": "x"}).ok
+    assert env.call("submit_diagnosis", {
+        "diagnosis": "BIOMASS_ABOVE_READING",
+        "p_biomass_above_reading": 0.9,
+        "late_biomass_estimate_od": None,
+        "rationale": "x",
+    }).ok
     assert env.status == "DIAGNOSED"
 
 
@@ -239,8 +243,12 @@ def test_finish_diagnosed_requires_a_diagnosis() -> None:
 
 def test_finish_after_diagnosis_is_rejected_and_status_kept() -> None:
     env = LabEnvironment(cfg())
-    assert env.call("submit_diagnosis", {"diagnosis": "BIOMASS_AS_READ", "p_biomass_above_reading": 0.2,
-                                          "late_biomass_estimate_od": None, "rationale": "x"}).ok
+    assert env.call("submit_diagnosis", {
+        "diagnosis": "BIOMASS_AS_READ",
+        "p_biomass_above_reading": 0.2,
+        "late_biomass_estimate_od": None,
+        "rationale": "x",
+    }).ok
     with pytest.raises(RuntimeError, match="already finished"):
         env.finish("API_FAILURE")
     assert env.status == "DIAGNOSED"
@@ -312,8 +320,12 @@ def test_every_call_is_one_complete_event() -> None:
               ("measure_od", {"time_h": 99}),
               ("declare_state", {"notes": "thinking", "p_biomass_above_reading": 0.4}),
               ("nope", {}),
-              ("submit_diagnosis", {"diagnosis": "BIOMASS_ABOVE_READING", "p_biomass_above_reading": 0.9,
-                                    "late_biomass_estimate_od": 3.2, "rationale": "r"})]
+              ("submit_diagnosis", {
+                  "diagnosis": "BIOMASS_ABOVE_READING",
+                  "p_biomass_above_reading": 0.9,
+                  "late_biomass_estimate_od": 3.2,
+                  "rationale": "r",
+              })]
     responses = [env.call(t, a) for t, a in script]
     assert [e.index for e in env.events] == list(range(5))
     assert [e.turn for e in env.events] == [1, 2, 3, 4, 5]
