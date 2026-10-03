@@ -110,7 +110,8 @@ def run_episode(prior: ScenarioPrior, seed: int, condition: Condition, agent: An
     env = LabEnvironment(cfg)
     started = _now()
     agent.run(env.session())  # scripted agents propagate errors: a bug is a test failure
-    env.finish("NO_DIAGNOSIS")  # no-op if the episode already ended
+    if not env.finished:  # finish() raises on an already-final episode (PR #36)
+        env.finish("NO_DIAGNOSIS")
     audit = audit_measurements(cfg, env.events, dset)
     return EpisodeResult(
         schema_version=SCHEMA_VERSION,
