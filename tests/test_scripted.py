@@ -100,3 +100,38 @@ def test_t016_passive_bayes(reference) -> None:
         acc[cond] = sum(s.correct for _, s in res) / N
     ba = sum(acc.values()) / 2
     assert 0.50 <= ba <= 0.65 and cost == 0
+
+
+def test_good_scientist_uses_15_to_18_h_plateau() -> None:
+    from mirage.lab.tools import MeasurementResult, Observation, ToolResponse
+
+    class S:
+        finished = False
+
+        def __init__(self):
+            # passive 1.0 at 15-18 h, 100.0 elsewhere: only the 15-18 h mean gives P = 1.
+            pr = [MeasurementResult(source="passive", request_index=None, time_h=t, dilution_factor=1.0,
+                                    readings=[v], mean_reading=v, cost_units=0, budget_remaining=6)
+                  for t in range(19) for v in [1.0 if 15 <= t <= 18 else 100.0]]
+            self._obs = Observation(passive_readings=pr, budget_total=6, budget_remaining=6)
+            self.calls = []
+
+        def observation(self):
+            return self._obs
+
+        def call(self, tool, args):
+            self.calls.append((tool, args))
+            return ToolResponse(ok=True, result={"readings": [0.2, 0.2, 0.2]}, error=None)
+
+    s = S()
+    GoodScientist().run(s)
+    assert s.calls[-1][1]["diagnosis"] == "GROWTH_CONTINUED"  # R = 2.0 / 1.0
+    assert "= 2.000" in s.calls[-1][1]["rationale"]
+
+
+def test_passive_bayes_agent_reports_classifier_output(reference) -> None:
+    for seed in range(20):
+        env = LabEnvironment(sample_episode(PRIOR, seed, Condition.BIOLOGICAL_PLATEAU))
+        PassiveBayesAgent(reference).run(env.session())
+        label, p = reference.classify([m.mean_reading for m in env.passive])
+        assert env.diagnosis.diagnosis == label and env.diagnosis.p_growth_continued == p
