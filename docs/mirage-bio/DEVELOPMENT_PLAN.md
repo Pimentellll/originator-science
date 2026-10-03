@@ -183,7 +183,7 @@ Owner types: SCI, ENV, AGT, EVD, QA (§6).
 | DEV-005 | Passive reference classifier | `src/mirage/evaluation/passive.py` | Reference densities from the `passive_reference` block (DESIGN §16.2). Deterministic. Classifies a list of passive readings. Build time < 30 s. | DEV-002, DEV-003, DEV-004 | SCI | P0 |
 | DEV-006 | Gate 0 script and frozen artefacts | `scripts/gate0.py`, `experiments/results/gate0/*` | All checks, plots and `summary.json` exactly as in [GATE0_SPEC](GATE0_SPEC.md). Reproduces or supersedes the design-time reference. Non-zero exit on a blocking failure. `--quick` mode for tests. Runtime < 5 min. Artefacts committed. T-029 and T-030 pass. | DEV-002 to DEV-005 | SCI | P0 |
 | DEV-007 | Lab environment and visible tool schemas | `src/mirage/lab/tools.py`, `src/mirage/lab/environment.py`, `src/mirage/agents/base.py` | `tools.py` and `base.py` merged **first** (DEV-007a, by Sat 16:00) as the frozen visible interface. Environment: passive generation, validation, budget, RNG streams, event log, turn limit, statuses. $S$ fixed for the episode. T-011, T-013, T-020 and T-026 pass. | DEV-002 to DEV-004 (environment); none (interface) | ENV | P0 |
-| DEV-008 | Evaluator, built against fixture logs | `src/mirage/evaluation/metrics.py`, `tests/fixtures/sample_episode_llm.json` | **DEV-008a, by 16:00:** record schemas (DESIGN §13 RECORDS) and one hand-written fixture record. Then: validity audit with per-clause reasons and the fixed late window; scores, M1–M4, O1, O2, Wilson intervals; primary and intention-to-treat denominators (DESIGN §15). M5 optional. T-014, T-021 and T-027 pass. | DEV-003, DEV-004, DEV-007a | EVD | P0 |
+| DEV-008 | Evaluator, built against fixture logs | `src/mirage/evaluation/metrics.py`, `tests/fixtures/sample_episode_llm.json` | **DEV-008a, by 16:00:** record schemas (DESIGN §13 RECORDS) and one hand-written fixture record. Then: per-clause audit with the fixed late window, M2 against the Gate-0-frozen diagnostic set (fixture set until Gate 0 lands) and Q1 reconstruction adequacy; scores, M1–M4, Q1, O1, O2, Wilson intervals; primary and intention-to-treat denominators (DESIGN §15). M5 optional. T-014, T-021, T-027 and T-032 pass. | DEV-003, DEV-004, DEV-007a | EVD | P0 |
 | DEV-009 | Runner, persistence, summarize | `src/mirage/evaluation/runner.py`, `experiments/configs/eval_matrix_v1.json` | `run` and `summarize` subcommands. Atomic writes. Manifest. Hash check against Gate 0 `summary.json`. Determinism apart from `run_meta`. T-017, T-023 and T-031 pass. | DEV-007, DEV-008 | ENV | P0 |
 | DEV-010 | Scripted agents | `src/mirage/agents/scripted.py` | `GoodScientist` exactly as in DESIGN §16.1. `PassiveBayesAgent` with injected classifier. T-015 and T-016 pass on 1,000 episodes per condition. | DEV-005, DEV-007 | ENV | P0 |
 | DEV-011 | Trust-boundary tests | `tests/test_trust_boundary.py` | AST import scan, prompt-leakage scan and prompt snapshot (DESIGN §12). T-012 and T-028 pass. | DEV-007, DEV-012 (prompt part) | QA (ENV if no QA) | P0 |
@@ -244,7 +244,7 @@ Owner types:
 
 | Code | Role | Owns |
 |---|---|---|
-| SCI | Science lead | Gate 0, parameter freeze, validity rule, interpretation, claims |
+| SCI | Science lead | Gate 0, parameter freeze, diagnostic-control rule and $D_{\text{diag}}$, interpretation, claims |
 | ENV | Environment lead | Simulator and lab against the frozen interfaces; runner; scripted agents |
 | AGT | Agent lead | Minimal Claude tool loop (never sees hidden state); prompt freeze; evaluation runs |
 | EVD | Evaluation and demo lead | Record schemas, fixture logs, metrics, results report, replay, pitch |
@@ -335,8 +335,9 @@ entry in RISKS.
 7. **No second model or vendor** until MS4 is frozen.
 8. **No more than 30 evaluation episodes per configuration** before MS6.
 9. **No prompt edits after the prompt freeze**, and never on eval seeds.
-10. **No threshold changes after seeing results**: Gate 0 thresholds, the validity
-    rule and $\tau$ are fixed.
+10. **No threshold changes after seeing results**: Gate 0 thresholds, the frozen
+    diagnostic set $D_{\text{diag}}$, the diagnostic-control and Q1 rules, and $\tau$
+    are fixed.
 11. **No LLM in the evaluation path.**
 12. **No new abstractions for "future extensibility"**: no registries, plugin
     systems or generic multi-assay interfaces.

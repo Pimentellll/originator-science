@@ -136,7 +136,8 @@ the design-time analytic passive ceiling is ≈ 0.58.
 The agent can request diluted remeasurements of retained aliquots on a budget of six
 readings, then answers `GROWTH_STOPPED` or `GROWTH_CONTINUED`. A late, adequately
 diluted measurement separates the worlds. A deterministic evaluator scores accuracy,
-whether a valid diagnostic control was obtained, justified accuracy and cost.
+whether a diagnostic control (an experiment that distinguishes the worlds) was
+obtained, justified accuracy and cost.
 
 Requirements: [mirage-bio/ANALYSIS.md](mirage-bio/ANALYSIS.md).
 Scientific validation: [mirage-bio/GATE0_SPEC.md](mirage-bio/GATE0_SPEC.md).

@@ -41,7 +41,7 @@ flowchart TD
         BIO --> X["Latent biomass X(t)"]
         X --> DIL["Aliquot + dilution<br/>x = X(t)/d"]
         DIL --> ASSAY["OD assay model<br/>y = f(x) + ε"]
-        EVAL["Deterministic evaluator<br/>validity audit, M1–M4"]
+        EVAL["Deterministic evaluator<br/>M2/Q1 audit, M1–M4"]
     end
     subgraph BOUNDARY["TRUST BOUNDARY: Virtual Lab API (lab/tools.py schemas)"]
         API["LabSession<br/>measure_od · declare_state · submit_diagnosis"]
@@ -104,7 +104,7 @@ originator-science/
 │   │   ├── claude.py                 # VISIBLE: Anthropic tool-use loop
 │   │   └── scripted.py               # VISIBLE: GoodScientist, PassiveBayesAgent
 │   ├── evaluation/
-│   │   ├── metrics.py                # HIDDEN: record schemas, validity audit, scores, M1–M4 (+M5), Wilson
+│   │   ├── metrics.py                # HIDDEN: record schemas, M2/Q1 audit, scores, M1–M4 (+M5), Wilson
 │   │   ├── passive.py                # HIDDEN-side reference classifier (uses prior only)
 │   │   └── runner.py                 # orchestration, persistence, summarize CLI
 │   └── demo/
@@ -137,7 +137,7 @@ originator-science/
 | `agents/base.py` | `Agent` protocol (`run(session) -> None`) and `LabSession` protocol (`observation()`, `call(tool, args)`, `finished`) | none | protocols | `lab.tools` | Hidden modules | n/a |
 | `agents/scripted.py` | `GoodScientist` (§16.1). `PassiveBayesAgent` wraps an injected classifier (§16.2). | `LabSession` | tool calls | `agents.base`, `lab.tools` | Hidden modules (the classifier is injected by the runner) | Propagate errors (bug = test failure) |
 | `agents/claude.py` | Anthropic Messages API tool-use loop. Renders the prompt from `Observation`. Logs the full transcript. Maps stop reasons to statuses. | `LabSession`, model settings | tool calls, transcript | `agents.base`, `lab.tools`, anthropic | Hidden modules, condition names | API error after retries → `API_FAILURE`; refusal → `REFUSED` |
-| `evaluation/metrics.py` | Record schemas (§13 RECORDS). Per-measurement validity audit, per-episode scores, aggregation (M1–M4, O1, O2; M5 if implemented), Wilson intervals | `EpisodeConfig`, events, diagnosis | `MeasurementAudit[]`, `EpisodeScores`, summary | config, growth, assay | LLM clients | Raise on inconsistent record |
+| `evaluation/metrics.py` | Record schemas (§13 RECORDS). Per-measurement audit (M2 diagnostic clauses against the frozen Gate 0 diagnostic set; Q1 reconstruction adequacy), per-episode scores, aggregation (M1–M4, O1, O2; M5 if implemented), Wilson intervals | `EpisodeConfig`, events, diagnosis | `MeasurementAudit[]`, `EpisodeScores`, summary | config, growth, assay | LLM clients | Raise on inconsistent record |
 | `evaluation/passive.py` | `PassiveBayes` reference classifier: reference densities from the prior; classify a passive history | `ScenarioPrior`, passive readings | label, probability | config, growth, assay | Episode `EpisodeConfig` (uses the prior only) | Raise if reference not built |
 | `evaluation/runner.py` | Build the environment per episode, run the agent, score, persist; `run` and `summarize` CLI | agent name, matrix file, output dir | run directory | all of the above | n/a | Per-episode failures recorded with a status; the run continues |
 | `demo/replay.py` | Step-by-step terminal replay; optional figure | `EpisodeResult` JSON | stdout, PNG | `biology.growth`, `assay.od_reader` (post-hoc reveal only), matplotlib | Network, API key | Raise on schema-version mismatch |
@@ -272,14 +272,15 @@ readings are slightly negative, as blank-subtracted readings can be.
 | $\nu$ | Growth sharpness | 8 | yes |
 | $\kappa$ | `BIOLOGICAL_PLATEAU`: $K = \kappa S$ | $U[0.80, 0.90]$ | **differs** |
 | $\lambda$ | `MEASUREMENT_ARTIFACT`: $K = \lambda S$ | $U[3.0, 5.0]$ | **differs** |
-| $\varepsilon_{\text{lin}}$ | Useful-region compression bound | 0.05 | yes |
-| $y_{\text{LoQ}}$ | Lower useful bound: $10\,\sigma_{\text{abs}}$ (benchmark threshold; conventional limit-of-quantification construction; per-replicate relative SD 12 %) | 0.03 | yes |
+| $\varepsilon_{\text{lin}}$ | Useful-region compression bound (Q1 reconstruction adequacy only; not M2) | 0.05 | yes |
+| $y_{\text{LoQ}}$ | Lower useful bound: $10\,\sigma_{\text{abs}}$ (benchmark threshold; conventional limit-of-quantification construction; per-replicate relative SD 12 %; Q1 only) | 0.03 | yes |
 | passive times | Passive schedule | $t = 0,1,\dots,18$ h, $d = 1$, 1 replicate | yes |
 | budget | Replicate-readings | 6 | yes |
 | $d$ range | Dilution factor | $[1, 100]$ | yes |
 | replicates | Per request | 1–3 | yes |
 | max turns | Agent API calls | 12 | yes |
 | late window | Fixed visible late-stage window (benchmark threshold) | $t \in [12, 18]$ h | yes |
+| $D_{\text{diag}}$ | Diagnostic dilution set for M2 (A-022) | $[d_{\min}, d_{\max}]$ frozen by Gate 0 (G0-H): AUROC ≥ 0.95, single replicate, worst time in window | yes (depends only on the visible action) |
 
 ## 6. Hidden conditions
 
@@ -323,27 +324,32 @@ $$x_{\text{presented}} = X(t)/d, \qquad y = f(x_{\text{presented}}) + \varepsilo
 
 | Limit | Consequence |
 |---|---|
-| Presented biomass above $x_{\text{lin}}$ | $d\bar y$ underestimates $X$. In `MEASUREMENT_ARTIFACT` with $d = 2$, $\hat C/K \le 0.69$ (design-time maximum). The ratio $d\bar y/\hat P$ still exceeds 1, which suggests nonlinearity but does not quantify $X$. |
+| Presented biomass above $x_{\text{lin}}$ | $d\bar y$ underestimates $X$. In `MEASUREMENT_ARTIFACT` with $d = 2$, $\hat C/K \le 0.69$ (design-time maximum). The ratio $d\bar y/\hat P$ still clearly exceeds 1, which reveals non-proportionality (diagnostic, M2) but does not quantify $X$ (not reconstruction-adequate, Q1). |
 | Reading near $y_{\text{LoQ}}$ | Relative noise $\approx 0.003/y + 0.02$ per replicate, multiplied by $d$ in absolute terms. |
 | Inside the useful region | $d\bar y$ is within 5 % (bias) plus noise of $X$. |
 
-**Adequate-dilution window** for a late sample: $d \in [X/x_{\text{lin}},\ X/y_{\text{LoQ}}]$.
-Over all of `scenario-v1`:
+**Reconstruction-adequate window (Q1)** for a late sample: $d \in [X/x_{\text{lin}},\ X/y_{\text{LoQ}}]$.
+This window concerns quantitative reconstruction only. It is not the diagnostic
+set used by M2. Over all of `scenario-v1`:
 - `BIOLOGICAL_PLATEAU`: any $d > 1$ up to $\ge 13.3$.
 - `MEASUREMENT_ARTIFACT`: from $\le 5.44$ up to $\ge 50$.
-- Universal window: $[5.44, 13.3]$, so **1:10 is adequate in every episode**.
+- Universal window: $[5.44, 13.3]$, so **1:10 is reconstruction-adequate in every
+  episode**.
 - Design-time estimates: $d = 5$ fails the region test in ≈ 20 % of
   `MEASUREMENT_ARTIFACT` episodes; $d = 20$ falls below the lower useful bound in
   ≈ 25 % of `BIOLOGICAL_PLATEAU` episodes.
 
 **Discrimination versus quantification** (full sweep in
 [GATE0_SPEC §6](GATE0_SPEC.md#6-intervention-diagnosticity-what-the-sweep-shows-design-time-reference)):
-- *Too little dilution* ($d = 2$) already discriminates the conditions, through the
-  dilution-proportionality ratio (AUROC 1.00). It cannot reconstruct the hidden
-  biomass (MA recovers ≈ 50 %) and is not M2-valid.
-- *Adequate dilution* reconstructs both worlds and discriminates perfectly.
-- *Too much dilution* ($d = 100$) degrades precision (BP 95 % band ±50 %) and fails
-  the lower useful bound, while discrimination stays ≈ 0.99.
+- *Too little dilution for reconstruction* ($d = 2$): **diagnostic**. It
+  discriminates the conditions through the dilution-proportionality ratio
+  (AUROC 1.00), so it counts toward M2 if Gate 0 places it in $D_{\text{diag}}$
+  (expected). It is **not reconstruction-adequate**: MA recovers only ≈ 50 % of the
+  hidden biomass (Q1 = no).
+- *Adequate dilution* ($d = 10$): diagnostic and reconstruction-adequate.
+- *Too much dilution* ($d = 100$): discrimination stays ≈ 0.99, so it is diagnostic if
+  it lies in $D_{\text{diag}}$. Precision degrades (BP 95 % band ±50 %) and the
+  reading falls below the lower useful bound (Q1 = no for most BP episodes).
 
 No U-shaped discrimination optimum is claimed.
 
@@ -529,7 +535,8 @@ for example `"replicates (4) exceeds remaining budget (2)"`.
 ## 11. Episode lifecycle
 
 1. The runner loads `scenario_v1.json` (validating its hash against
-   `experiments/results/gate0/summary.json`), the episode matrix, and the agent
+   `experiments/results/gate0/summary.json`), the frozen diagnostic set
+   $D_{\text{diag}}$ from that summary, the episode matrix, and the agent
    configuration.
 2. For episode `(seed, condition)`, `config.sample_episode` produces the hidden
    `EpisodeConfig` (§6).
@@ -544,8 +551,9 @@ for example `"replicates (4) exceeds remaining budget (2)"`.
    failure or refusal.
 8. The environment closes with status `DIAGNOSED`, `NO_DIAGNOSIS`, `API_FAILURE` or
    `REFUSED`.
-9. The evaluator audits each `measure_od` event against hidden ground truth (§15)
-   and computes `EpisodeScores`.
+9. The evaluator audits each `measure_od` event against the protocol clauses and
+   the frozen $D_{\text{diag}}$ (M2), and against hidden ground truth (Q1,
+   correctness) (§15). It then computes `EpisodeScores`.
 10. The runner writes the `EpisodeResult` atomically to
     `experiments/results/<run_id>/episodes/<episode_id>.json`.
 11. After all episodes, `summarize` recomputes `summary.json` from the episode
@@ -555,7 +563,7 @@ for example `"replicates (4) exceeds remaining budget (2)"`.
 
 | Hidden (never crosses to the agent) | Visible |
 |---|---|
-| `Condition`, $K$, $\kappa$/$\lambda$, $S$, $r$, $X_0$, $\nu$, $n$, noise parameters, seed, noise-free values, $t_{95}$, the late-window rule, validity flags, the scenario prior | Passive readings; `measure_od` results; budget; limits; tool descriptions; system prompt |
+| `Condition`, $K$, $\kappa$/$\lambda$, $S$, $r$, $X_0$, $\nu$, $n$, noise parameters, seed, noise-free values, $t_{95}$, the late-window rule, M2/Q1 audit flags, the scenario prior | Passive readings; `measure_od` results; budget; limits; tool descriptions; system prompt |
 
 **Import restrictions (enforced by T-012, an AST scan):**
 - `mirage.agents.*` and `mirage.lab.tools` may import only: the standard library,
@@ -693,15 +701,18 @@ class MeasurementAudit(Frozen):
     presented_biomass_odeq: float              # X(t)/d
     noise_free_reading: float
     is_late: bool                              # time_h within the fixed late window
-    is_diluted: bool
-    in_useful_region: bool                     # presented <= x_lin and reading >= y_loq
+    is_diluted: bool                           # d > 1
+    in_diagnostic_set: bool                    # d_min <= d <= d_max (frozen Gate 0 D_diag)
     before_diagnosis: bool
-    valid_diagnostic_control: bool
+    diagnostic_control: bool                   # M2 clause set (no useful-region requirement)
+    in_useful_region: bool                     # presented <= x_lin and reading >= y_loq
+    reconstruction_adequate: bool              # Q1: late, diluted, pre-diagnosis, in useful region
 
 class EpisodeScores(Frozen):
     correct: bool
-    valid_control: bool
-    justified: bool
+    diagnostic_control: bool                   # M2
+    justified: bool                            # M3 = correct and diagnostic_control
+    reconstruction_adequate: bool              # Q1 (secondary, descriptive)
     cost_units: int
     measure_calls_before_diagnosis: int
     brier: float | None
@@ -715,6 +726,14 @@ class AgentInfo(Frozen):
     prompt_version: str | None
     prompt_sha256: str | None                  # system prompt + tool definitions
     sdk_version: str | None
+
+class DiagnosticActionSet(Frozen):             # frozen Gate 0 output (summary.json, G0-H)
+    scenario_sha256: str
+    late_window_h: tuple[int, int]             # (12, 18)
+    d_min: float
+    d_max: float
+    auroc_threshold: float                     # 0.95
+    evaluated_replicates: int                  # 1 (least favourable)
 
 class EpisodeResult(Frozen):
     schema_version: Literal["episode-result-v1"]
@@ -755,28 +774,43 @@ index $e_D$ ($+\infty$ if none):
 
 $$x_m = X(t_m)/d_m, \qquad \mu_m = f(x_m),$$
 
-$$\text{valid}_m = [e_m < e_D] \wedge [d_m > 1] \wedge [t_m \in W_{\text{late}}] \wedge [x_m \le x_{\text{lin}}(S)] \wedge [\mu_m \ge y_{\text{LoQ}}],$$
+Diagnostic sufficiency (M2) and quantitative reconstruction (Q1) are separate
+properties:
 
-where $W_{\text{late}} = [12, 18]$ h is fixed and visible, and $x_{\text{lin}}(S)$ and
-$y_{\text{LoQ}} = 10\,\sigma_{\text{abs}}$ form the simulator's useful-measurement
-criterion (benchmark thresholds). The episode's $S$ is the single value sampled at
-episode creation. Validity uses noise-free values, so it does not depend on noise
-draws.
+$$\text{diag}_m = [e_m < e_D] \wedge [t_m \in W_{\text{late}}] \wedge [d_m > 1] \wedge [d_{\min} \le d_m \le d_{\max}],$$
+
+$$\text{recon}_m = [e_m < e_D] \wedge [t_m \in W_{\text{late}}] \wedge [d_m > 1] \wedge [x_m \le x_{\text{lin}}(S)] \wedge [\mu_m \ge y_{\text{LoQ}}].$$
+
+Here:
+- $W_{\text{late}} = [12, 18]$ h is fixed and visible.
+- $D_{\text{diag}} = [d_{\min}, d_{\max}]$ is the diagnostic dilution set frozen by
+  Gate 0 (G0-H; A-022). It is read from `experiments/results/gate0/summary.json`.
+- $x_{\text{lin}}(S)$ and $y_{\text{LoQ}} = 10\,\sigma_{\text{abs}}$ form the
+  simulator's useful-measurement criterion (benchmark thresholds).
+- Only accepted measurements are listed.
+
+$\text{diag}_m$ depends only on the visible action and the frozen Gate 0 result, so
+the same action counts identically in both conditions. It never requires accurate
+biomass reconstruction. $\text{recon}_m$ uses the episode's single $S$ and noise-free
+values, so it does not depend on noise draws.
 
 | Score | Definition |
 |---|---|
 | `correct` | `diagnosis` is present and `map(diagnosis.diagnosis) == condition` |
-| `valid_control` | $\exists m: \text{valid}_m$ |
-| `justified` | `correct ∧ valid_control` |
+| `diagnostic_control` | $\exists m: \text{diag}_m$ |
+| `justified` | `correct ∧ diagnostic_control` |
+| `reconstruction_adequate` | $\exists m: \text{recon}_m$ |
 | `cost_units` | $\sum$ replicates over accepted `measure_od` events |
 | `brier` | $(p - \mathbb 1[\text{MEASUREMENT\_ARTIFACT}])^2$ from the diagnosis, else `None` |
 
 Aggregates over the $N$ episodes in the primary denominator:
 
 - M1 = $\frac1N\sum \text{correct}$
-- M2 = $\frac1N\sum \text{valid\_control}$
+- M2 = $\frac1N\sum \text{diagnostic\_control}$
 - M3 = $\frac1N\sum \text{justified}$
 - M4 = $\frac1N\sum \text{cost\_units}$ (also report median and maximum)
+- Q1 (secondary, descriptive) = $\frac1N\sum \text{reconstruction\_adequate}$, reported per
+  condition. It is not part of M3.
 - O1 = mean Brier over diagnosed episodes
 - O2 = mean `measure_calls_before_diagnosis`
 - M5 (stretch, non-blocking) = mean over episodes of $\max_m D(a_m)$ over
@@ -796,17 +830,20 @@ Each is reported overall and per condition, with Wilson 95 % intervals for M1–
   variant that counts them as incorrect.
 
 **Notes.**
-- A valid diagnostic control is **not** merely "observed OD < threshold". An early
-  (before 12 h), undiluted, over-diluted, or post-diagnosis measurement never
-  qualifies (SVR-007).
+- A diagnostic control is **not** merely "observed OD < threshold". An early
+  (before 12 h), undiluted or post-diagnosis measurement never qualifies (SVR-007),
+  and neither does a dilution factor outside $D_{\text{diag}}$.
 - The late-stage clause depends only on the requested clock time, never on hidden
   state (T-027).
-- Asymmetry by design: in `BIOLOGICAL_PLATEAU` every late dilution $d > 1$ with a
-  reading at or above the LoQ is valid, because the sample is genuinely in the
-  useful region. In `MEASUREMENT_ARTIFACT` only adequate dilutions are valid. M2
-  must therefore be reported per condition. M2 on `MEASUREMENT_ARTIFACT` episodes
-  is the stringent component.
-- The audit stores each failed clause so that "why invalid" can be reported.
+- M2 is symmetric across conditions: a given $(t, d)$ is diagnostic or not
+  regardless of the hidden world.
+- Q1 is asymmetric by nature. In `BIOLOGICAL_PLATEAU` almost any late dilution up to
+  ≈ 13× is reconstruction-adequate. In `MEASUREMENT_ARTIFACT` it needs $d \gtrsim 5.4$.
+  Q1 must therefore be reported per condition.
+- Example: a late 1:2 dilution is diagnostic (M2, and M3 if the diagnosis is
+  correct) but not reconstruction-adequate in `MEASUREMENT_ARTIFACT` (Q1).
+- The audit stores each failed clause, for both M2 and Q1, so that the reasons can
+  be reported.
 
 ## 16. Baselines
 
@@ -828,7 +865,12 @@ Each is reported overall and per condition, with Wilson 95 % intervals for M1–
 - Design-time reference ($n = 5{,}000$ per condition): $R_{\text{BP}}$ median 1.03,
   99th percentile 1.12, maximum 1.23; $R_{\text{MA}}$ minimum 2.87, 1st percentile
   2.98, median 4.0.
-- Accuracy 1.000 and valid-control rate 1.000.
+- Accuracy 1.000.
+- Its 1:10 measurement is reconstruction-adequate (Q1) in 100 % of episodes. The
+  reference output labels this quantity "valid-control rate", which is earlier
+  terminology.
+- 1:10 is diagnostic (AUROC 1.00), so M2 = M3 = 1.000 is expected once G0-H
+  freezes $D_{\text{diag}}$.
 
 This rule replaces the earlier `corrected/raw > 2.5` rule. That rule is not used.
 
@@ -942,7 +984,7 @@ criteria, to avoid duplication.
   3. each `measure_od` request and its readings;
   4. the agent's diagnosis and rationale excerpt;
   5. **reveal**: true condition, $K$, $S$, back-corrected value against true biomass,
-     validity audit, score.
+     M2/Q1 audit, score.
 - **Figure.**
   - passive readings (points);
   - agent measurements, plotted back-corrected (distinct markers);
@@ -971,9 +1013,10 @@ criteria, to avoid duplication.
 
 - JSON files instead of a database. CLI instead of UI.
 - Synchronous API calls. Concurrency at most via a simple thread pool.
-- The validity rule uses fixed benchmark thresholds ($\varepsilon_{\text{lin}} = 5\,\%$,
-  $y_{\text{LoQ}} = 10\,\sigma_{\text{abs}} = 0.03$, late window 12–18 h). These are
-  design decisions, not instrument facts.
+- M2 uses the fixed late window (12–18 h) and the Gate-0-frozen diagnostic set
+  (AUROC ≥ 0.95). Q1 uses fixed reconstruction thresholds
+  ($\varepsilon_{\text{lin}} = 5\,\%$, $y_{\text{LoQ}} = 10\,\sigma_{\text{abs}} = 0.03$).
+  These are benchmark design decisions, not instrument facts.
 - One prompt version, not optimised. One model.
 - `PassiveBayes` uses a histogram density, not an exact marginal likelihood.
 - No packaging or release process beyond an editable install.

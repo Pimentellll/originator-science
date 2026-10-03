@@ -109,7 +109,7 @@ resolve ambiguity, not whether it can recite a fact about OD600.
 | ID | Objective |
 |---|---|
 | OBJ-1 | Build a virtual laboratory in which passive OD readings are quantitatively ambiguous between `BIOLOGICAL_PLATEAU` and `MEASUREMENT_ARTIFACT`, and an adequate late-stage dilution separates them. |
-| OBJ-2 | Measure whether one autonomous AI scientist chooses a valid diagnostic control and reaches a correct, justified diagnosis. |
+| OBJ-2 | Measure whether one autonomous AI scientist chooses a diagnostic control (an experiment that distinguishes the competing explanations) and reaches a correct, justified diagnosis. |
 | OBJ-3 | Compare that agent with the strongest implemented passive baseline (read against the analytic passive ceiling) and a scripted good-scientist baseline (evidence that the task is solvable within budget). |
 | OBJ-4 | Deliver an offline demo that replays saved evidence. |
 
@@ -212,7 +212,9 @@ perfectly separable by plateau level ([ADR-007](ADR/ADR-007-matched-sharpness-un
 Diluting a late-stage aliquot by an adequate factor (1:10 is adequate for every
 scenario in the frozen distribution) brings the presented biomass into the
 proportional range. The back-corrected estimate $d \cdot y$ then recovers $X$ to within
-5 % plus noise:
+5 % plus noise. Distinguishing the explanations needs less than that: any late
+dilution that Gate 0 classifies as diagnostic separates them, even when it is too
+weak to reconstruct the biomass accurately (§14, Q1).
 
 | | Passive apparent plateau | Back-corrected late biomass (adequate dilution) | Ratio |
 |---|---|---|---|
@@ -298,9 +300,10 @@ claim about nature.
 | A-016 | The conditions differ only in $K$ ($K = \kappa S$ vs $K = \lambda S$). All other parameters share distributions. | DESIGN DECISION |
 | A-017 | Growth sharpness $\nu$ equals assay sharpness $n$, so both conditions yield passive curves in the same parametric family. | DESIGN DECISION |
 | A-018 | `BIOLOGICAL_PLATEAU` places $K$ at $0.80$–$0.90\,S$: inside the useful region but near its top. This is a scenario-selection choice that creates genuine ambiguity, not a claim that real cultures plateau near instrument limits. | DESIGN DECISION |
-| A-019 | The **useful region** of the assay is defined as compression $1 - f(x)/x \le 5\%$ (i.e. $x \le 0.9187\,S$), together with a noise-free reading of at least $10\,\sigma_{\text{abs}}$. In `scenario-v1` that bound is 0.03, where the per-replicate relative SD is 12 %. Both are benchmark design thresholds derived from the simulator's response and noise model, not instrument facts. | DESIGN DECISION |
+| A-019 | The **useful region** of the assay is defined as compression $1 - f(x)/x \le 5\%$ (i.e. $x \le 0.9187\,S$), together with a noise-free reading of at least $10\,\sigma_{\text{abs}}$. In `scenario-v1` that bound is 0.03, where the per-replicate relative SD is 12 %. Both are benchmark design thresholds derived from the simulator's response and noise model, not instrument facts. The useful region defines **quantitative reconstruction adequacy** (Q1). It is **not** required for a diagnostic control (M2). | DESIGN DECISION |
 | A-020 | The simulator configuration is the authoritative ground truth ([ADR-003](ADR/ADR-003-hidden-ground-truth.md)). | DESIGN DECISION |
 | A-021 | The late-stage diagnostic window is the fixed clock-time interval $t \in [12, 18]$ h, defined on visible time only. It does not depend on hidden state. In every `scenario-v1` episode, the apparent plateau begins at least 2 h before 12 h. | DESIGN DECISION |
+| A-022 | A late, diluted measurement counts as **diagnostic** (M2) if its dilution factor lies in the **diagnostic dilution set** $D_{\text{diag}} = [d_{\min}, d_{\max}]$. Gate 0 freezes this set (G0-H) as the dilution factors whose single-measurement discriminability between the two conditions (AUROC of the ratio statistic over the scenario prior) is ≥ 0.95, under the least favourable setting (single replicate, worst time in the window). The classification depends only on the visible action, never on the episode's hidden state. | DESIGN DECISION |
 
 ## 11. Functional requirements
 
@@ -367,36 +370,62 @@ The thresholds are fixed now and must not be relaxed after seeing results.
 | SVR-005 | **No LLM in the evaluation path.** | Evaluator and runner `summarize` import no LLM client. | T-012, code review |
 | SVR-006 | **Same assay model in both conditions; stable instrument.** Same function, $n$, noise model and resolution. $S$ is drawn from the same distribution independently of the condition ($P(S \mid H_A) = P(S \mid H_B)$), is sampled once per episode, and never changes within an episode. | Same seed gives identical $S$, $r$, $X_0$ under both conditions. KS statistic of $\log S$ between conditions ≤ 0.03. $S$ is constant across all measurements of an episode. A single assay code path is used. | G0-F, T-024, T-025, T-026 |
 | SVR-007 | **Diagnostic measurement must be late-stage and informative.** An early sample with a naturally low reading is not a diagnostic control. The late-stage criterion must not depend on hidden state. | A measurement counts only if it comes from the fixed window $t \in [12, 18]$ h (A-021). Window validity: in 100 % of scenarios, $t_{95} + 2\text{ h} \le 12$ h; in 100 % of `MEASUREMENT_ARTIFACT` scenarios, $X(12\text{ h}) \ge 2.5\,K'$. | G0-C, T-005, T-021, T-027 |
-| SVR-008 | **Under-dilution is insufficient to reconstruct biomass** (desirable, non-blocking). Its residual discriminative value is reported honestly, without a threshold. | With $d = 2$ in `MEASUREMENT_ARTIFACT`, ≥ 95 % of episodes present biomass outside the useful region and have $\hat C/K \le 0.75$. | G0-D (D3) |
-| SVR-009 | **Inadequate interventions are non-diagnostic.** Undiluted late re-measurement and early diluted samples must not discriminate the conditions beyond passive level. | Discriminability $\max(\text{AUROC}, 1-\text{AUROC})$ of the ratio statistic ≤ 0.65 for $(t = 18, d = 1)$ and $(t = 3, d = 10)$. | G0-D (D1, D2) |
+| SVR-008 | **A 1:2 dilution is insufficient for accurate latent-biomass reconstruction, even though it may still be diagnostically discriminating** (desirable, non-blocking). Its diagnostic status is decided like any other dilution, by the frozen diagnostic set (SVR-011); design-time AUROC is 1.00. | With $d = 2$ in `MEASUREMENT_ARTIFACT`, ≥ 95 % of episodes present biomass outside the useful region and have $\hat C/K \le 0.75$. | G0-D (D3) |
+| SVR-009 | **Undiluted and early interventions are non-diagnostic.** Undiluted late re-measurement and early diluted samples must not discriminate the conditions beyond passive level. | Discriminability $\max(\text{AUROC}, 1-\text{AUROC})$ of the ratio statistic ≤ 0.65 for $(t = 18, d = 1)$ and $(t = 3, d = 10)$. | G0-D (D1, D2) |
 | SVR-010 | **Robustness** (non-blocking). The construction must hold in a neighbourhood of `scenario-v1`, not at a single point. | GATE0_SPEC G0-G perturbations keep passive ambiguity, Condition-A trustworthiness and diagnostic separation, or the boundary is documented. | G0-G |
+| SVR-011 | **Frozen diagnostic action set.** M2 must be operationalised from Gate 0, not from LLM judgement or from biomass-reconstruction accuracy. | Gate 0 freezes $D_{\text{diag}}$ (A-022). It must be a contiguous interval on the evaluation grid that contains $d = 10$ and excludes $d = 1$, recorded in `summary.json` under the scenario hash. | G0-H, T-032 |
 
 ## 14. Metrics
 
 Metrics are computed per episode and aggregated per agent configuration, overall and
 per condition. Exact computations are in [DESIGN §15](DESIGN.md#15-evaluation).
 
-A measurement is a **valid diagnostic control** if and only if all of the following
-hold:
+Two properties of a measurement are kept separate:
 
-1. it was obtained before the diagnosis;
-2. it is diluted: $d > 1$;
+- **Diagnostic sufficiency (M2):** does the experiment provide evidence that
+  distinguishes `GROWTH_STOPPED` from `GROWTH_CONTINUED`?
+- **Quantitative reconstruction quality (Q1):** does it place the presented sample
+  inside the assay's useful region, so that back-correction gives an accurate
+  estimate of the latent biomass?
+
+Reconstruction is scientifically useful, but a diagnosis is justified without it
+whenever the experiment already distinguishes the competing worlds.
+
+A measurement is a **diagnostic control** if and only if all of the following hold:
+
+1. it was accepted by the environment;
+2. it was obtained before the diagnosis;
 3. it is late-stage: the aliquot comes from the fixed visible window $t \in [12, 18]$ h
    (A-021);
-4. it is in the useful region: presented biomass $X(t)/d \le 0.9187\,S$ **and**
-   noise-free reading $\ge 10\,\sigma_{\text{abs}} = 0.03$ (benchmark thresholds,
-   A-019).
+4. it is diluted: $d > 1$;
+5. its dilution factor lies in the Gate-0-frozen diagnostic set
+   $D_{\text{diag}} = [d_{\min}, d_{\max}]$ (A-022, SVR-011).
 
-Validity is a property of the measurement, judged against hidden ground truth. It
-does not depend on how the agent interpreted the measurement.
+There is **no** useful-region requirement for M2. The classification depends only on
+the visible action $(t, d)$ and the frozen Gate 0 result. It never depends on an LLM,
+on the agent's interpretation, or on the episode's hidden state, so the same action
+counts identically in both conditions.
+
+A measurement is **reconstruction-adequate** (Q1) if it satisfies clauses 1–4 above
+**and** lies in the useful region (A-019): presented biomass $X(t)/d \le 0.9187\,S$
+and noise-free reading $\ge 10\,\sigma_{\text{abs}} = 0.03$.
+
+Key example (design-time reference, GATE0_SPEC §6):
+
+| Late measurement | Diagnostic separation (M2) | Accurate biomass reconstruction (Q1) |
+|---|---|---|
+| 1:2 dilution | **Yes** (AUROC 1.00) | **No** (`MEASUREMENT_ARTIFACT` recovers ≈ 50 % of true biomass) |
+| 1:10 dilution | **Yes** (AUROC 1.00) | **Yes** (within ≈ 7 % in both conditions) |
+| Undiluted | No (AUROC 0.50; not diluted) | No |
 
 | ID | Metric | Definition |
 |---|---|---|
 | M1 | Diagnosis accuracy | Fraction of episodes whose submitted label maps to the true condition. A missing diagnosis counts as incorrect. |
-| M2 | Valid diagnostic-control rate | Fraction of episodes with at least one valid diagnostic control. |
-| M3 | Justified accuracy | Fraction of episodes that are both correct (M1) and contain a valid diagnostic control (M2). |
+| M2 | Diagnostic-control rate | Fraction of episodes in which the agent performed, before diagnosis, at least one diagnostic control: an accepted, late, diluted measurement whose dilution factor Gate 0 demonstrated to be diagnostically discriminating ($d \in D_{\text{diag}}$). |
+| M3 | Justified accuracy | Fraction of episodes that are both correct (M1) and contain a diagnostic control (M2). |
 | M4 | Experimental cost | Mean replicate-readings consumed per episode (report median and maximum too). |
 | M5 (stretch, non-blocking) | Experiment diagnosticity / selection efficiency | How informative the chosen experiment was compared with the alternatives: matched-twin single-outcome AUROC $D(a)$ ([BENCHMARK_METHODOLOGY §3](../BENCHMARK_METHODOLOGY.md#3-experiment-diagnosticity)). The MVP ships without it. |
+| Q1 (secondary, descriptive) | Quantitative reconstruction adequacy | Fraction of episodes with at least one reconstruction-adequate measurement. Reported per condition; not part of M3 and not a headline metric. |
 | O1 (optional) | Belief calibration | Brier score of the final `p_growth_continued`. |
 | O2 (optional) | Rounds to diagnosis | Number of `measure_od` calls before diagnosis. |
 
@@ -432,8 +461,8 @@ Label mapping: `GROWTH_STOPPED` ↔ `BIOLOGICAL_PLATEAU`; `GROWTH_CONTINUED` ↔
 ### 17.1 Gate 0 success (blocking; no LLM work is merged before it)
 
 Every blocking criterion in [GATE0_SPEC §4](GATE0_SPEC.md#4-quantitative-acceptance-criteria)
-passes (G0-A, G0-B, G0-C, G0-D1/D2, G0-E, G0-F). Non-blocking G0-D3 and G0-G are
-reported. Every output in [GATE0_SPEC §3](GATE0_SPEC.md#3-required-gate-0-outputs)
+passes (G0-A, G0-B, G0-C, G0-D1/D2, G0-E, G0-F, G0-H). Non-blocking G0-D3 and G0-G
+are reported. The diagnostic set $D_{\text{diag}}$ is frozen with the scenario hash. Every output in [GATE0_SPEC §3](GATE0_SPEC.md#3-required-gate-0-outputs)
 and the frozen `scenario_v1.json` are committed.
 
 ### 17.2 MVP success
@@ -485,7 +514,7 @@ The team must not claim, in the repository, slides or verbal pitch:
   is the bound;
 - that over-dilution has a discrimination optimum (a U-shaped curve) unless Gate 0
   demonstrates one. The design-time reference shows that over-dilution costs
-  precision and validity, not discriminability.
+  precision and reconstruction adequacy (Q1), not discriminability.
 
 Allowed and forbidden claims about experimental results are listed in
 [EXPERIMENT_PLAN §10](EXPERIMENT_PLAN.md#10-claims).

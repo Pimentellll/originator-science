@@ -2,7 +2,7 @@
 
 | Field | Value |
 |---|---|
-| Status | Accepted for MVP (3 October 2026). No tests are implemented yet. Inventory: T-001 to T-031. |
+| Status | Accepted for MVP (3 October 2026). No tests are implemented yet. Inventory: T-001 to T-032. |
 | Role | **How we verify** that the implementation meets [ANALYSIS](ANALYSIS.md) and [DESIGN](DESIGN.md) |
 | Related | [GATE0_SPEC](GATE0_SPEC.md) (scientific criteria) · [DEVELOPMENT_PLAN](DEVELOPMENT_PLAN.md) (which milestone needs which tests) · [EXPERIMENT_PLAN](EXPERIMENT_PLAN.md) |
 
@@ -57,7 +57,7 @@ condition the standard error is ≈ 0.016.
 | T-018 | Offline replay reproduces a saved episode | End-to-end | FR-016, NFR-006, DR-001 | MS5 |
 | T-019 | Passive-family equivalence | Scientific-validation | DESIGN §5.4, G0-E | MS0 |
 | T-020 | Request validation and error semantics | Unit | FR-009, DESIGN §19 | MS1 |
-| T-021 | Diagnostic-control validity rule | Unit | SVR-007, M2, DESIGN §15 | MS1 |
+| T-021 | Diagnostic-control (M2) and reconstruction-adequacy (Q1) rules | Unit | SVR-007, SVR-011, M2, Q1, DESIGN §15 | MS1 |
 | T-022 | Claude adapter loop with mocked client | Integration | FR-010, DESIGN §9.4, §19 | MS2 |
 | T-023 | Summary recomputation and Wilson intervals | Integration | NFR-002, FR-015, ER-006 | MS1 |
 | T-024 | Same seed gives the same nuisance parameters in both conditions | Unit | SVR-006, FR-004 | MS0 |
@@ -68,11 +68,12 @@ condition the standard error is ≈ 0.016.
 | T-029 | Gate 0 summary integrity | Integration | FR-017, GATE0_SPEC §7 | MS0 |
 | T-030 | Gate 0 plot generation | Integration | FR-017, GATE0_SPEC §3 | MS0 |
 | T-031 | Changed scientific configuration invalidates Gate 0 results | Integration | ER-005, ER-007, GATE0_SPEC §8 | MS1 |
+| T-032 | M2 uses the frozen Gate 0 diagnostic set and is condition-symmetric | Integration | SVR-011, A-022, M2 | MS1 |
 
 By category:
 - **Unit:** T-001, T-002, T-003, T-006, T-007, T-011, T-013, T-014, T-020, T-021,
   T-024, T-026, T-027.
-- **Integration:** T-012, T-017, T-022, T-023, T-028, T-029, T-030, T-031.
+- **Integration:** T-012, T-017, T-022, T-023, T-028, T-029, T-030, T-031, T-032.
 - **Scientific-validation:** T-004, T-005, T-008, T-009, T-010, T-019, T-025.
 - **End-to-end:** T-015, T-016, T-018.
 
@@ -203,11 +204,13 @@ MA = `MEASUREMENT_ARTIFACT`.
 
 ### T-014 — Diagnosis scoring (unit)
 - **Procedure.** Build synthetic records covering every combination of {BP, MA} ×
-  {`GROWTH_STOPPED`, `GROWTH_CONTINUED`, none} × {valid control, no valid control}.
+  {`GROWTH_STOPPED`, `GROWTH_CONTINUED`, none} × {diagnostic control, no diagnostic
+  control} × {reconstruction-adequate, not}.
 - **Acceptance.**
   - Mapping as in DESIGN §9.1.
-  - `correct`, `valid_control` and `justified` follow the truth table; a missing
-    diagnosis is incorrect.
+  - `correct`, `diagnostic_control`, `justified` and `reconstruction_adequate`
+    follow the truth table; a missing diagnosis is incorrect.
+  - `justified` never depends on `reconstruction_adequate`.
   - Brier equals $(p - y)^2$.
   - M1–M4 over a synthetic set equal hand-computed values.
 
@@ -263,24 +266,29 @@ MA = `MEASUREMENT_ARTIFACT`.
     and no noise-stream consumption, counting as a turn.
   - The environment state is otherwise unchanged.
 
-### T-021 — Diagnostic-control validity rule (unit)
-- **Procedure.** Use the matched demo pair configs (late window $[12, 18]$ h) and
-  synthetic event lists.
+### T-021 — Diagnostic-control (M2) and reconstruction-adequacy (Q1) rules (unit)
+- **Procedure.** Use the matched demo pair configs (late window $[12, 18]$ h), a
+  **test fixture** diagnostic set $D_{\text{diag}} = [1.5, 100]$ (not the frozen
+  Gate 0 result), and synthetic event lists.
 
-  | Case | Condition | $t$ | $d$ | Expected | Failing clause |
-  |---|---|---|---|---|---|
-  | a | MA | 4 | 10 | invalid | not late |
-  | b | MA | 18 | 1 | invalid | not diluted |
-  | c | MA | 18 | 2 | invalid | outside useful region |
-  | d | BP | 18 | 50 | invalid | below LoQ |
-  | e | BP | 18 | 10 | valid | — |
-  | f | MA | 18 | 10 | valid | — |
-  | g | MA | 12 | 10 | valid | — (window start) |
-  | j | MA | 11 | 10 | invalid | not late (informative, but outside the fixed window) |
-  | h | MA | 18 | 10, logged after the diagnosis event | invalid | after diagnosis |
-  | i | BP | 18 | 2 | valid | — (BP genuinely in region; DESIGN §15 asymmetry) |
+  | Case | Condition | $t$ | $d$ | M2 diagnostic | Q1 reconstruction-adequate | Failing clause(s) |
+  |---|---|---|---|---|---|---|
+  | a | MA | 4 | 10 | no | no | not late |
+  | b | MA | 18 | 1 | no | no | not diluted |
+  | c | MA | 18 | 2 | **yes** | no | Q1: outside useful region |
+  | d | BP | 18 | 50 | yes | no | Q1: below lower useful bound |
+  | e | BP | 18 | 10 | yes | yes | — |
+  | f | MA | 18 | 10 | yes | yes | — |
+  | g | MA | 12 | 10 | yes | yes | — (window start) |
+  | h | MA | 18 | 10, logged after the diagnosis event | no | no | after diagnosis |
+  | i | BP | 18 | 2 | yes | yes | — |
+  | j | MA | 11 | 10 | no | no | not late (informative, but outside the fixed window) |
+  | k | MA | 18 | 1.2 | no | no | M2: $d$ outside fixture $D_{\text{diag}}$; Q1: outside useful region |
 
-- **Acceptance.** Validity and the recorded failing clause match the table.
+- **Acceptance.**
+  - The M2 flag, the Q1 flag and the recorded failing clauses match the table.
+  - Case c is the key example: 1:2 is diagnostic but not reconstruction-adequate.
+  - M2 never consults the useful region.
 
 ### T-022 — Claude adapter loop with mocked client (integration)
 - **Procedure.** Inject a fake client returning scripted responses:
@@ -369,9 +377,10 @@ MA = `MEASUREMENT_ARTIFACT`.
   `summary.json`.
 - **Acceptance.**
   - Every key of GATE0_SPEC §7 is present: parameters, nuisance distributions,
-    seeds, checks G0-A to G0-G (each with value, threshold, threshold type,
-    blocking flag and pass flag), passive baseline, diagnostic dilution,
-    `GoodScientist`, plots, scenario hash, source commit, versions.
+    seeds, checks G0-A to G0-H (each with value, threshold, threshold type,
+    blocking flag and pass flag), `diagnostic_action_set`, passive baseline,
+    diagnostic dilution, `GoodScientist`, plots, scenario hash, source commit,
+    versions.
   - `passed` equals the AND of the blocking checks.
   - Quick mode is marked so that it cannot be mistaken for a full pass.
 
@@ -390,6 +399,18 @@ MA = `MEASUREMENT_ARTIFACT`.
   - The runner refuses to start with a hash-mismatch error.
   - Formatting-only changes (key order, whitespace) do not change the hash.
 
+### T-032 — M2 uses the frozen Gate 0 diagnostic set (integration)
+- **Procedure.**
+  1. Write a fixture Gate 0 `summary.json` with
+     `diagnostic_action_set = {d_min: 1.5, d_max: 100}` and a matching scenario hash.
+  2. Score the same request sequence in a BP episode and in an MA episode.
+  3. Repeat with the set missing, and with a mismatched hash.
+- **Acceptance.**
+  - Per-measurement M2 flags are identical for BP and MA (condition symmetry).
+  - They change only when $D_{\text{diag}}$ changes.
+  - The evaluator refuses to score M2 if the set is missing or its hash mismatches.
+  - No LLM is called.
+
 ## 4. Gate 0 ↔ test mapping
 
 | Gate 0 check | pytest counterpart(s) | Difference |
@@ -401,6 +422,7 @@ MA = `MEASUREMENT_ARTIFACT`.
 | G0-E | T-019 | same size |
 | G0-F | T-024, T-025, T-026 | Gate 0 uses 10,000 seeds per condition |
 | G0-G | none (Gate 0 only; non-blocking) | — |
+| G0-H | T-021 (rule), T-032 (use of the frozen set) | Gate 0 computes the set; tests use a fixture set |
 | Outputs and summary | T-029, T-030 | pytest uses `--quick` |
 
 ## 5. Requirement traceability (summary)
@@ -424,9 +446,10 @@ MA = `MEASUREMENT_ARTIFACT`.
 | SVR-004, SVR-005 | T-012 |
 | SVR-006 | T-024, T-025, T-026 (+ G0-F) |
 | SVR-007 | T-005, T-021, T-027 |
-| SVR-008 | G0-D3 |
+| SVR-008 | G0-D3 (reconstruction only) |
 | SVR-009 | G0-D1, G0-D2 |
 | SVR-010 | G0-G |
+| SVR-011 | G0-H, T-021, T-032 |
 | ER-005, ER-007 | T-031 |
 
 ## 6. Planned test files
@@ -442,7 +465,7 @@ tests/
 ├── test_science.py             # T-004, T-005, T-008, T-009, T-010, T-019, T-025  (marker: science)
 ├── test_environment.py         # T-011, T-013, T-020, T-026
 ├── test_metrics.py             # T-014, T-021, T-023, T-027
-├── test_runner.py              # T-015, T-016, T-017, T-031
+├── test_runner.py              # T-015, T-016, T-017, T-031, T-032
 ├── test_gate0.py               # T-029, T-030 (gate0 --quick)
 ├── test_trust_boundary.py      # T-012, T-028
 ├── test_claude_adapter.py      # T-022

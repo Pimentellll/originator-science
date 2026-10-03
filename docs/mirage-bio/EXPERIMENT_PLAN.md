@@ -17,7 +17,8 @@ In the MIRAGE-Bio `scenario-v1` environment, where passive OD readings cannot
 reliably distinguish a true biological plateau from a measurement-produced one,
 does an autonomous AI scientist (Claude Opus 5.5):
 
-1. choose a valid diagnostic control (a late-stage, adequately diluted measurement),
+1. choose a diagnostic control (a late-stage diluted measurement whose dilution
+   factor Gate 0 demonstrated to distinguish the worlds),
 2. reach the correct diagnosis, and
 3. do both within the experimental budget?
 
@@ -25,12 +26,12 @@ does an autonomous AI scientist (Claude Opus 5.5):
 
 | Phase | What it validates | When | Who decides |
 |---|---|---|---|
-| **Scientific benchmark construction** | The *environment*: passive ambiguity, Condition-A trustworthiness, diagnostic separation, inadequate interventions non-diagnostic, nuisance independence | Gate 0 ([GATE0_SPEC](GATE0_SPEC.md)), before any agent run | Pre-registered thresholds only |
+| **Scientific benchmark construction** | The *environment*: passive ambiguity, Condition-A trustworthiness, diagnostic separation, undiluted and early interventions non-diagnostic, frozen diagnostic dilution set $D_{\text{diag}}$, nuisance independence | Gate 0 ([GATE0_SPEC](GATE0_SPEC.md)), before any agent run | Pre-registered thresholds only |
 | **Agent experiment** | The *agent's behaviour* in the frozen environment | Only after the scenario configuration is frozen and hashed | This plan |
 
 Once Gate 0 freezes the parameters, **Claude's outcomes must never be used to
 retune the benchmark** (ANALYSIS ER-007; DEVELOPMENT_PLAN stop rule 16). Changing
-parameters, thresholds, the validity rule or the prompt to make the result "more
+parameters, thresholds, the diagnostic set $D_{\text{diag}}$, the diagnostic-control rule or the prompt to make the result "more
 interesting" would contaminate the evaluation.
 
 - If the benchmark turns out easy for Claude, report that.
@@ -47,7 +48,7 @@ Narrow, about this environment only.
 |---|---|---|---|
 | H1 (environment check) | The passive information ceiling holds and the task is solvable. | On the evaluation episodes and on the 1,000-per-condition reference, `PassiveBayes` M1 ≤ 0.65 and `GoodScientist` M3 ≥ 0.95. | Either fails. The environment is then invalid and H2/H3 are not evaluated. |
 | H2 (primary) | Claude's justified accuracy exceeds the passive-ambiguity threshold (0.65), which lies above the analytic passive ceiling (≈ 0.58). | Wilson 95 % lower bound of Claude M3 > 0.65. | Upper bound < 0.65. An interval containing 0.65 is **inconclusive**. |
-| H3 (descriptive) | When Claude performs a valid control, it interprets it correctly. | Conditional accuracy (correct given a valid control) reported with Wilson interval. | No threshold; reported descriptively. |
+| H3 (descriptive) | When Claude performs a diagnostic control, it interprets it correctly. | Conditional accuracy (correct given a diagnostic control) reported with Wilson interval. | No threshold; reported descriptively. |
 
 H1 is a precondition, not a finding about the agent. With 10–30 episodes, H2 can be
 supported only if performance is clearly high. A null or inconclusive result is
@@ -102,9 +103,10 @@ Exactly as defined in [ANALYSIS §14](ANALYSIS.md#14-metrics) and computed as in
 | ID | Metric | Reported as |
 |---|---|---|
 | M1 | Diagnosis accuracy | k/n, Wilson 95 %, overall and per condition |
-| M2 | Valid diagnostic-control rate | k/n, Wilson 95 %, overall and per condition (the MA component is the stringent part) |
+| M2 | Diagnostic-control rate | k/n, Wilson 95 %, overall and per condition |
 | M3 | Justified accuracy | k/n, Wilson 95 %, overall and per condition |
 | M4 | Experimental cost | mean, median, max replicate-readings |
+| Q1 (secondary, descriptive) | Quantitative reconstruction adequacy | k/n per condition; not part of M3 |
 | M5 (stretch, non-blocking) | Experiment diagnosticity | mean of max matched-twin $D(a)$ per episode ([BENCHMARK_METHODOLOGY §3](../BENCHMARK_METHODOLOGY.md#3-experiment-diagnosticity)); reported only if implemented |
 | O1 (optional) | Brier score | mean over diagnosed episodes |
 | O2 (optional) | Rounds to diagnosis | mean `measure_calls_before_diagnosis` |
@@ -168,14 +170,14 @@ The same table is repeated per condition.
 | B2 M1 > 0.65 on the reference set, or T-016 fails | Passive ambiguity broken; environment invalid | **Stop.** Do not report LLM results as evidence. Investigate (R-002). |
 | B1 M3 < 0.95 | Evaluator, environment or dilution design broken | **Stop.** Fix before any LLM claim (R-003). |
 | C1 M3 high (Wilson lower bound > 0.65) | In this scenario Claude selects and correctly interprets the decisive control | Report as support for H2, with the caveat that the control is textbook practice (R-007). No generalisation. |
-| C1 M1 high but M3 low | Correct answers without valid evidence: guessing, prior knowledge, or invalid controls | Report as *unjustified accuracy*. Show audit reasons. |
+| C1 M1 high but M3 low | Correct answers without diagnostic evidence: guessing, prior knowledge, or non-diagnostic measurements | Report as *unjustified accuracy*. Show audit reasons. |
 | C1 M2 high but M1 low | Right experiment, wrong interpretation (e.g. forgot back-correction, misread the ratio) | Report as an interpretation failure. Show examples via replay. |
 | C1 M1 ≈ passive level and M2 low | Accepts readings at face value; does not recognise the ambiguity | Report as failure to recognise ambiguity. This is a legitimate negative result. |
-| C1 M2 high on BP but low on MA | Partly the designed validity asymmetry; partly under-dilution | Report per condition. Inspect dilution factors chosen in MA. |
+| C1 M2 high but Q1 low | Diagnostic but quantitatively poor experiments (e.g. late 1:2 dilutions) | Report. Justified accuracy is unaffected; Q1 per condition shows reconstruction quality. |
 | C1 high M4 with high M3 | Solves the task but spends budget inefficiently | Efficiency note only. |
 | Wilson interval for C1 M3 contains 0.65 | Inconclusive at this sample size | Report as inconclusive. Do not round up to "works". |
 | The benchmark proves easy (or hard) for Claude | A property of this agent in this frozen environment | Report it. **Never** retune parameters, thresholds or prompt in response (§1.1). |
-| C1 diagnoses correctly after a late 1:2 dilution only | Diagnostic but not quantitatively valid evidence (GATE0_SPEC §6) | Counts toward M1, not M2/M3. Report the count; M5 (if computed) shows the diagnosticity. |
+| C1 diagnoses correctly after a late 1:2 dilution only | Diagnostic evidence that is quantitatively inaccurate (GATE0_SPEC §6) | Counts toward M1, M2 and M3 (subject to the frozen $D_{\text{diag}}$); Q1 = no. Report the count. |
 | API failures or refusals > 20 % of episodes | Results incomplete | Report the ITT variant prominently. State the failure cause. Do not silently replace episodes. |
 | C1 refusals concentrated in one condition | Possible content-triggered classifier behaviour | Report as an observation about the deployment surface, not about scientific reasoning. |
 
@@ -188,7 +190,7 @@ The same table is repeated per condition.
 - "One adequately diluted late-stage measurement separates the two hidden conditions
   (`GoodScientist` M3 = …)."
 - "On n evaluation episodes, Claude Opus 5.5 (effort high, prompt-v1) achieved
-  justified accuracy k/n [Wilson 95 % CI], valid-control rate …, at mean cost …"
+  justified accuracy k/n [Wilson 95 % CI], diagnostic-control rate …, at mean cost …"
 - "Failures were of type … (audit breakdown)."
 - "The environment, evaluator and every reported number are reproducible from the
   committed configuration and records."

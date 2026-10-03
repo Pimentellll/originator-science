@@ -66,18 +66,23 @@ obtained evidence that justified it.
   optional.
 
 **Scoring**
-- A **valid diagnostic control** must meet all four conditions:
-  1. taken before the diagnosis;
+- A **diagnostic control** (M2) must meet all four conditions:
+  1. accepted, and taken before the diagnosis;
   2. diluted ($d > 1$);
   3. taken from the fixed late window $t \in [12, 18]$ h;
-  4. in the useful region (≤ 5 % compression and reading ≥ 0.03, both benchmark
-     thresholds).
+  4. with a dilution factor in the Gate-0-frozen diagnostic set $D_{\text{diag}}$.
+- It does **not** need to be in the useful region.
+- **Reconstruction adequacy** (Q1, secondary) separately records whether the sample
+  was in the useful region (≤ 5 % compression, reading ≥ 0.03), i.e. whether the
+  biomass estimate is accurate.
+- Key example: late 1:2 is diagnostic but quantitatively inaccurate. Late 1:10 is
+  both.
 - Metrics:
 
   | Metric | Meaning |
   |---|---|
   | M1 | Accuracy |
-  | M2 | Valid-control rate |
+  | M2 | Diagnostic-control rate |
   | M3 | Justified accuracy (M1 ∧ M2) |
   | M4 | Cost |
   | M5 | Diagnosticity (stretch only) |
@@ -98,9 +103,11 @@ MS0 Gate 0 (Sat 18:00 target, 18:30 hard) → MS1 lab (Sat 21:30) → MS2 Claude
 - 1:10 late dilution separates B ($R \ge 2.5$), with `GoodScientist` ≥ 0.98;
 - undiluted and early samples are non-diagnostic;
 - exact curve-family equivalence holds;
-- $S$ is independent of the condition and stable within an episode.
+- $S$ is independent of the condition and stable within an episode;
+- the diagnostic dilution set $D_{\text{diag}}$ for M2 is frozen (G0-H).
 
-Reported, non-blocking: 1:2 under-dilution reconstruction; robustness.
+Reported, non-blocking: 1:2 reconstruction bias (1:2 is diagnostic but
+quantitatively inaccurate); robustness.
 
 **Outputs** in `experiments/results/gate0/`:
 - `assay_response.png`
@@ -120,7 +127,7 @@ seeing Claude's results.
 
 | Role | Owns | First tasks |
 |---|---|---|
-| **Science lead** (SCI) | Gate 0 and the parameter freeze; validity rule; claims | DEV-002 to DEV-006 |
+| **Science lead** (SCI) | Gate 0 and the parameter freeze (including $D_{\text{diag}}$); diagnostic-control rule; claims | DEV-002 to DEV-006 |
 | **Environment lead** (ENV) | Simulator and lab against the frozen interfaces; runner; scripted agents | DEV-001; DEV-007a visible interface by 16:00; DEV-007, 009, 010 |
 | **Agent lead** (AGT) | Minimal Claude tool loop; never sees hidden state | DEV-012 against a mock `LabSession` |
 | **Evaluation & demo lead** (EVD) | Record schemas, metrics, replay, results, pitch | DEV-008a record schemas + fixture by 16:00, then DEV-008 and DEV-017 against fixture logs |
@@ -186,7 +193,7 @@ Full list: [DEVELOPMENT_PLAN §8](DEVELOPMENT_PLAN.md#8-stop-rules).
    ceiling is ≈ 58 % (`separability_before_after.png`).
 3. **Replay:** Claude picks a measurement (time, dilution), gets new evidence, and
    diagnoses. It may record notes along the way. Then the reveal: true biomass,
-   validity audit, score.
+   M2/Q1 audit, score.
 4. **Results table:** Claude vs `PassiveBayes` vs `GoodScientist` (M1–M4, Wilson
    intervals). Correct and justified are shown separately.
 5. **Integrity:** synthetic world, hidden ground truth, frozen before agent runs, no

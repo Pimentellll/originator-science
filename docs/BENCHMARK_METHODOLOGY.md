@@ -59,7 +59,8 @@ Details: [GATE0_SPEC](mirage-bio/GATE0_SPEC.md).
 | Dimension | Question | MIRAGE-Bio v0.1 | Status |
 |---|---|---|---|
 | Answer quality | Did the agent identify the correct hidden world? | M1 diagnosis accuracy | current |
-| Evidence quality | Did it perform an experiment capable of distinguishing the remaining explanations, executed validly? | M2 valid diagnostic-control rate; M3 justified accuracy (M1 ∧ M2) | current |
+| Evidence quality | Did it perform an experiment that distinguishes the remaining explanations? | M2 diagnostic-control rate; M3 justified accuracy (M1 ∧ M2) | current |
+| Quantitative reconstruction | Did the experiment also permit an accurate estimate of the hidden quantity? | Q1 reconstruction adequacy: secondary, descriptive; not required for justification | current (secondary) |
 | Experimental efficiency | How much budget did it use? | M4 experimental cost | current |
 | Experiment diagnosticity | How informative was the chosen experiment compared with the alternatives? | M5 (§3) | stretch, non-blocking |
 | Belief revision | Did it change its conclusion appropriately when new evidence arrived? | Probabilities are logged if the agent uses `declare_state`; not scored | future |
@@ -112,8 +113,23 @@ $(D(a) - 0.5)/(\max D - 0.5)$ is preferable.
 **Honest limitation.** In a two-world problem with a decisive experiment, every
 diagnosticity measure saturates. In MIRAGE-Bio, M5 separates *non-diagnostic* choices
 (≈ 0.5) from *diagnostic* ones (≈ 1). It does not rank good experiments against each
-other. Quantitative adequacy (reconstructing the latent biomass) is what M2 measures.
-A 1:2 dilution, for example, is diagnostic (D = 1.0) but not M2-valid.
+other.
+
+**Diagnostic sufficiency vs quantitative reconstruction.** MIRAGE credits evidence
+that makes the explanations distinguishable.
+- **M2** counts an action as diagnostic if Gate 0 has demonstrated that actions of
+  its class discriminate the worlds. In MIRAGE-Bio v0.1 this is a frozen
+  classification of late dilution factors (GATE0_SPEC G0-H); it needs no M5
+  machinery at scoring time.
+- **M5** grades diagnosticity more finely (stretch).
+- **Q1** separately records whether the measurement also permits accurate
+  reconstruction of the latent quantity. Q1 is useful scientific information but is
+  not required for a justified diagnosis.
+
+| Late measurement | Diagnostic separation (M2) | Accurate biomass reconstruction (Q1) |
+|---|---|---|
+| 1:2 dilution | **Yes** ($D = 1.0$; AUROC 1.00) | **No** (≈ 50 % of true biomass in `MEASUREMENT_ARTIFACT`) |
+| 1:10 dilution | **Yes** | **Yes** |
 
 Gate 0 additionally reports **prior-level** diagnosticity: the AUROC of the dilution
 ratio statistic across the dilution sweep ([GATE0_SPEC §3](mirage-bio/GATE0_SPEC.md#3-required-gate-0-outputs)).
