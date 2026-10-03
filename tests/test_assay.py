@@ -103,7 +103,11 @@ def test_t005_t95_precedes_late_window(ratio_range: tuple[float, float]) -> None
     assert max(t95) + 2.0 <= LATE_WINDOW_H[0]
 
 
-@pytest.mark.xfail(strict=True, reason="spec finding: sup t95 over the scenario-v1 support is 10.13 h > 10 h")
+@pytest.mark.xfail(
+    strict=True,
+    raises=AssertionError,
+    reason="open spec question (PR #3, G0-C(iv)): sup t95 over the scenario-v1 support is 10.13 h > 10 h",
+)
 def test_t005_window_validity_at_support_corner() -> None:
     # Slowest corner of the support (S = 2, lambda = 5, r = 0.6, X0 = 0.005). The
     # design-time 11.92 h is a sampled maximum, not the supremum. Strict xfail: this
@@ -121,6 +125,19 @@ def test_t_q_matches_noise_free_observed_curve() -> None:
     assert kp == pytest.approx(1.000, abs=5e-4)
     y = float(response(_latent(t95, k, r, x0), s_odeq=s, n=N))
     assert y == pytest.approx(PLATEAU_FRACTION * kp, rel=1e-12)
+
+
+def test_t_q_analytic_large_inoculum_non_default_shape() -> None:
+    # Second parameter set: large X0, n = nu = 4, q = 0.9. With n = nu the observed curve
+    # is Richards(K', f(X0), r, nu), so t_q has the closed form checked independently here.
+    k, s, r, x0, n, q = 3.0, 1.0, 0.5, 0.3, 4.0, 0.9
+    tq = t_q(q, k_odeq=k, s_odeq=s, r_per_h=r, x0_odeq=x0, n=n, nu=n)
+    kp = (k**-n + s**-n) ** (-1.0 / n)
+    y0 = x0 * (1.0 + (x0 / s) ** n) ** (-1.0 / n)
+    expected = np.log((y0**-n - kp**-n) / ((q * kp) ** -n - kp**-n)) / (n * r)
+    assert tq == pytest.approx(expected, rel=1e-12)
+    latent = (k**-n + (x0**-n - k**-n) * np.exp(-n * r * tq)) ** (-1.0 / n)
+    assert float(response(latent, s_odeq=s, n=n)) == pytest.approx(q * kp, rel=1e-12)
 
 
 # ---- T-006: low-density response approximately linear ----------------------------
@@ -229,3 +246,20 @@ def test_rejects_negative_biomass_and_bad_parameters() -> None:
         x_lin(s_odeq=1.0, n=N, eps_lin=1.0)
     with pytest.raises(ValueError):
         t_q(1.0, k_odeq=1.0, s_odeq=1.0, r_per_h=0.75, x0_odeq=0.01, n=N, nu=NU)
+
+
+@pytest.mark.parametrize("value", [float("inf"), float("nan")])
+def test_rejects_non_finite_saturation_scale(value: float) -> None:
+    with pytest.raises(ValueError, match="s_odeq"):
+        response(0.1, s_odeq=value, n=N)
+    with pytest.raises(ValueError, match="s_odeq"):
+        k_prime(k_odeq=1.0, s_odeq=value, n=N)
+
+
+@pytest.mark.parametrize("name", ["sigma_abs", "sigma_rel"])
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -0.001])
+def test_rejects_non_finite_or_negative_noise(name: str, value: float) -> None:
+    params = dict(sigma_abs=SIGMA_ABS, sigma_rel=SIGMA_REL)
+    params[name] = value
+    with pytest.raises(ValueError, match=name):
+        read([0.1], np.random.default_rng(0), s_odeq=1.0, n=N, **params)

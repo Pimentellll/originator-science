@@ -17,8 +17,8 @@ READING_DECIMALS = 4
 
 def _require_positive(**params: float) -> None:
     for name, value in params.items():
-        if not value > 0:
-            raise ValueError(f"{name} must be positive, got {value!r}")
+        if not (math.isfinite(value) and value > 0):
+            raise ValueError(f"{name} must be finite and positive, got {value!r}")
 
 
 def _biomass(x_odeq: ArrayLike) -> NDArray[np.float64]:
@@ -32,7 +32,8 @@ def response(x_odeq: ArrayLike, *, s_odeq: float, n: float) -> NDArray[np.float6
     """Noise-free reading f(x) = x [1 + (x/S)^n]^(-1/n) in ODeq for presented biomass x (ODeq).
 
     Written as x * (...) rather than (x^-n + S^-n)^(-1/n) so that f(0) = 0 without
-    a division by zero.
+    a division by zero. (x/S)^n overflows for x around 1e40 and returns 0.0; presented
+    biomass in scenario-v1 is at most about 10 ODeq, so this is unreachable.
     """
     _require_positive(s_odeq=s_odeq, n=n)
     x = _biomass(x_odeq)
@@ -88,8 +89,9 @@ def t_q(
 
 def noise_sd(mu: ArrayLike, *, sigma_abs: float, sigma_rel: float) -> NDArray[np.float64]:
     """Per-replicate noise SD sigma(mu) = sigma_abs + sigma_rel * mu in ODeq (DESIGN §5.6)."""
-    if sigma_abs < 0 or sigma_rel < 0:
-        raise ValueError("sigma_abs and sigma_rel must be non-negative")
+    for name, value in (("sigma_abs", sigma_abs), ("sigma_rel", sigma_rel)):
+        if not (math.isfinite(value) and value >= 0):
+            raise ValueError(f"{name} must be finite and non-negative, got {value!r}")
     return sigma_abs + sigma_rel * np.asarray(mu, dtype=np.float64)
 
 
