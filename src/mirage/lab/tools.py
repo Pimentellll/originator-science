@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -20,6 +20,7 @@ MAX_TURNS = 12
 PROMPT_VERSION = "prompt-v1"
 
 GrowthLabel = Literal["GROWTH_STOPPED", "GROWTH_CONTINUED"]
+FiniteFloat = Annotated[float, Field(allow_inf_nan=False)]
 
 
 class Frozen(BaseModel):
@@ -37,22 +38,24 @@ class MeasurementResult(Frozen):
     source: Literal["passive", "agent"]
     request_index: int | None
     time_h: int
-    dilution_factor: float
-    readings: list[float]
-    mean_reading: float
+    dilution_factor: FiniteFloat
+    readings: list[FiniteFloat]
+    mean_reading: FiniteFloat
     cost_units: int
     budget_remaining: int
 
 
 class AgentState(Frozen):
     notes: str = Field(max_length=2000)
-    p_growth_continued: float = Field(ge=0, le=1)
+    p_growth_continued: float = Field(ge=0, le=1, strict=True)
 
 
 class Diagnosis(Frozen):
     diagnosis: GrowthLabel
-    p_growth_continued: float = Field(ge=0, le=1)
-    late_biomass_estimate_od: float | None = Field(default=None, ge=0)
+    p_growth_continued: float = Field(ge=0, le=1, strict=True)
+    late_biomass_estimate_od: float | None = Field(
+        default=None, ge=0, allow_inf_nan=False, strict=True
+    )
     rationale: str = Field(max_length=4000)
 
 
@@ -176,7 +179,7 @@ def render_observation(obs: Observation) -> str:
             for m in obs.passive_readings
         ],
     }
-    return json.dumps(payload, sort_keys=True, ensure_ascii=False)
+    return json.dumps(payload, sort_keys=True, ensure_ascii=False, allow_nan=False)
 
 
 def render_measurement(result: MeasurementResult) -> dict[str, Any]:

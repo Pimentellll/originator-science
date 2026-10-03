@@ -1,3 +1,4 @@
+import hashlib
 import json
 import math
 
@@ -159,3 +160,118 @@ def test_protocols_are_structural() -> None:
     agent: Agent = _OneShot()
     agent.run(session)
     assert session.finished and session.calls == ["submit_diagnosis"]
+
+
+# ---- review fixes (fix/lab-validation) ------------------------------------------------------
+
+NONFINITE = [float("nan"), float("inf"), float("-inf")]
+
+
+def _result(**kw) -> dict:
+    base = dict(source="agent", request_index=0, time_h=18, dilution_factor=10.0,
+                readings=[0.4012, -0.0021], mean_reading=0.1996, cost_units=2, budget_remaining=4)
+    return {**base, **kw}
+
+
+@pytest.mark.parametrize("bad", NONFINITE)
+@pytest.mark.parametrize("field", ["readings", "mean_reading", "dilution_factor"])
+def test_measurement_result_rejects_nonfinite(field, bad) -> None:
+    value = [0.1, bad] if field == "readings" else bad
+    with pytest.raises(ValidationError):
+        MeasurementResult(**_result(**{field: value}))
+
+
+@pytest.mark.parametrize("bad", NONFINITE)
+def test_diagnosis_rejects_nonfinite_estimate(bad) -> None:
+    with pytest.raises(ValidationError):
+        Diagnosis(diagnosis="GROWTH_STOPPED", p_growth_continued=0.5,
+                  late_biomass_estimate_od=bad, rationale="r")
+
+
+@pytest.mark.parametrize("bad", [True, False, "1.0"])
+def test_diagnosis_rejects_non_number_estimate(bad) -> None:
+    with pytest.raises(ValidationError):
+        Diagnosis(diagnosis="GROWTH_STOPPED", p_growth_continued=0.5,
+                  late_biomass_estimate_od=bad, rationale="r")
+
+
+def test_diagnosis_accepts_integer_estimate_and_probability() -> None:
+    d = Diagnosis(diagnosis="GROWTH_STOPPED", p_growth_continued=1,
+                  late_biomass_estimate_od=4, rationale="r")
+    assert d.p_growth_continued == 1.0 and d.late_biomass_estimate_od == 4.0
+
+
+def test_negative_blank_subtracted_readings_are_valid_and_render_as_json() -> None:
+    res = MeasurementResult(**_result(readings=[-0.0031, 0.0004], mean_reading=-0.0014))
+    payload = tools.render_measurement(res)
+    assert json.loads(json.dumps(payload, allow_nan=False)) == payload
+    obs = Observation(passive_readings=[_passive(i, -0.0029 if i == 0 else 0.01) for i in range(19)],
+                      budget_total=6, budget_remaining=6)
+    data = json.loads(tools.render_observation(obs))
+    assert data["passive_readings"][0]["reading"] == -0.0029
+
+
+def test_rendering_rounds_to_four_decimals_both_signs() -> None:
+    res = MeasurementResult(**_result(readings=[0.123449, -0.004561, 0.98765], mean_reading=-0.004561))
+    out = tools.render_measurement(res)
+    assert out["readings"] == [0.1234, -0.0046, 0.9877] and out["mean_reading"] == -0.0046
+    obs = Observation(passive_readings=[_passive(i, 0.123456 if i else -0.000051) for i in range(19)],
+                      budget_total=6, budget_remaining=6)
+    data = json.loads(tools.render_observation(obs))
+    assert data["passive_readings"][1]["reading"] == 0.1235
+    assert data["passive_readings"][0]["reading"] == -0.0001
+
+
+@pytest.mark.parametrize("model", [AgentState, Diagnosis])
+def test_probability_bounds(model) -> None:
+    extra = {"notes": "n"} if model is AgentState else {
+        "diagnosis": "GROWTH_STOPPED", "late_biomass_estimate_od": None, "rationale": "r"}
+    for p in (0.0, 0.5, 1.0):
+        assert model(p_growth_continued=p, **extra).p_growth_continued == p
+    for p in (-1e-9, 1 + 1e-9, float("nan"), float("inf"), True, False, "0.5"):
+        with pytest.raises(ValidationError):
+            model(p_growth_continued=p, **extra)
+
+
+@pytest.mark.parametrize("value", [True, False, 2.0, "2", None, [2]])
+def test_replicates_strict_type(value) -> None:
+    with pytest.raises(ValidationError):
+        MeasurementRequest(time_h=18, replicates=value)
+
+
+@pytest.mark.parametrize("value", [True, 18.0, "18", None])
+def test_time_strict_type(value) -> None:
+    with pytest.raises(ValidationError):
+        MeasurementRequest(time_h=value)
+
+
+def test_tool_property_types_enums_and_wording_exact() -> None:
+    props = {d["name"]: d["input_schema"]["properties"] for d in tools.TOOL_DEFINITIONS}
+    types_ = {name: {k: v["type"] for k, v in p.items()} for name, p in props.items()}
+    assert types_ == {
+        "measure_od": {"time_h": "integer", "dilution_factor": "number", "replicates": "integer"},
+        "declare_state": {"notes": "string", "p_growth_continued": "number"},
+        "submit_diagnosis": {"diagnosis": "string", "p_growth_continued": "number",
+                             "late_biomass_estimate_od": ["number", "null"], "rationale": "string"},
+    }
+    assert props["submit_diagnosis"]["diagnosis"]["enum"] == ["GROWTH_STOPPED", "GROWTH_CONTINUED"]
+    assert sum("enum" in v for p in props.values() for v in p.values()) == 1
+    assert [d["required"] for d in (t["input_schema"] for t in tools.TOOL_DEFINITIONS)] == [
+        ["time_h", "dilution_factor", "replicates"], ["notes", "p_growth_continued"],
+        ["diagnosis", "p_growth_continued", "late_biomass_estimate_od", "rationale"]]
+    assert props["measure_od"]["replicates"]["description"] == "Number of independent replicate reads: 1, 2 or 3."
+    assert tools.TOOL_DEFINITIONS[2]["description"] == (
+        "Submit your conclusion. This ends the experiment; no further measurements are possible.")
+    assert tools.SYSTEM_PROMPT.startswith(
+        "You are an autonomous scientist working in a virtual microbiology laboratory.\n\n")
+    assert tools.SYSTEM_PROMPT.endswith("Finish by calling submit_diagnosis. You have\nat most 12 turns.")
+
+
+PROMPT_V1_SHA256 = "6df242e5a8c22cfa7f2dfdde25ec1038262f5d89d1bc4305456383217d8db12b"
+
+
+def test_prompt_v1_digest_frozen_and_independently_computed() -> None:
+    canonical = json.dumps({"system": tools.SYSTEM_PROMPT, "tools": tools.TOOL_DEFINITIONS},
+                           sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    assert hashlib.sha256(canonical.encode("utf-8")).hexdigest() == PROMPT_V1_SHA256
+    assert tools.prompt_sha256() == PROMPT_V1_SHA256 and tools.PROMPT_VERSION == "prompt-v1"

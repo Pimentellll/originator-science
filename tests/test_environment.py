@@ -10,7 +10,7 @@ from mirage.assay.od_reader import read, response
 from mirage.biology.growth import richards
 from mirage.config import load_prior, sample_episode
 from mirage.lab.environment import LabEnvironment
-from mirage.lab.tools import Observation, ToolResponse, render_observation
+from mirage.lab.tools import AgentState, Observation, ToolResponse, render_observation
 
 ROOT = Path(__file__).resolve().parents[1]
 PRIOR = load_prior(ROOT / "experiments" / "configs" / "scenario_v1.json")
@@ -180,11 +180,22 @@ def test_diagnosis_on_last_turn_counts() -> None:
     assert env.status == "DIAGNOSED" and env.diagnosis is not None
 
 
-def test_finish_keeps_first_status() -> None:
+def test_second_finish_raises_and_keeps_first_status() -> None:
     env = LabEnvironment(cfg())
     env.finish("REFUSED")
-    env.finish("API_FAILURE")
+    with pytest.raises(RuntimeError, match="already finished"):
+        env.finish("API_FAILURE")
     assert env.status == "REFUSED" and env.session().finished
+
+
+def test_finish_after_turn_limit_raises() -> None:
+    env = LabEnvironment(cfg(), max_turns=1)
+    s = env.session()
+    s.call("declare_state", {"notes": "n", "p_growth_continued": 0.5})
+    assert env.status == "NO_DIAGNOSIS"
+    with pytest.raises(RuntimeError, match="already finished"):
+        env.finish("API_FAILURE")
+    assert env.status == "NO_DIAGNOSIS"
 
 
 def test_session_facade_exposes_only_the_protocol() -> None:
@@ -207,3 +218,108 @@ def test_environment_is_deterministic() -> None:
         measure(env, 12, 2.0, 2)
         return [p.mean_reading for p in env.passive], [e.model_dump() for e in env.events]
     assert run() == run()
+
+
+# ---- review fixes (fix/lab-validation) ------------------------------------------------------
+
+@pytest.mark.parametrize("status", ["bogus", "", "diagnosed", None])
+def test_finish_rejects_invalid_status(status) -> None:
+    env = LabEnvironment(cfg())
+    with pytest.raises(ValueError, match="invalid episode status"):
+        env.finish(status)
+    assert env.status is None and not env.finished
+
+
+def test_finish_diagnosed_requires_a_diagnosis() -> None:
+    env = LabEnvironment(cfg())
+    with pytest.raises(ValueError, match="requires an accepted diagnosis"):
+        env.finish("DIAGNOSED")
+    assert env.status is None
+
+
+def test_finish_after_diagnosis_is_rejected_and_status_kept() -> None:
+    env = LabEnvironment(cfg())
+    assert env.call("submit_diagnosis", {"diagnosis": "GROWTH_STOPPED", "p_growth_continued": 0.2,
+                                          "late_biomass_estimate_od": None, "rationale": "x"}).ok
+    with pytest.raises(RuntimeError, match="already finished"):
+        env.finish("API_FAILURE")
+    assert env.status == "DIAGNOSED"
+
+
+@pytest.mark.parametrize("status", ["NO_DIAGNOSIS", "API_FAILURE", "REFUSED"])
+def test_finish_valid_runner_statuses(status) -> None:
+    env = LabEnvironment(cfg())
+    env.finish(status)
+    assert env.status == status and env.session().finished
+    with pytest.raises(RuntimeError, match="finished"):
+        env.call("declare_state", {"notes": "x", "p_growth_continued": 0.5})
+    assert env.events == []
+
+
+def test_api_failure_mid_episode_terminates() -> None:
+    env = LabEnvironment(cfg())
+    assert measure(env).ok
+    env.finish("API_FAILURE")
+    assert env.status == "API_FAILURE" and env.diagnosis is None and len(env.events) == 1
+    with pytest.raises(RuntimeError):
+        measure(env)
+    assert len(env.events) == 1 and env.budget_remaining == 5
+
+
+@pytest.mark.parametrize("bad", [0, -1, -12, float("nan"), 1.5, 12.0, True, "12", None])
+def test_max_turns_validated_before_observations(bad, monkeypatch) -> None:
+    calls = []
+    monkeypatch.setattr(LabEnvironment, "_passive_history", lambda self: calls.append(1) or [])
+    with pytest.raises(ValueError, match="max_turns must be a positive integer"):
+        LabEnvironment(cfg(), max_turns=bad)
+    assert calls == []
+
+
+@pytest.mark.parametrize("good", [1, 3, 12])
+def test_max_turns_accepts_positive_int(good) -> None:
+    env = LabEnvironment(cfg(), max_turns=good)
+    for _ in range(good):
+        env.call("declare_state", {"notes": "n", "p_growth_continued": 0.5})
+    assert env.status == "NO_DIAGNOSIS" and env.turn == good
+
+
+def test_t026_readings_recomputed_from_each_request_stream() -> None:
+    rng = np.random.default_rng(1)
+    for seed in range(40):
+        c = cfg(seed, "MEASUREMENT_ARTIFACT" if seed % 2 else "BIOLOGICAL_PLATEAU")
+        env = LabEnvironment(c)
+        reqs = []
+        while env.budget_remaining:
+            r = int(rng.integers(1, min(3, env.budget_remaining) + 1))
+            req = {"time_h": int(rng.integers(0, 19)), "dilution_factor": float(rng.uniform(1, 100)),
+                   "replicates": r}
+            assert env.call("measure_od", req).ok
+            reqs.append(req)
+        g, a = c.growth, c.assay
+        for i, (req, res) in enumerate(zip(reqs, env.measurements, strict=True)):
+            x = float(richards(req["time_h"], k_odeq=g.k_odeq, r_per_h=g.r_per_h,
+                               x0_odeq=g.x0_odeq, nu=g.nu))
+            stream = np.random.default_rng(np.random.SeedSequence([seed, 2, i]))
+            expect = read(np.full(req["replicates"], x / req["dilution_factor"]), stream,
+                          s_odeq=a.s_odeq, n=a.n, sigma_abs=a.sigma_abs, sigma_rel=a.sigma_rel)
+            assert res.readings == [float(y) for y in expect]
+            assert res.request_index == i and res.cost_units == req["replicates"]
+
+
+def test_every_call_is_one_complete_event() -> None:
+    env = LabEnvironment(cfg())
+    script = [("measure_od", {"time_h": 18, "dilution_factor": 10.0, "replicates": 2}),
+              ("measure_od", {"time_h": 99}),
+              ("declare_state", {"notes": "thinking", "p_growth_continued": 0.4}),
+              ("nope", {}),
+              ("submit_diagnosis", {"diagnosis": "GROWTH_CONTINUED", "p_growth_continued": 0.9,
+                                    "late_biomass_estimate_od": 3.2, "rationale": "r"})]
+    responses = [env.call(t, a) for t, a in script]
+    assert [e.index for e in env.events] == list(range(5))
+    assert [e.turn for e in env.events] == [1, 2, 3, 4, 5]
+    for e, (tool, args), r in zip(env.events, script, responses, strict=True):
+        assert (e.tool, e.arguments, e.ok, e.result, e.error) == (tool, args, r.ok, r.result, r.error)
+    assert [e.ok for e in env.events] == [True, False, True, False, True]
+    assert [m.event_index for m in env.accepted] == [0]
+    assert env.agent_states == [AgentState(notes="thinking", p_growth_continued=0.4)]
+    assert env.status == "DIAGNOSED" and env.diagnosis.late_biomass_estimate_od == 3.2
