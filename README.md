@@ -85,14 +85,42 @@ claimed.
 General MIRAGE methodology      Documented
 MIRAGE-Bio design               Documented (v0.1 specification)
 Design-time numerical reference Committed (experiments/reference/); not Gate 0
-Gate 0                          Not yet executed in repository
-Virtual lab                     Not implemented
-Agent integration               Not implemented
-Evaluation runs                 Not performed
-Demo                            Not built
+Gate 0                          Full run committed as a candidate (experiments/results/gate0/);
+                                not frozen, G0-C(iv) support-corner ruling open
+Virtual lab                     Implemented (growth, assay, environment, frozen tool interface)
+Evaluator                       Implemented (M1–M4, Q1, O1, O2, Wilson intervals, ITT)
+Scripted baselines              Implemented (GoodScientist, PassiveBayes)
+Claude adapter                  Implemented; tested with a mocked client only
+Runner, report, replay          Implemented (record-only, offline)
+Evaluation runs (Claude)        Not performed
 ```
 
-There are no experimental results.
+There are no Claude results. The Gate 0 artefacts are a candidate validation run of
+the benchmark itself, not an agent result.
+
+## Quickstart
+
+Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/). Nothing below calls a
+model or the network.
+
+```bash
+uv venv --python 3.11 .venv
+uv pip install --python .venv/bin/python -e ".[dev]"
+.venv/bin/python -m pytest -q
+
+# Gate 0 at reduced size (a smoke check, never a pass claim)
+.venv/bin/python scripts/gate0.py --quick --out .local/gate0
+
+# Scripted baselines on the minimal matrix, then the report
+.venv/bin/python -m mirage.evaluation.runner run --agent good_scientist --matrix minimal --out .local/runs
+.venv/bin/python -m mirage.evaluation.runner run --agent passive_bayes --matrix minimal --out .local/runs
+.venv/bin/python -m mirage.evaluation.report --out .local/report \
+  --good-scientist .local/runs/<good_scientist run dir> \
+  --passive-bayes .local/runs/<passive_bayes run dir>
+
+# Offline replay of one saved episode
+.venv/bin/python -m mirage.demo.replay .local/runs/<run dir>/episodes/<episode>.json --pace 0
+```
 
 ## Documentation
 
@@ -115,10 +143,10 @@ Start with the [documentation index](docs/README.md).
 ```text
 docs/                    MIRAGE docs (current); docs/mirage-bio/ for the first environment
 experiments/reference/   Design-time numerical reference (current; not Gate 0)
-src/mirage/              Simulator, assay, virtual lab, agents, evaluation, replay (planned)
-scripts/                 Gate 0 validation script (planned)
-experiments/             Frozen configs, episode matrices and committed results (planned content)
-tests/                   Automated tests (planned)
+src/mirage/              Simulator, assay, virtual lab, agents, evaluation, replay
+scripts/                 Gate 0 validation and plots
+experiments/             Frozen configs, episode matrices, candidate Gate 0 results
+tests/                   Automated tests (pytest)
 ```
 
 ## Scientific integrity
