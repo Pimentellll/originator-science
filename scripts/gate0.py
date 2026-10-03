@@ -240,7 +240,7 @@ def run_checks(prior: ScenarioPrior, sz: dict[str, int]) -> tuple[dict, dict]:
     knn = knn15(prior, train, test)
     checks["G0-A"] = {"blocking": True, "threshold": 0.65, "threshold_type": "BDT",
                       "analytic_ceiling": ceiling, "passive_bayes": pbs, "knn15": knn,
-                      "passed": max(ceiling, pbs["balanced_accuracy"], knn["balanced_accuracy"]) <= 0.65}
+                      "passed": bool(max(ceiling, pbs["balanced_accuracy"], knn["balanced_accuracy"]) <= 0.65)}
 
     # Reference protocol (t = 18, d = 10, 3 reps) on the test worlds
     refm = {c: measure(test[c], prior, REF_T, REF_D, REF_REPS) for c in (BP, MA)}
@@ -252,7 +252,7 @@ def run_checks(prior: ScenarioPrior, sz: dict[str, int]) -> tuple[dict, dict]:
                                      "frac_C_over_K_within_0_15": 0.95},
                       "max_compression": float(comp_bp.max()), "frac_R_within_0_15": fr_r,
                       "frac_C_over_K_within_0_15": fr_c,
-                      "passed": comp_bp.max() <= 0.05 and fr_r >= 0.95 and fr_c >= 0.95}
+                      "passed": bool(comp_bp.max() <= 0.05 and fr_r >= 0.95 and fr_c >= 0.95)}
 
     # G0-C diagnostic separation and late-window validity
     gs_ok = {c: (refm[c]["R"] >= TAU) == (c is MA) for c in (BP, MA)}
@@ -269,8 +269,8 @@ def run_checks(prior: ScenarioPrior, sz: dict[str, int]) -> tuple[dict, dict]:
                                      "min_MA_X12_over_Kprime": 2.5},
                       "frac_MA_R_ge_2_5": fr_ma_r, "good_scientist_accuracy": float(gs_acc),
                       "frac_MA_C_over_K_within_0_15": fr_ma_c, "max_t95_plus_2_h": t95,
-                      "min_MA_X12_over_Kprime": min_ratio, "iv_passed": iv,
-                      "passed": fr_ma_r >= 0.99 and gs_acc >= 0.98 and fr_ma_c >= 0.95 and iv}
+                      "min_MA_X12_over_Kprime": min_ratio, "iv_passed": bool(iv),
+                      "passed": bool(fr_ma_r >= 0.99 and gs_acc >= 0.98 and fr_ma_c >= 0.95 and iv)}
 
     # G0-D non-diagnostic interventions and reconstruction limits
     def discr(t, d, reps):
@@ -288,7 +288,7 @@ def run_checks(prior: ScenarioPrior, sz: dict[str, int]) -> tuple[dict, dict]:
                              "auroc": a3,
                              "passed": bool(np.mean(~m3[MA]["useful"]) >= 0.95
                                             and np.quantile(m3[MA]["c_over_k"], 0.95) <= 0.75)},
-                      "passed": d1 <= 0.65 and d2 <= 0.65}
+                      "passed": bool(d1 <= 0.65 and d2 <= 0.65)}
 
     # G0-H diagnostic action set (single replicate, worst time in the late window)
     late = range(prior.late_window_h[0], prior.late_window_h[1] + 1)
@@ -301,7 +301,7 @@ def run_checks(prior: ScenarioPrior, sz: dict[str, int]) -> tuple[dict, dict]:
                       "auroc_threshold": G0H_AUROC, "replicates": 1,
                       "late_window_h": list(prior.late_window_h), "grid": G0H_GRID,
                       "min_auroc_by_d": min_auc, "contiguous": contiguous,
-                      "d_min": d_min, "d_max": d_max, "passed": contiguous}
+                      "d_min": d_min, "d_max": d_max, "passed": bool(contiguous)}
 
     # G0-E passive-family equivalence
     tt = np.arange(0, 18.0001, 0.25)
@@ -313,7 +313,7 @@ def run_checks(prior: ScenarioPrior, sz: dict[str, int]) -> tuple[dict, dict]:
                      prior.nu)
         dev = max(dev, float(np.max(np.abs(obs / fam - 1))))
     checks["G0-E"] = {"blocking": True, "threshold": 1e-9, "threshold_type": "SIM",
-                      "max_relative_deviation": dev, "passed": dev <= 1e-9}
+                      "max_relative_deviation": dev, "passed": bool(dev <= 1e-9)}
 
     # G0-F nuisance independence and instrument stability
     same = True
@@ -325,11 +325,11 @@ def run_checks(prior: ScenarioPrior, sz: dict[str, int]) -> tuple[dict, dict]:
                  and a.growth.x0_odeq == b.growth.x0_odeq and abs(ua - ub) <= 1e-12)
     ks = ks_statistic(np.log(scans[BP]["s"]),
                       np.log(worlds(prior, seed_range("robustness", sz["scans"]), MA)["s"]))
-    stable = _within_episode_stable(prior, sz["stability"])
+    stable, stable_detail = _within_episode_stable(prior, sz["stability"])
     checks["G0-F"] = {"blocking": True, "threshold": 0.03, "threshold_type": "SIM",
                       "same_seed_identical": bool(same), "ks_logS": ks,
-                      "within_episode_stable": stable,
-                      "passed": bool(same) and ks <= 0.03 and stable}
+                      "within_episode_stable": stable, "stability_detail": stable_detail,
+                      "passed": bool(same and ks <= 0.03 and stable)}
 
     # G0-G robustness (non-blocking)
     checks["G0-G"] = robustness(prior, sz["robustness"])
@@ -367,29 +367,30 @@ def run_checks(prior: ScenarioPrior, sz: dict[str, int]) -> tuple[dict, dict]:
     return frag, data
 
 
-def _within_episode_stable(prior: ScenarioPrior, n_episodes: int) -> bool:
-    """S unchanged across 6 requests per episode (G0-F iii), through the real environment."""
+def _within_episode_stable(prior: ScenarioPrior, n_episodes: int) -> tuple[bool, str]:
+    """S unchanged across 6 accepted requests per episode (G0-F iii), via the real environment.
+
+    Fails (never passes vacuously) if the environment is unavailable or any request is rejected.
+    """
     try:
         from mirage.lab.environment import LabEnvironment
-    except ImportError:  # DEV-007 not merged yet: check the frozen config directly
-        LabEnvironment = None
+    except ImportError:
+        return False, "unavailable: mirage.lab.environment cannot be imported"
     rng = np.random.default_rng(np.random.SeedSequence([SEEDS["robustness"][0], 99]))
     for seed in range(n_episodes):
         cfg = sample_episode(prior, seed, MA if seed % 2 else BP)
         s0 = cfg.assay.s_odeq
-        if LabEnvironment is None:
-            if cfg.assay.s_odeq != s0:
-                return False
-            continue
         env = LabEnvironment(cfg)
         for _ in range(6):
             env.call("measure_od", {"time_h": int(rng.integers(0, 19)),
                                     "dilution_factor": float(rng.uniform(1, 100)), "replicates": 1})
+        if len(env.accepted) != 6:
+            return False, f"episode {seed}: {len(env.accepted)} of 6 requests accepted"
         for m in env.accepted:
             mu = float(resp(np.array(m.presented_biomass_odeq), np.array(s0), prior.n))
             if not math.isclose(mu, m.noise_free_reading, rel_tol=1e-12) or env.config.assay.s_odeq != s0:
-                return False
-    return True
+                return False, f"episode {seed}: S or the response changed within the episode"
+    return True, f"{n_episodes} episodes x 6 accepted requests"
 
 
 PERTURBATIONS: list[tuple[str, dict[str, Any]]] = [
@@ -420,9 +421,9 @@ def robustness(prior: ScenarioPrior, n: int) -> dict[str, Any]:
         comp = float((1 - resp(te[BP]["k"], te[BP]["s"], p.n) / te[BP]["k"]).max())
         variants.append({"name": name, "knn15": knn, "good_scientist_accuracy": gs,
                          "max_bp_compression": comp,
-                         "passed": knn <= 0.65 and gs >= 0.98 and comp <= 0.05})
+                         "passed": bool(knn <= 0.65 and gs >= 0.98 and comp <= 0.05)})
     return {"blocking": False, "threshold_type": "BDT", "n_per_condition": n,
-            "passed": all(v["passed"] for v in variants), "variants": variants}
+            "passed": bool(all(v["passed"] for v in variants)), "variants": variants}
 
 
 # ---- summary ---------------------------------------------------------------------------
@@ -511,7 +512,16 @@ def main(argv: list[str] | None = None) -> int:
             write_summary(args.out, summary)
     failed = [k for k, c in summary["checks"].items() if c["blocking"] and not c["passed"]]
     print(f"gate0 ({summary['mode']}): passed={summary['passed']} failed={failed} -> {path}")
+    missing = missing_outputs(args.out)
+    if not args.quick and missing:
+        print(f"gate0 (full): required outputs missing: {missing}", file=sys.stderr)
+        return 2
     return 0 if summary["passed"] else 1
+
+
+def missing_outputs(out: Path) -> list[str]:
+    """Full mode requires summary.json and every GATE0_SPEC plot."""
+    return [f for f in ["summary.json", *PLOTS] if not (out / f).is_file()]
 
 
 if __name__ == "__main__":
