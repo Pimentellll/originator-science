@@ -161,6 +161,9 @@ def run_binder_benchmark(
     config: BenchmarkConfig = BenchmarkConfig(),
     code_version: str,
     extra_policies: Mapping[str, PolicySpec] | None = None,
+    include_baselines: bool = True,
+    expected_fingerprints: Mapping[str, str] | None = None,
+    expected_world_digests: Mapping[str, str] | None = None,
     record_store: PublicRecordStore | None = None,
     evaluation_store: EvaluationStore | None = None,
 ) -> BenchmarkRun:
@@ -168,7 +171,7 @@ def run_binder_benchmark(
     if len(seeds) < per_archetype:
         raise ValueError(f"split {split_name} has only {len(seeds)} seeds, need {per_archetype}")
     make_belief, model = belief_factory(config)
-    policies = {**policy_specs(config, model), **(extra_policies or {})}
+    policies = {**(policy_specs(config, model) if include_baselines else {}), **(extra_policies or {})}
     return run_benchmark(
         benchmark_id=benchmark_id,
         source=BinderWorldSource(config.rules),
@@ -183,6 +186,8 @@ def run_binder_benchmark(
         max_steps=config.max_steps,
         record_store=record_store,
         evaluation_store=evaluation_store,
+        expected_fingerprints=expected_fingerprints,
+        expected_world_digests=expected_world_digests,
     )
 
 

@@ -151,6 +151,7 @@ class BenchmarkManifest(BaseModel):
     policies: dict[str, dict[str, str | int | float | bool | None]]
     max_steps: int
     world_fingerprints: dict[str, str]  # "<archetype>/<seed>" -> initial public state digest
+    world_digests: dict[str, str] = {}  # "<archetype>/<seed>" -> hash of the hidden root world
     incidents: tuple[Incident, ...]
 
 
@@ -258,10 +259,15 @@ def run_benchmark(
     max_steps: int = 40,
     record_store: PublicRecordStore | None = None,
     evaluation_store: EvaluationStore | None = None,
+    expected_fingerprints: Mapping[str, str] | None = None,
+    expected_world_digests: Mapping[str, str] | None = None,
 ) -> BenchmarkRun:
     """Every policy plays every (archetype, seed) world; worlds must be identical across
     policies or the run is refused (G13). Results are whatever the evaluator computes;
-    nothing is filled in."""
+    nothing is filled in.
+
+    ``expected_fingerprints`` (``"<archetype>/<seed>" -> digest``, e.g. a finished baseline's
+    manifest) makes an *append* run refuse any world that differs from the baseline's."""
     evaluator = evaluator or CampaignEvaluator()
     if not policies:
         raise ValueError("at least one policy is required")
@@ -269,6 +275,7 @@ def run_benchmark(
     records: list[EpisodeRecord] = []
     incidents: list[Incident] = []
     fingerprints: dict[str, str] = {}
+    digests: dict[str, str] = {}
     for archetype in archetypes:
         worlds = list(source.worlds(archetype, seeds))
         if sorted(w.seed for w in worlds) != sorted(seeds):
@@ -290,11 +297,21 @@ def run_benchmark(
                 fp = _fingerprint(record)
                 if fingerprints.setdefault(key, fp) != fp:
                     raise PairingError(f"policy {name} saw a different initial world for {key}")
+                if expected_fingerprints is not None and expected_fingerprints.get(key) != fp:
+                    raise PairingError(f"world {key} differs from the baseline's world")
                 if incident:
                     incidents.append(Incident(episode_id=episode_id, policy_name=name, seed=world.seed, kind=incident))
                 for kind in belief_incidents:
                     incidents.append(Incident(episode_id=episode_id, policy_name=name, seed=world.seed, kind=kind))
-                oracle = _TaggedOracle(world.make_oracle(env), world.archetype, world.scenario_class, world.regime)
+                inner = world.make_oracle(env)
+                digest_fn = getattr(inner, "world_digest", None)
+                if digest_fn is not None:
+                    digest = digest_fn()
+                    if digests.setdefault(key, digest) != digest:
+                        raise PairingError(f"policy {name} played a different hidden world for {key}")
+                    if expected_world_digests is not None and expected_world_digests.get(key) != digest:
+                        raise PairingError(f"hidden world {key} differs from the baseline's world")
+                oracle = _TaggedOracle(inner, world.archetype, world.scenario_class, world.regime)
                 evaluation = evaluator.evaluate(record, oracle)
                 if record_store:
                     record_store.save(record)
@@ -317,6 +334,7 @@ def run_benchmark(
         policies={n: dict(s.config) for n, s in sorted(policies.items())},
         max_steps=max_steps,
         world_fingerprints=fingerprints,
+        world_digests=digests,
         incidents=tuple(incidents),
     )
     if evaluation_store:
