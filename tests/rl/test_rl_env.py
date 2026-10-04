@@ -116,6 +116,11 @@ def test_randomization_changes_lab_conditions_without_exposing_them():
     assert state.resources.spr_instrument_health == odd.initial_spr_health
 
 
+def test_randomized_spr_health_is_at_least_point_seven():
+    cfgs = [sample_world_config(seed, randomize=True) for seed in range(2000)]
+    assert min(cfg.initial_spr_health for cfg in cfgs) >= 0.70
+
+
 def test_cost_scale_changes_charges():
     base = RandomizedBinderPOMDP(WorldConfig(BinderWorldMode.SINGLE_FAILURE))
     dear = RandomizedBinderPOMDP(WorldConfig(BinderWorldMode.SINGLE_FAILURE, cost_scale=1.5, spr_cost_scale=2.0))
