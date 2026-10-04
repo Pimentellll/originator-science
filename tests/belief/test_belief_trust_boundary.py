@@ -59,4 +59,3 @@ def test_policy_signature_has_no_environment_argument():
     from mirage.policies import ScientificPolicy
     assert list(inspect.signature(ScientificPolicy.choose_action).parameters) == [
         "self", "state", "belief", "available_actions"]
-
