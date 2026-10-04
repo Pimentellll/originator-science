@@ -82,7 +82,7 @@ def scenario_catalogue() -> tuple[ScenarioInfoDTO, ...]:
     )
 
 
-def _selfcheck(default_world: BinderWorldMode, version: BinderScenarioVersion) -> tuple[CheckDTO, ...]:
+def run_selfchecks(default_world: BinderWorldMode, version: BinderScenarioVersion) -> tuple[CheckDTO, ...]:
     """Real checks against the real stack, run once and cached. Never reads privileged state
     into the response: only pass/fail and public counts leave this function."""
     from mirage.integration.controller import CampaignController
@@ -136,5 +136,5 @@ def receptor_binder_catalogue(service, default_world: BinderWorldMode, version: 
         scenarios=scenario_catalogue(),
         semantics_default=version.value,
         semantics_available=tuple(v.value for v in BinderScenarioVersion),
-        selfcheck=SelfCheck(lambda: _selfcheck(default_world, version)),
+        selfcheck=SelfCheck(lambda: run_selfchecks(default_world, version)),
     )
