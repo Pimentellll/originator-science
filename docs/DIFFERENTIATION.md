@@ -1,114 +1,57 @@
-# MIRAGE — Differentiation and Novelty Boundary
+# MIRAGE: differentiation and novelty boundary
 
 | Field | Value |
 |---|---|
-| Status | Positioning (3 October 2026) |
-| Role | What the contribution is, what makes it distinctive, and what we do **not** claim |
-| Related | [MIRAGE](MIRAGE.md) · [BENCHMARK_METHODOLOGY](BENCHMARK_METHODOLOGY.md) |
-
----
-
-> **The benchmark does not ask whether the AI knows the answer. It places the AI in a
-> situation where the answer is deliberately unknowable from current evidence, and
-> asks whether the AI knows what experiment would make it knowable.**
+| Role | What the contribution is, and what is **not** claimed |
+| Related | [MIRAGE](MIRAGE.md) · [Baseline V1 analysis](evaluation/BASELINE_V1.md) |
 
 ## 1. A crowded space
 
-Autonomous scientific agents, AI-scientist pipelines, self-driving laboratories,
-experiment-selection and Bayesian experimental-design methods, causal-discovery
-environments and agent benchmarks already exist. None of the following is new, and
-MIRAGE does not present them as new:
+Autonomous scientific agents, AI-scientist pipelines, self-driving laboratories, Bayesian experimental design,
+active learning and agent benchmarks already exist. MIRAGE does not present any of the following as new:
 
 - hypothesis generation by language models;
 - tool-using or experiment-running agents;
 - scientific simulation;
-- active learning and optimal experimental design;
-- reasoning about measurement error and instrument nonlinearity.
+- Bayesian optimal experimental design, expected information gain, or particle filtering / SMC;
+- reinforcement learning for sequential decisions.
 
-The repository contains no systematic literature comparison. The positioning below
-is therefore stated as a design focus, not as a competitive claim.
+The repository contains **no systematic literature comparison**. What follows is a statement of design focus, not a
+competitive claim.
 
-## 2. Differentiation thesis
+## 2. Design focus
 
-MIRAGE focuses specifically on **epistemic disambiguation under observational
-equivalence**. It constructs controlled scientific worlds that initially support
-multiple explanations, then evaluates whether the agent selects evidence that
-actually separates those explanations.
+MIRAGE focuses on one question that most evaluations skip: *did the evidence the agent gathered justify the
+decision it made?* The combination it provides is:
 
-The contribution is the combination of:
+- a factorised, partially observed binder-rescue world with **compound failures** and a three-level failure
+  hierarchy (molecule / experiment / biological model);
+- **resource-constrained** experiment selection with **path dependence** (an SPR reading on an aggregated sample
+  damages the instrument);
+- a **hard trust boundary**: policies, the belief engine, the API, the UI and replay never see truth; a separate
+  privileged evaluator does;
+- an evaluator that scores **correct and justified separately**, and a documented set of reward-hacking probes;
+- seeded, replayable episodes with a model-free replay;
+- honest baselines, including a published result where the information-gain policy did **not** win.
 
-- deliberately paired ambiguous worlds, with ambiguity demonstrated quantitatively;
-- explicit hidden scientific ground truth;
-- active experiment selection under a budget;
-- counterfactual experiment scoring (the same experiment evaluated in each
-  competing world);
-- evidence-aware evaluation: justified accuracy rather than answer accuracy alone;
-- eventually, claim/evidence maturity boundaries ([MIRAGE §6](MIRAGE.md#6-evidence-maturity-project-philosophy-not-mvp-scoring)).
+## 3. What Baseline V1 changes about the story
 
-## 3. What would make MIRAGE generic
+It would be easy to pitch "information-gain planning rescues binders". The first published result does not support
+that: FixedPipeline (74% justified) beat GreedyEIG (64% justified) on the identical 250 worlds. The contribution is a
+benchmark that can say so, and that exposed why (see [BASELINE_V1](evaluation/BASELINE_V1.md)). Whether a long-horizon
+planner helps under scarcity is the question the preregistered V2 poses; it has **not been answered**.
 
-MIRAGE loses its identity if it is pitched as:
+## 4. What is not claimed
 
-- "an AI research agent";
-- "an automated hypothesis generator";
-- "an agent that runs experiments";
-- "a false-positive checker";
-- "a generic science workflow engine".
+- No wet-lab, structural, sequence-level or therapeutic claim, and no validated EGFR model.
+- No claim that Lookahead or PPO outperform anything: neither has been evaluated.
+- No claim that the particle posterior is converged (the B4A gate is unmet).
+- No generality beyond this environment, these scenario semantics and these evaluator thresholds. Thresholds and the agent
+  prior are versioned benchmark-engineering parameters, not biological facts.
+- Never "first". No comparative claims about other systems unless evidence is committed to the repository.
 
-These describe the **thing being evaluated**, or adjacent tools. They do not describe
-MIRAGE.
+## 5. The growth benchmark
 
-## 4. Creative edge
-
-The user-facing insight is the inversion in the quote at the top. Most evaluations
-reward knowing the answer. MIRAGE makes the answer unknowable from the current
-evidence, by construction and with proof, and rewards knowing how to make it
-knowable.
-
-The MIRAGE-Bio demo shows this in one picture: two identical OD curves; underneath,
-one culture stopped and the other kept growing to 4×. One late, diluted measurement
-reveals which is which.
-
-## 5. Technical edge
-
-| Element | What it provides |
-|---|---|
-| Controlled non-identifiability | Passive ambiguity is a measured property (analytic Bayes ceiling plus strong classifiers), not an impression ([BENCHMARK_METHODOLOGY §1](BENCHMARK_METHODOLOGY.md#1-paired-worlds-controlled-non-identifiability)) |
-| Counterfactual worlds | Each experiment can be evaluated in the competing world (matched twin) |
-| Experiment diagnosticity | Experiment quality is scored separately from answer correctness (M5, stretch) |
-| Deterministic evaluator | No LLM judge; every number recomputable from saved records |
-| Active evidence acquisition | Only evidence the agent chose and obtained counts toward justification |
-| Claim/evidence alignment | Conclusions should not exceed the evidence: M3 now, maturity ladder later |
-
-## 6. MIRAGE-Bio as the proof of concept
-
-During a hackathon, one environment with a proven construction is worth more than
-six shallow ones.
-
-- MIRAGE-Bio comes with an analytic ambiguity argument (exact passive-family
-  equivalence), quantitative Gate 0 criteria, robustness checks, baselines that
-  bracket performance, and hidden-state isolation tests.
-- Shallow environments without such validation could be solved by surface cues or
-  passive guessing, and would weaken every claim.
-- Breadth is explicitly future work ([MIRAGE §9](MIRAGE.md#9-future-research-directions-not-development-tasks)).
-
-## 7. Novelty boundary
-
-MIRAGE does **not** claim to have invented:
-
-- active experimentation or optimal experimental design;
-- causal reasoning or causal discovery;
-- measurement-error or assay-nonlinearity analysis;
-- scientific agents, AI scientists or self-driving labs.
-
-The contribution is a **benchmark and evaluation construction, and a systems
-combination**: paired observationally equivalent worlds, hidden ground truth, active
-evidence acquisition and evidence-aware deterministic scoring, demonstrated in one
-carefully validated environment.
-
-Wording rules:
-- Never say "first".
-- Make no comparative claims about other systems unless evidence is committed to the
-  repository.
-- Results apply only to MIRAGE-Bio `scenario-v1` and the agent configurations
-  actually run.
+MIRAGE-Bio v0.1 (the OD600 growth-plateau environment) is retained as the project's first environment. Its Gate 0
+validation and 30-episode Claude run are real, committed, and scoped to that environment only
+([mirage-bio/](mirage-bio/README.md)). They do not support any claim about binder rescue.

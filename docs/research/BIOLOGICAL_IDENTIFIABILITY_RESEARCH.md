@@ -3,7 +3,7 @@
 **Author:** Autonomous Science Epistemics & Systems Biology Working Group  
 **Target:** MIRAGE Architecture (MSc/PhD-Level Research Monograph)  
 **Date:** October 2026  
-**Status:** Canonical Theoretical & Empirical Foundation  
+**Status:** Research and context note. Not implemented; its citations and quantitative claims are unverified by this repository (see [README](README.md)). It does not describe the Binder BioPOMDP.<br/>
 
 ---
 

@@ -1,5 +1,7 @@
 # MIRAGE Benchmark Methodology
 
+> **Scope note.** The paired-world / controlled-non-identifiability construction below was introduced for **MIRAGE-Bio** (the growth benchmark) and its examples refer to that environment. The Binder rescue benchmark uses a different construction (factorised hidden state, resource-constrained multi-step campaigns, a privileged correct-vs-justified evaluator); see [evaluation/](evaluation/BENCHMARK_PROTOCOL.md) and [evaluation/METRICS.md](evaluation/METRICS.md).
+
 | Field | Value |
 |---|---|
 | Status | Methodology (3 October 2026). Items marked *current* are planned for MIRAGE-Bio v0.1; items marked *stretch* or *future* are non-blocking. |
@@ -65,7 +67,7 @@ Details: [GATE0_SPEC](mirage-bio/GATE0_SPEC.md).
 | Experiment diagnosticity | How informative was the chosen experiment compared with the alternatives? | M5 (§3) | stretch, non-blocking |
 | Belief revision | Did it change its conclusion appropriately when new evidence arrived? | Probabilities are logged if the agent uses `declare_state`; not scored | future |
 | Premature commitment | Did it conclude before collecting sufficient evidence? | Reported descriptively as correct-but-unjustified episodes (M1 ∧ ¬M2); no separate metric | future |
-| Claim/evidence alignment | Is the claimed strength bounded by the evidence? | Evidence-maturity ladder ([MIRAGE §6](MIRAGE.md#6-evidence-maturity-project-philosophy-not-mvp-scoring)) | future |
+| Claim/evidence alignment | Is the claimed strength bounded by the evidence? | Evidence-maturity ladder ([MIRAGE §6](MIRAGE.md#9-evidence-maturity-philosophy-only)) | future |
 
 MIRAGE-Bio v0.1 ships with M1–M4. M5 and everything below it in the table must not
 block development.

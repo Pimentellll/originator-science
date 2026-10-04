@@ -1,0 +1,3 @@
+# ADR 0011: Preregistration hash lock
+
+**Status:** accepted; **currently violated on the integration branch.** Binder Rescue V2 is preregistered with a SHA-256 lock over its document, spec, seed manifest and scoring code, committed before any V2 policy runs; a change is a new version, never an edit. A5 later added metadata fields to a locked file (`truth.py`), so verification fails on the integration branch (`docs/evaluation/BINDER_RESCUE_V2_STATUS.md`). The failure is deliberately not masked. Resolution requires an explicit V2.1 re-lock (or moving the change out of the locked file) before any V2 evaluation.

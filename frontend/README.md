@@ -38,16 +38,14 @@ proxy from `MIRAGE_EVAL_TOKEN`; it is never a `VITE_` variable and never reaches
 
 ### What the backend does not give us yet
 
-- **No server entry point.** H0 exposes `make_receptor_binder_service`, which registers only `random` and
-  `fixed_pipeline`. `dev/h0_harness.py` assembles the app from H0's own code and additionally registers
-  `rescue_planner` and `greedy_eig`.
+- **Server entry point.** `scripts/serve_api.py` serves the public API. `make_receptor_binder_service` registers `random`, `fixed_pipeline` and `rescue_planner`; `greedy_eig` is **not** served (the API answers 422 `unknown policy`, which the cockpit reports as NOT RUN, so set `VITE_MIRAGE_POLICIES` to the served list). `dev/h0_harness.py` assembles an app that additionally registers `greedy_eig` and a provisional verdict route for smoke testing.
 - **No per-episode verdict route.** The public leak guard forbids the keys `correct` / `justified` on every
   route except `/benchmarks*`, so a verdict can only be served there. The harness provides
   `/benchmarks/episodes/{id}` to exercise the UI; H0 itself has none. Without it the terminal panel says
   "no evaluator verdict attached".
 - **Recommendation is the action only.** No score, confidence, EIG or cost estimate, so the Next Action panel
   says so instead of showing placeholders.
-- **No FailureLocalisation or JustificationCertificate.** The three groups show `group p —` and the threshold
+- **No FailureLocalisation or JustificationCertificate from the backend.** Both exist in `mirage.belief` but the controller and API do not produce them. The three groups show `group p —` and the threshold
   row shows `NOT AVAILABLE`. Both are consumed automatically if the backend adds `failure_localisation` on the
   belief or a certificate on the state / replay.
 

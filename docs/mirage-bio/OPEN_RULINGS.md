@@ -1,5 +1,7 @@
 # Open science rulings (for Arnav)
 
+> **LEGACY: MIRAGE-Bio v0.1 (growth / OD600 benchmark).** This document is the historical record of the first, separate environment. Status lines, "not started" notes and plans below date from 3-4 October 2026 and were **not** updated; the growth benchmark has since been implemented and run (see [mirage-bio/README.md](README.md)). It does not describe the Binder rescue system. Current status: [START_HERE](../START_HERE.md).
+
 This is not a specification. It collects every "Needs ruling" item from the merged
 implementation PRs, as of `wip/integration` at `d37497b`. Provisional decisions are
 recorded at the end (§F); none of them changed any code. For each item, the current behaviour is stated, and the code keeps that

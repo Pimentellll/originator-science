@@ -1,22 +1,29 @@
 # Action and observation contract
 
-Canonical names are frozen. Public observations use action_type, candidate_id, measurements: dict[str, float], quality, and optional public notes. Arbitrary generic metadata is forbidden because it becomes a truth-leak channel.
+Canonical names are frozen (`mirage.core.ActionType`). Public observations use `action_type`, `candidate_id`,
+`measurements: dict[str, float]`, `quality` and optional public `notes`. Arbitrary generic metadata is forbidden because
+it would be a truth-leak channel.
 
-| Action | Public measurements and purpose | Cost, artifact, and transition |
-| --- | --- | --- |
-| MEASURE_STABILITY | stability_proxy | budget, sample, time; noisy folding evidence |
-| MEASURE_SEC | monomer_fraction | budget, sample, time; aggregation evidence before SPR |
-| MEASURE_SPR | log_kd and log_koff estimates | budget, sample, time; aggregated input can degrade quality and SPR health |
-| MEASURE_EPITOPE | epitope_signal | resources/time; functional epitope evidence |
-| MEASURE_DEVELOPABILITY | liability_proxy | resources/time; developability evidence |
-| VALIDATE_ASSAY | control_signal | budget/time; assay-integrity evidence |
-| ORTHOGONAL_FUNCTION | orthogonal_function_signal | resources/time; separates assay from model explanations |
-| REDESIGN_STABILITY | no assay result; new candidate ID | expected stability benefit with weak trade-offs |
-| REDESIGN_SOLUBILITY | no assay result; new candidate ID | expected aggregation/developability benefit |
-| REDESIGN_INTERFACE | no assay result; new candidate ID | expected affinity/kinetic benefit with small stability/aggregation downside |
-| SELECT | terminal decision | ends episode |
-| REJECT | terminal decision | ends episode |
-| MODEL_INVALID | terminal decision | ends episode |
-| ABSTAIN | terminal decision | ends episode |
+Costs are the environment's configured values (`_COSTS` in `environments/binder/environment.py`); they are pinned by
+tests in the policy and V2 code that reuse them.
 
-Observation distributions overlap across mechanisms. A public measurement name describes an assay readout, not a direct truth field; no action returns a perfect latent factor or trivial healthy/failure code. Preconditions include sufficient budget/sample, nonterminal state, and candidate existence. Exact costs, durations, noise scales, quality thresholds, and transition distributions are configurable simulator parameters.
+| Action | Public measurements | Budget | Sample | Time | Notes |
+|---|---|---|---|---|---|
+| `MEASURE_STABILITY` | `stability_proxy` | 1.0 | 0.5 | 0.5 | folding evidence |
+| `MEASURE_SEC` | `monomer_fraction` | 1.0 | 0.5 | 0.5 | aggregation evidence; run before SPR |
+| `MEASURE_SPR` | `log_kd`, `log_koff` | 2.0 | 1.0 | 1.0 | degraded on aggregated samples or a degraded instrument; damages SPR health (0.28 per degraded read) |
+| `MEASURE_EPITOPE` | `epitope_signal` | 1.0 | 0.4 | 0.5 | functional-epitope evidence |
+| `MEASURE_DEVELOPABILITY` | `liability_proxy` | 1.0 | 0.4 | 0.5 | developability evidence |
+| `VALIDATE_ASSAY` | `control_signal` | 0.75 | 0.1 | 0.25 | assay-integrity control |
+| `ORTHOGONAL_FUNCTION` | `orthogonal_function_signal` | 1.5 | 0.25 | 0.75 | separates assay from model explanations |
+| `REDESIGN_STABILITY` | none; new candidate | 2.0 | 1.0 | 1.0 | expected stability gain, weak trade-offs |
+| `REDESIGN_SOLUBILITY` | none; new candidate | 2.0 | 1.0 | 1.0 | expected aggregation gain |
+| `REDESIGN_INTERFACE` | none; new candidate | 2.0 | 1.0 | 1.0 | expected affinity/kinetic gain, small stability cost |
+| `SELECT` `REJECT` `MODEL_INVALID` `ABSTAIN` | none | 0 | 0 | 0 | terminal; ends the episode |
+
+Running all seven assays once costs 8.25 budget, 3.15 sample and 4.0 time.
+
+Observation distributions overlap across mechanisms. A measurement name describes an assay readout, not a truth field;
+no action returns a perfect latent factor or a trivial healthy/failure code. Preconditions: the episode is not terminal,
+the candidate exists, and budget and sample cover the cost (terminal actions are always available). An action not in
+`available_actions()` is rejected with `ValueError`.
