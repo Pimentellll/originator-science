@@ -68,7 +68,7 @@ def make_server(
         def _dispatch(self, operation) -> None:
             try:
                 operation()
-            except Exception as err:
+            except Exception as err:  # noqa: BLE001 - every failure becomes a JSON error
                 self._error(err)
 
         def _read_json(self) -> dict[str, Any]:

@@ -1,6 +1,7 @@
 import http.client
 import json
 import math
+import re
 import socket
 import threading
 from pathlib import Path
@@ -383,3 +384,17 @@ def test_http_health_static_mime_and_traversal(
         httpd.shutdown()
         httpd.server_close()
         thread.join(timeout=5)
+
+
+def test_shipped_static_console_assets_are_self_contained() -> None:
+    static = Path(__file__).resolve().parents[1] / "src" / "mirage" / "ui" / "static"
+    for name in ("index.html", "styles.css", "api.js", "charts.js", "app.js"):
+        assert (static / name).is_file(), name
+    index = (static / "index.html").read_text()
+    assert '<script type="module" src="/static/app.js">' in index
+    remote = re.compile(
+        r"""(?:src|href)\s*=\s*["']https?://|url\(\s*["']?https?://"""
+        r"""|from\s+["']https?://|fetch\(\s*["']https?://|@import"""
+    )
+    for asset in static.iterdir():
+        assert not remote.search(asset.read_text()), asset.name
