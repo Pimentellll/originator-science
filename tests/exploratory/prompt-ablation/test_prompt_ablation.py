@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import re
 import socket
@@ -13,19 +14,35 @@ import httpx2 as httpx
 import pytest
 from anthropic.types import Message
 
+from mirage.agents import claude as claude_mod
+from mirage.agents.claude import ClaudeAgent
+from mirage.config import load_prior, sample_episode
+from mirage.evaluation import runner
+from mirage.lab import tools as frozen
+from mirage.lab.environment import LabEnvironment
+
 ROOT = Path(__file__).resolve().parents[3]
 EXP = ROOT / "experiments" / "exploratory" / "prompt-ablation"
-sys.path.insert(0, str(EXP))
 
-import analyze  # noqa: E402
-import driver  # noqa: E402
-import variants  # noqa: E402
-from mirage.agents import claude as claude_mod  # noqa: E402
-from mirage.agents.claude import ClaudeAgent  # noqa: E402
-from mirage.config import load_prior, sample_episode  # noqa: E402
-from mirage.evaluation import runner  # noqa: E402
-from mirage.lab import tools as frozen  # noqa: E402
-from mirage.lab.environment import LabEnvironment  # noqa: E402
+
+def _load_module(name: str):
+    module_name = f"exp_prompt_ablation_{name}"
+    module = sys.modules.get(module_name)
+    if module is not None:
+        return module
+    path = EXP / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+variants = _load_module("variants")
+driver = _load_module("driver")
+analyze = _load_module("analyze")
 
 MODEL = "claude-sonnet-5-5"
 DEV = EXP / "dev_matrix.json"

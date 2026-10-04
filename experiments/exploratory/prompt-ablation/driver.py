@@ -19,6 +19,7 @@ Usage (from the repo root, PYTHONPATH=src):
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 import sys
@@ -28,17 +29,32 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
-HERE = Path(__file__).resolve().parent
-if str(HERE) not in sys.path:
-    sys.path.insert(0, str(HERE))
-
 from mirage.agents import claude as claude_mod  # noqa: E402
 from mirage.agents.claude import ClaudeAgent  # noqa: E402
 from mirage.config import canonical_sha256, load_prior, sample_episode  # noqa: E402
 from mirage.evaluation import report, runner  # noqa: E402
 from mirage.lab.tools import MAX_TURNS  # noqa: E402
 
-from variants import VARIANTS, PromptVariant  # noqa: E402
+HERE = Path(__file__).resolve().parent
+
+
+def _load_sibling(name: str) -> Any:
+    module_name = f"exp_prompt_ablation_{name}"
+    if module_name in sys.modules:
+        return sys.modules[module_name]
+    path = HERE / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load prompt-ablation sibling {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_variants = _load_sibling("variants")
+VARIANTS = _variants.VARIANTS
+PromptVariant = _variants.PromptVariant
 
 DEFAULT_MODEL = "claude-sonnet-5-5"  # C2; never substituted
 EXP_ROOT = HERE

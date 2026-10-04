@@ -14,21 +14,35 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import importlib.util
 import json
 import re
 import sys
 from pathlib import Path
 from typing import Any
 
-HERE = Path(__file__).resolve().parent
-if str(HERE) not in sys.path:
-    sys.path.insert(0, str(HERE))
-
 from mirage.evaluation import runner  # noqa: E402
 from mirage.lab import tools as frozen  # noqa: E402
 
-import driver  # noqa: E402
-import variants  # noqa: E402
+HERE = Path(__file__).resolve().parent
+
+
+def _load_sibling(name: str) -> Any:
+    module_name = f"exp_prompt_ablation_{name}"
+    if module_name in sys.modules:
+        return sys.modules[module_name]
+    path = HERE / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load prompt-ablation sibling {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+driver = _load_sibling("driver")
+variants = _load_sibling("variants")
 
 # Registered regex (REGISTRATION §5), case-insensitive.
 CEILING_RE = re.compile(
