@@ -1,41 +1,62 @@
-# MIRAGE analysis and design
+# MIRAGE analysis and design rationale
 
-## Requirements analysis
+Rationale for the design choices, checked against `d182a2c`. For what exists and its status see
+[START_HERE](../START_HERE.md); for the contracts see the other documents in this directory.
 
-MIRAGE evaluates active causal reasoning under ambiguity. A policy must observe noisy evidence, maintain uncertainty over multiple mechanisms, choose discriminating experiments under cost and path dependence, and make a bounded terminal claim. Correctness alone is insufficient: independent evaluation checks whether the recorded evidence supports the claim.
+## Problem
 
-## Current-system analysis
+A failed de novo binder campaign has overlapping, co-occurring explanations across three loci (molecule, experiment,
+biological model). A policy must observe noisy evidence, keep uncertainty over several mechanisms at once, choose
+experiments under cost and path dependence, and make a bounded terminal claim. **Correctness alone is insufficient**:
+independent evaluation checks whether the recorded evidence supports the claim (CORRECT ≠ JUSTIFIED).
 
-The repository already contains a working growth/OD regression benchmark, virtual lab, deterministic evaluator, scripted baselines, Claude adapter, runner, records, replay, and pytest suite. It is not an empty scaffold. That benchmark is preserved as the original MIRAGE environment and regression target.
+## Alternatives rejected
 
-## Scientific problem analysis
+| Rejected | Why |
+|---|---|
+| a single mutually exclusive failure label | cannot represent compound failure (aggregation + kinetic defect) |
+| a deterministic pass/fail assay table | makes inference trivial; real assays are noisy and overlapping |
+| a sequence-generating RL action space | MIRAGE evaluates campaign decisions, not amino-acid generation |
+| using the training reward as the evaluator | conflates optimisation with scientific justification (ADR 0006) |
+| a language-model judge | non-reproducible; the evaluator is deterministic over saved records |
 
-A failing de novo binder may be unstable, aggregated, weakly binding, fast-dissociating, directed to a non-functional epitope, developability-limited, measured by a broken assay, or evaluated through an invalid biological model. Several can co-occur. Passive functional failure is therefore deliberately insufficient evidence.
+## Selected design
 
-## Architectures considered
+- **Environment.** `BinderBioPOMDP` owns a private, factorised causal state and emits overlapping stochastic structured
+  observations. Resources and SPR instrument health are a separate public component. Redesign creates a new lineage
+  member through explicitly synthetic transitions.
+- **Belief.** A seeded particle posterior over the factorised state (adaptive-tempering SMC with resample-move),
+  summarised as eight non-exclusive failure marginals and a derived locus view.
+- **Policies.** One public contract, six policies (Random, FixedPipeline, GreedyEIG, ReceptorRescuePlanner, Lookahead,
+  PPO).
+- **Evaluation.** A privileged evaluator that reads a public trace plus truth labels and scores *correct* and
+  *justified* separately, with a reward-hacking suite.
+- **Provenance.** Public events recorded per step; model-free replay.
+- **Interface.** A DTO-bounded API and a cockpit that never receive truth.
 
-A single mutually exclusive failure label is rejected because it cannot represent compound failure. A deterministic pass/fail assay table is rejected because it makes inference trivial. A sequence-generating RL action space is rejected because MIRAGE evaluates campaign decisions, not amino-acid generation. A single reward as evaluator is rejected because it conflates training optimization with scientific justification.
+## Planning design and the honest state of the evidence
 
-## Selected architecture
+GreedyEIG is deliberately myopic and was expected to be competitive on myopic worlds, with path-dependent worlds (an SPR
+reading on an aggregated sample damages the instrument) exposing its limit. **Baseline V1 did not show that.** With the
+default resources FixedPipeline already runs every assay, beat GreedyEIG on justified rate (74% vs 64%), and the
+path-dependent regime did not separate policies ([BASELINE_V1](../evaluation/BASELINE_V1.md)). Long-horizon planners
+(Lookahead; PPO) are a hypothesis to be tested on the preregistered resource-constrained V2 benchmark, which has not
+been run. PPO is a pragmatic swappable planner, not a claim of definitive scientific planning.
 
-BinderBioPOMDP owns a private, factorised causal state and emits overlapping stochastic observations. A particle belief approximates posterior uncertainty. Common policies choose canonical ScientificAction values. Resources and instrument health form a separate state component. Redesign produces a new lineage member through explicitly synthetic simulator transitions. A privileged evaluator scores correctness and justification independently.
+## Design risks that materialised
 
-## Component and data design
+| Risk | What happened |
+|---|---|
+| scenario labels not matching worlds | V1 worlds carried extra failures; fixed by `SEMANTICS_V2` (A5) |
+| unstable posterior | SIR degeneracy at 512 particles; adaptive tempering added; convergence gate still unmet |
+| preregistration drift | A5 touched a V2-locked file; lock fails verification pending a V2.1 decision |
+| evaluator / simulator label mismatch | two threshold sets coexist (`campaign-eval/1` vs `evaluator_truth`) |
+| belief / simulator model mismatch | degraded SPR bias +0.70 realised vs +0.35 assumed |
+| leakage | key scanner, DTO boundary and sentinel tests in place; free text is not scanned |
 
-Public contracts contain actions, lineage metadata, resource state, observations, state snapshots, and public provenance. They reject extra fields. Private truth includes stability, monomer fraction, log KD, log koff, functional epitope, developability liability, assay validity, and model validity. Environment-to-policy flow is one-way through public observations.
+## Claim boundaries
 
-## Planning design
-
-Greedy EIG is intentionally myopic and should be competitive on myopic worlds. Path-dependent worlds expose its limitation: sending an aggregated sample to SPR may harm the instrument and reduce later kinetic evidence. Campaign-level planners can favour SEC, repair, then SPR. PPO is an MVP planner, not a claim of definitive scientific planning.
-
-## Evaluation and frontend design
-
-Evaluation consumes a public trace plus privileged truth. It separates correct from justified and reports cost, compound recognition, invalid-assay/model detection, and proxy exploitation. The Scientific Cockpit shows candidates, evidence, belief, resources, recommendations, timeline/replay, policy comparison, and benchmark lab. It never receives truth.
-
-## Risks, migration, testing, demo
-
-Risks include leakage, non-identifying assay models, reward hacking, misleading biological claims, and incompatible workstreams. Add new packages alongside the existing benchmark; do not broadly refactor it. Test determinism, leak-free JSON, every action, resource transitions, posterior response, same-seed policy comparison, replay, and correct-versus-justified outcomes. Demonstrate a seeded case where myopic SPR is attractive but SEC-first preserves future capability.
-
-## Claim boundaries and future extensions
-
-MIRAGE is a synthetic, biologically grounded benchmark, not a digital twin, therapeutic discovery system, clinical predictor, wet-lab replacement, or exact physical simulator. Future design engines may include ProteinMPNN, FoldX, RFdiffusion, Bayesian optimisation, and active learning, but are outside the MVP.
+MIRAGE is a synthetic, semi-mechanistic benchmark. It is not a digital twin, a therapeutic discovery system, a
+clinical or validated EGFR predictor, a wet-lab replacement or an exact physical simulator. Sequence- or
+structure-level design engines are out of scope and none is implemented; the redesign interface is the only place such an
+engine could plug in.

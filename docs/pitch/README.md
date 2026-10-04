@@ -1,4 +1,6 @@
-# Pitch artefacts (DEV-018)
+# Pitch artefacts (DEV-018, legacy MIRAGE-Bio)
+
+> These artefacts pitch the **legacy MIRAGE-Bio growth benchmark** and its 30-episode Claude result. There is no pitch script yet for the Binder rescue system; use the root README.
 
 - `script.md`: a pitch of about 3 minutes, with a sources table for every number and a "do not
   say" list.

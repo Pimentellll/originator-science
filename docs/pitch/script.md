@@ -1,5 +1,7 @@
 # MIRAGE-Bio pitch script (about 3 minutes)
 
+> **Legacy.** This script covers the growth/OD benchmark only. It makes no statement about the Binder rescue system.
+
 Every number below comes from a committed file; see the table in "Sources" at the end. The demo
 episode is an illustration. The results table is the claim (EXPERIMENT_PLAN §10).
 

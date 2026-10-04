@@ -44,3 +44,12 @@ The exporter (`scripts/export_baseline_v1.py`) is read-only: it rebuilds the agg
 Run new policies with `run_binder_benchmark(include_baselines=False, extra_policies=...,
 expected_fingerprints=<MANIFEST world fingerprints>, expected_world_digests=<world_digests.json>)`
 on `seed_manifest.json:held_out_used`, writing to a new output directory.
+
+## Context added after the freeze
+
+This section was appended after the run and changes none of the results above (the SHA-256 digests in `MANIFEST.json` are
+unaffected: this README is not hashed). Interpretation, caveats and the follow-up findings (scenario semantics `SEMANTICS_V2`,
+the adaptive-tempering belief work and its unmet convergence gate) are in
+[`docs/evaluation/BASELINE_V1.md`](../../docs/evaluation/BASELINE_V1.md). The run used code `1c2ed6e` and the pre-tempering belief
+engine; the current tree's default belief engine differs, so a fresh run is not a reproduction. Check out tag
+`mirage-baseline-v1` to rerun V1.

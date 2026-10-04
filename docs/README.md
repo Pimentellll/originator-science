@@ -1,62 +1,48 @@
 # Documentation index
 
-For the current MIRAGE architecture, start at [START_HERE.md](START_HERE.md). The original
-growth benchmark remains documented below; Binder BioPOMDP contracts are in architecture/,
-scientific-spec/, evaluation/, and implementation/.
+Start at [START_HERE.md](START_HERE.md). The Binder system is documented under `architecture/`, `scientific-spec/`,
+`evaluation/`, `validation/`, `implementation/` and `adr/`. The earlier growth benchmark is documented under
+`mirage-bio/` and is retained for history.
 
 ```text
-MIRAGE                                  the project: epistemic evaluation of autonomous scientists
-│
-├── benchmark methodology / evaluation principles     (docs/*.md)
-│
-└── MIRAGE-Bio                          the first concrete environment  (docs/mirage-bio/)
+docs/
+├── START_HERE.md          status table and reading order
+├── MIRAGE.md              framing: correct != justified, failure hierarchy, scope
+├── DIFFERENTIATION.md     what is and is not claimed
+├── BENCHMARK_METHODOLOGY.md   paired-world methodology (introduced for MIRAGE-Bio; see its banner)
+├── architecture/          system, trust boundary, belief/policy contract, provenance, API
+├── scientific-spec/       environment, causal state, actions, assays, resources, redesign, scenarios
+├── evaluation/            policy taxonomy, metrics, protocol, Baseline V1 analysis, V2 preregistration + status
+├── validation/            B4A posterior convergence gate and its measured results (+ raw audit JSON)
+├── implementation/        acceptance gates, work packages, migration, historical execution plan
+├── adr/                   decision records 0001-0011
+├── research/              identifiability research note (not implemented)
+├── pitch/                 legacy MIRAGE-Bio pitch
+└── mirage-bio/            legacy growth/OD benchmark documentation
 ```
 
-**Specification status:**
+## Frozen records (never edited in place)
 
-| Item | Status |
-|---|---|
-| MIRAGE-level methodology | Documented |
-| MIRAGE growth benchmark | IMPLEMENTED |
-| Binder BioPOMDP | IN DEVELOPMENT |
+| Record | Where | Why frozen |
+|---|---|---|
+| Baseline V1 results | `../results/baseline_v1/` (tag `mirage-baseline-v1`) | historical; later policies are appended elsewhere |
+| V2 preregistration | `evaluation/BINDER_RESCUE_V2.md`, `../experiments/preregistration/binder_rescue_v2/` (tag `mirage-v2-prereg`) | hash-locked; a change is a new version |
+| Posterior convergence gate | `validation/POSTERIOR_CONVERGENCE_GATE.md` | declared before any remedy was evaluated |
 
-## MIRAGE-level documents (framing; they create no development tasks)
-
-| Document | Authoritative for |
-|---|---|
-| [MIRAGE.md](MIRAGE.md) | What MIRAGE is and is not; the scientific loop; evaluation philosophy; evidence maturity (philosophy only) |
-| [BENCHMARK_METHODOLOGY.md](BENCHMARK_METHODOLOGY.md) | How MIRAGE constructs ambiguity (paired worlds, controlled non-identifiability) and evaluates experiments (diagnosticity, counterfactual scoring) |
-| [DIFFERENTIATION.md](DIFFERENTIATION.md) | The technical and creative contribution, and what we do **not** claim |
-
-## MIRAGE-Bio implementation documents (`mirage-bio/`)
-
-| Document | Authoritative for |
-|---|---|
-| [ANALYSIS.md](mirage-bio/ANALYSIS.md) | What and why: requirements (FR, NFR, SVR), assumptions, metrics M1–M5, success criteria |
-| [DESIGN.md](mirage-bio/DESIGN.md) | How MIRAGE-Bio is implemented: model, tools, schemas, evaluator, baselines |
-| [GATE0_SPEC.md](mirage-bio/GATE0_SPEC.md) | What must be scientifically demonstrated before agent integration; the single authority for Gate 0 criteria and outputs |
-| [DEVELOPMENT_PLAN.md](mirage-bio/DEVELOPMENT_PLAN.md) | Build order: milestones MS0–MS6, tasks DEV-001 to DEV-019, timeline, stop rules |
-| [TEAM_HANDOFF.md](mirage-bio/TEAM_HANDOFF.md) | Immediate team execution: roles, priorities, do-not-do list |
-| [TEST_PLAN.md](mirage-bio/TEST_PLAN.md) | Verification: tests T-001 to T-032 |
-| [EXPERIMENT_PLAN.md](mirage-bio/EXPERIMENT_PLAN.md) | Agent measurement: matrices, reporting, interpretation, allowed claims |
-| [RISKS.md](mirage-bio/RISKS.md) | Risk register |
-| [ADR/](mirage-bio/ADR/) | Decision records ADR-001 to ADR-007. **All apply specifically to MIRAGE-Bio.** |
-
-Design-time numerical reference (not the production Gate 0, and not evidence it has
-passed): [`experiments/reference/design_validation.py`](../experiments/reference/design_validation.py)
-and its [output](../experiments/reference/design_validation_output.txt).
+Interpretation, corrections and status for these records live in separate documents:
+[BASELINE_V1.md](evaluation/BASELINE_V1.md), [BINDER_RESCUE_V2_STATUS.md](evaluation/BINDER_RESCUE_V2_STATUS.md) and
+[B4A_CONVERGENCE_RESULTS.md](validation/B4A_CONVERGENCE_RESULTS.md).
 
 ## Precedence when documents overlap
 
 | Question | Document that wins |
 |---|---|
-| What and why | ANALYSIS |
-| How | DESIGN |
-| Gate 0 criteria and outputs | GATE0_SPEC (ANALYSIS states the SVRs; GATE0_SPEC states how they pass) |
-| When and in what order | DEVELOPMENT_PLAN |
-| Who, and what now | TEAM_HANDOFF |
-| How we verify | TEST_PLAN |
-| How we measure the agent | EXPERIMENT_PLAN |
-| How it can fail | RISKS |
-| Why a decision was made | ADRs |
-| Project identity and methodology | MIRAGE, BENCHMARK_METHODOLOGY, DIFFERENTIATION. These never override MIRAGE-Bio implementation scope. |
+| What the system is and claims | root README, MIRAGE.md, DIFFERENTIATION.md |
+| Public interfaces and the trust boundary | architecture/ |
+| Simulator behaviour and numbers | scientific-spec/ (numbers are checked against `src/mirage/environments/binder/`) |
+| What a metric means; evidence rules | evaluation/METRICS.md |
+| What was measured | evaluation/BASELINE_V1.md, validation/B4A_CONVERGENCE_RESULTS.md and the raw files they cite |
+| Why a decision was made | adr/ |
+| The legacy growth benchmark | mirage-bio/ |
+
+Where prose and code disagree, the code at the freeze SHA wins and the document is a bug.
