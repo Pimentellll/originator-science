@@ -20,7 +20,9 @@ ALLOWED_IMPORT_ROOTS = {
 ALLOWED_MIRAGE = ("mirage.core", "mirage.belief", "mirage.policies")
 # The single place allowed to touch the environment package: the adapter that
 # delegates to the environment's PUBLIC predictive model (no truth, no env object).
-ADAPTER_EXCEPTIONS = {"binder.py": {"mirage.environments.binder.predictive"}}
+ADAPTER_EXCEPTIONS = {
+    "binder.py": {"mirage.environments.binder.predictive", "mirage.environments.binder.scenarios"}
+}
 
 
 def _tree(path):

@@ -40,9 +40,9 @@ class FixedPipelinePolicy(ScientificPolicy):
     currently available (e.g. insufficient resources) is skipped. The closing
     decision is a fixed rule on the public belief:
 
+        any molecular failure marginal >= t     -> REJECT
         p_assay_invalid >= t                    -> ABSTAIN
         p_model_invalid >= t                    -> MODEL_INVALID
-        any molecular failure marginal >= t     -> REJECT
         otherwise                               -> SELECT
 
     It never redesigns.

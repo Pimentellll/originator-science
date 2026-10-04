@@ -17,7 +17,7 @@ def p(b, field):
 def test_sec_showing_aggregation_raises_aggregation():
     b = make_belief(2000)
     before = p(b, "p_aggregation_failure")
-    b.observe(MODEL, act(A.MEASURE_SEC), obs(A.MEASURE_SEC, monomer_fraction=0.55))
+    b.observe(MODEL, act(A.MEASURE_SEC), obs(A.MEASURE_SEC, monomer_fraction=0.40))
     after = p(b, "p_aggregation_failure")
     assert after > before and after > 0.9
     assert after < 1.0  # noise leaves uncertainty

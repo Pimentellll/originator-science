@@ -90,6 +90,7 @@ def test_fixed_pipeline_only_uses_active_candidate_history():
         ({"p_kinetic_failure": 0.5}, A.REJECT),
         ({"p_model_invalid": 0.8}, A.MODEL_INVALID),
         ({"p_assay_invalid": 0.8, "p_model_invalid": 0.8}, A.ABSTAIN),
+        ({"p_aggregation_failure": 0.9, "p_model_invalid": 0.5}, A.REJECT),  # unmeasured model flag at its prior must not override a molecular failure
     ],
 )
 def test_fixed_pipeline_terminal_rule(belief_kw, expected):

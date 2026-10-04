@@ -199,6 +199,16 @@ class ParticleBelief:
         return info
 
     @property
+    def evidence(self) -> tuple[tuple[ScientificAction, ScientificObservation], ...]:
+        """Public (action, observation) pairs absorbed via ``observe`` for the CURRENT
+        candidate (cleared by a redesign transition)."""
+        return tuple((a, y) for _, a, y in self._evidence)
+
+    @property
+    def evidence_models(self) -> tuple[ParticlePredictiveModel, ...]:
+        return tuple(m for m, _, _ in self._evidence)
+
+    @property
     def can_rejuvenate(self) -> bool:
         return self._prior is not None and self._evidence_complete and self.rejuvenation_sweeps > 0
 
@@ -223,8 +233,9 @@ class ParticleBelief:
         for _ in range(self.rejuvenation_sweeps):
             for c in range(self.schema.dim):
                 prop = z.copy()
-                if c in binary:
-                    prop[:, c] = 1.0 - prop[:, c]
+                if c in binary:  # flip each particle w.p. 1/2 (an always-flip move never mixes)
+                    flip = self._rng.random(self.n) < 0.5
+                    prop[flip, c] = 1.0 - prop[flip, c]
                 else:
                     prop[:, c] += self.move_scale * scale[c] * self._rng.normal(size=self.n)
                 new = self._log_target(prop)
@@ -280,12 +291,7 @@ class ParticleBelief:
 
     def failure_indicators(self) -> np.ndarray:
         """(n, 8) boolean matrix, columns ordered as FAILURE_FIELDS."""
-        cols = []
-        for name in FAILURE_FIELDS:
-            rule = self.schema.failure_rules[name]
-            x = self._particles[:, self.schema.index(rule.factor)]
-            cols.append(x < rule.threshold if rule.direction == "below" else x > rule.threshold)
-        return np.column_stack(cols)
+        return self.schema.failure_indicators(self._particles)
 
     def failure_probabilities(self) -> dict[str, float]:
         """Posterior mass of each (non-exclusive) failure rule."""
@@ -317,6 +323,12 @@ class ParticleBelief:
         quantity reported as ``BeliefSummary.posterior_entropy`` and the objective
         of expected information gain."""
         return float(binary_entropy(self.weights @ self.failure_indicators().astype(float)).sum())
+
+    def localisation(self) -> "FailureLocalisation":
+        """Derived molecule / experiment / model view of the posterior."""
+        from mirage.belief.localisation import FailureLocalisation
+
+        return FailureLocalisation.from_belief(self)
 
     def summary(self) -> BeliefSummary:
         w = self.weights

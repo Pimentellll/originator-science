@@ -1,6 +1,9 @@
 """Particle belief engine over factorised latent scientific worlds."""
 
 from mirage.belief.acquisition import EIGEstimate, expected_information_gain, sample_sources
+from mirage.belief.decision import TERMINAL_ORDER, TerminalUtility, correct_terminal_masks, terminal_expected_utilities
+from mirage.belief.justification import CertificateConfig, CompetingExplanation, JustificationCertificate, build_certificate
+from mirage.belief.localisation import FailureLocalisation
 from mirage.belief.particles import (
     binary_entropy,
     DegenerateBeliefError,
@@ -9,6 +12,13 @@ from mirage.belief.particles import (
     UpdateInfo,
 )
 from mirage.belief.predictive import ParticlePredictiveModel
+from mirage.belief.predictive_check import (
+    ObservationSurprise,
+    PredictiveCheckReport,
+    posterior_predictive_check,
+    predictive_surprise,
+    summarise_surprises,
+)
 from mirage.belief.priors import (
     ConditionedPrior,
     Factor,
@@ -30,6 +40,20 @@ from mirage.belief.summary import BeliefSummary
 __all__ = [
     "BINDER_SCHEMA_PROVISIONAL",
     "BeliefSummary",
+    "CertificateConfig",
+    "CompetingExplanation",
+    "JustificationCertificate",
+    "ObservationSurprise",
+    "PredictiveCheckReport",
+    "build_certificate",
+    "posterior_predictive_check",
+    "predictive_surprise",
+    "summarise_surprises",
+    "FailureLocalisation",
+    "TERMINAL_ORDER",
+    "TerminalUtility",
+    "correct_terminal_masks",
+    "terminal_expected_utilities",
     "ConditionedPrior",
     "DegenerateBeliefError",
     "EIGEstimate",

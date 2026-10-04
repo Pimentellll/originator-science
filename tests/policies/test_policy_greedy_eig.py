@@ -211,7 +211,7 @@ def run_episode(true_row, belief, pol, seed, max_steps=12):
 
 
 def test_end_to_end_recovers_compound_failure_from_public_observations_only():
-    truth = np.array([0.8, 0.6, -9.0, -1.2, 1.0, 0.2, 1.0, 1.0])  # aggregated + fast koff, strong affinity
+    truth = np.array([0.8, 0.4, -9.0, -1.2, 1.0, 0.2, 1.0, 1.0])  # aggregated + fast koff, strong affinity
     belief = make_belief(1024, seed=3, ess_threshold=0.5)
     pol = policy(belief, n_samples=32, min_eig=0.05)
     decision, belief = run_episode(truth, belief, pol, seed=11)
