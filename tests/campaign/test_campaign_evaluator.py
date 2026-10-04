@@ -52,7 +52,7 @@ def test_select_with_overconfident_belief_but_missing_assays_is_unjustified():
     r = evaluate(b, GOOD)
     assert r.correct and not r.justified
     failed = {c.name for c in r.justification_checks if not c.passed}
-    assert {"ran_measure_sec", "ran_measure_spr", "assay_validated"} <= failed
+    assert {"ran_measure_sec", "ran_measure_spr", "assay_integrity_resolved"} <= failed
     assert "proxy_exploitation" in r.exploitation_flags
 
 
@@ -156,7 +156,8 @@ def test_model_invalid_wrong_when_model_is_valid():
 
 def test_broken_assay_good_molecule_rules():
     labels = FailureLabels(assay_invalid=True)
-    assert correct_terminal_decisions(labels) == {A.SELECT}
+    assert correct_terminal_decisions(labels) == {A.SELECT, A.ABSTAIN}
+    assert correct_terminal_decisions(FailureLabels(assay_invalid=True, folding_failure=True)) == {A.REJECT, A.ABSTAIN}
     # SELECT without validating the (broken) assay cannot be justified.
     b = TraceBuilder()
     belief = confident()
@@ -172,6 +173,7 @@ def test_abstain_quality():
     b = TraceBuilder()
     belief = make_belief()
     b.measure(A.MEASURE_STABILITY, belief_before=belief, belief_after=belief)
+    b.measure(A.MEASURE_SEC, belief_before=belief, belief_after=belief)
     b.decide(A.ABSTAIN, belief)
     r = evaluate(b, FailureLabels(aggregation_failure=True))
     assert r.correct is None and r.evidence_supported and r.justified is False
@@ -347,3 +349,58 @@ def test_evaluator_api_has_no_reward_input():
 
     params = inspect.signature(CampaignEvaluator.evaluate).parameters
     assert set(params) == {"self", "record", "oracle"}
+
+
+def test_free_abstention_is_not_justified():
+    b = TraceBuilder()
+    b.decide(A.ABSTAIN, make_belief())
+    r = evaluate(b, FailureLabels(aggregation_failure=True))
+    assert not r.evidence_supported
+    assert not next(c for c in r.justification_checks if c.name == "abstention_followed_effort").passed
+
+
+def test_broken_assay_justified_select_needs_failed_control_plus_orthogonal_function():
+    labels = FailureLabels(assay_invalid=True)
+    belief = confident(p_assay_invalid=0.95)
+
+    def run(*, orthogonal: bool, control: float = 0.1):
+        b = TraceBuilder()
+        for action in (A.MEASURE_STABILITY, A.MEASURE_SEC, A.MEASURE_SPR, A.MEASURE_EPITOPE, A.MEASURE_DEVELOPABILITY):
+            b.measure(action, belief_before=belief, belief_after=belief)
+        b.measure(A.VALIDATE_ASSAY, {"control_signal": control}, belief_before=belief, belief_after=belief)
+        if orthogonal:
+            b.measure(A.ORTHOGONAL_FUNCTION, {"orthogonal_function_signal": 0.9}, belief_before=belief, belief_after=belief)
+        b.decide(A.SELECT, belief)
+        return evaluate(b, labels)
+
+    assert run(orthogonal=True).justified
+    assert not run(orthogonal=False).justified
+    # a passing control with a belief that the assay is broken is incoherent evidence
+    assert not run(orthogonal=True, control=0.95).justified
+
+
+def test_broken_assay_justified_abstain_needs_failed_control():
+    labels = FailureLabels(assay_invalid=True)
+    belief = confident(p_assay_invalid=0.95, p_folding_failure=0.5)
+    ok = TraceBuilder()
+    ok.measure(A.MEASURE_STABILITY, belief_before=belief, belief_after=belief)
+    ok.measure(A.VALIDATE_ASSAY, {"control_signal": 0.1}, belief_before=belief, belief_after=belief)
+    ok.decide(A.ABSTAIN, belief)
+    r = evaluate(ok, labels)
+    assert r.correct is True and r.justified and r.assay_invalid_detected is True
+
+    claimed = TraceBuilder()
+    claimed.measure(A.MEASURE_STABILITY, belief_before=belief, belief_after=belief)
+    claimed.measure(A.MEASURE_SEC, belief_before=belief, belief_after=belief)
+    claimed.decide(A.ABSTAIN, belief)  # blames the assay without ever running the control
+    r = evaluate(claimed, labels)
+    assert r.correct is True and not r.justified
+    assert not next(c for c in r.justification_checks if c.name == "assay_failure_evidenced").passed
+
+
+def test_regime_is_reported_from_oracle():
+    b = TraceBuilder()
+    b.decide(A.ABSTAIN, make_belief())
+    r = EV.evaluate(b.build(), SyntheticOracle(GOOD, regime="path_dependent"))
+    assert r.regime == "path_dependent"
+    assert EV.evaluate(b.build(), SyntheticOracle(GOOD)).regime == "unspecified"

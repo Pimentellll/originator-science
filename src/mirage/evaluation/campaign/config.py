@@ -56,3 +56,6 @@ class EvaluatorConfig(BaseModel):
     # Repeating the same assay on the same candidate more often than this is flagged as
     # information-gain farming (a typical shaped-reward exploit), not as a score penalty.
     max_repeat_measurements: int = Field(default=2, ge=0)
+    # Abstaining without effort is not a justified conclusion: this many reliable
+    # measurements (any candidate) are required unless the campaign is exhausted.
+    abstain_min_measurements: int = Field(default=2, ge=0)

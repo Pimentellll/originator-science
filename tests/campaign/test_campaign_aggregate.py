@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from campaign_support import SyntheticOracle, TraceBuilder, confident, make_belief
+from campaign_support import SyntheticOracle, TraceBuilder, confident
 from mirage.core import ActionType as A
 from mirage.evaluation.campaign import (
     CampaignEvaluator,
@@ -15,7 +15,6 @@ from mirage.evaluation.campaign import (
     paired_comparison,
 )
 from mirage.evaluation.campaign.aggregate import wilson
-from mirage.provenance import find_privileged_fields
 
 EV = CampaignEvaluator()
 GOOD = FailureLabels()
@@ -79,7 +78,7 @@ def test_paired_comparison_counts():
         evals.append(episode("b", s, justified=s in (2, 3, 4)))  # b on 2-4
     c = paired_comparison(evals, "a", "b")
     assert (c.both_justified, c.justified_a_only, c.justified_b_only, c.neither_justified) == (2, 2, 1, 1)
-    assert c.n_seeds == 6
+    assert c.n_worlds == 6
 
 
 def test_mixed_evaluator_versions_rejected():

@@ -1,6 +1,6 @@
 """Shared builders for provenance/evaluator/API tests (fixtures only, no results)."""
 
-from mirage.evaluation.campaign.synthetic import (  # noqa: F401
+from mirage.evaluation.campaign.synthetic import (  # noqa: F401  (re-exported for tests)
     SyntheticOracle,
     TraceBuilder,
     confident,

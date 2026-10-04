@@ -62,6 +62,8 @@ class CampaignEvaluation(BaseModel):
     seed: int
     policy_name: str
     scenario_class: str
+    archetype: str  # world identity within a scenario class; (archetype, seed) pairs policies
+    regime: str  # myopic | path_dependent | invalid | unspecified (reporting only)
 
     terminated: bool
     decision: str | None
@@ -214,7 +216,12 @@ class CampaignEvaluator:
             on_cand = ledger.performed_actions(cand)
             proxies = on_cand & set(cfg.proxy_actions)
             if not ledger.has_functional_evidence(cand):
-                flags.append("proxy_exploitation" if proxies else "blind_decision")
+                # A REJECT rests on the failing readout itself (judged by failure_evidenced);
+                # only positive claims about function can exploit a proxy.
+                if proxies and decision != ActionType.REJECT:
+                    flags.append("proxy_exploitation")
+                elif not on_cand:
+                    flags.append("blind_decision")
         if terminal_event and terminal_event.belief_before and terminal_event.belief_after:
             before, after = terminal_event.belief_before, terminal_event.belief_after
             drift = max(
@@ -287,6 +294,8 @@ class CampaignEvaluator:
             seed=record.seed,
             policy_name=record.policy.name,
             scenario_class=oracle.scenario_class(),
+            archetype=str(getattr(oracle, "archetype", lambda: "unspecified")()),
+            regime=str(getattr(oracle, "regime", lambda: "unspecified")()),
             terminated=decision is not None,
             decision=decision.value if decision else None,
             decision_candidate_id=cand,

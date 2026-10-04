@@ -7,7 +7,7 @@ import textwrap
 
 import pytest
 
-from campaign_support import TRUTH_CANARY, StubLabEnv, TraceBuilder, confident, make_belief
+from campaign_support import TRUTH_CANARY, StubLabEnv, make_belief
 from mirage.core import ActionType, ScientificAction
 from mirage.provenance import (
     EpisodeRecorder,
@@ -133,7 +133,7 @@ def test_replay_refuses_invalid_record():
 
 def test_replay_needs_no_model_policy_or_environment(tmp_path):
     """G11: replaying a stored trace must not import or call env/PPO/LLM/belief engines."""
-    path = PublicRecordStore(tmp_path).save(run_stub(5))
+    PublicRecordStore(tmp_path).save(run_stub(5))
     program = textwrap.dedent(
         f"""
         import sys
