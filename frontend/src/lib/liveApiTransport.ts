@@ -44,7 +44,7 @@ export interface LiveConfig {
   evaluation: boolean
 }
 
-export const DEFAULT_LIVE_CONFIG: LiveConfig = { base: '/api', seeds: [9], policies: ['rescue_planner', 'greedy_eig', 'fixed_pipeline', 'random'], benchmarks: false, evaluation: false }
+export const DEFAULT_LIVE_CONFIG: LiveConfig = { base: '/api', seeds: [9], policies: ['rescue_planner', 'fixed_pipeline', 'random'], benchmarks: false, evaluation: false }
 
 /** Safety valve while auto-playing a comparison episode. */
 const MAX_COMPARE_STEPS = 40
@@ -217,10 +217,23 @@ export class LiveApiTransport implements ScientificTransport {
     const seed = this.seedOf(scenarioId)
     const records: EpisodeRecord[] = []
     const not_run: { policy_name: string; reason: string }[] = []
+    const notRunPolicies = new Set<string>()
     const configured = new Set(this.cfg.policies.map(canonicalPolicyKey))
-    for (const name of this.cfg.policies) records.push(await this.playToEnd(seed, name))
+    const addNotRun = (policyName: string, reason: string) => {
+      if (notRunPolicies.has(policyName)) return
+      notRunPolicies.add(policyName)
+      not_run.push({ policy_name: policyName, reason })
+    }
+    for (const name of this.cfg.policies) {
+      try {
+        records.push(await this.playToEnd(seed, name))
+      } catch (error) {
+        if (!(error instanceof TransportError) || error.status !== 422) throw error
+        addNotRun(canonicalPolicyKey(name), 'Not served by this server (POST /episodes answered 422 unknown policy).')
+      }
+    }
     for (const p of CANONICAL_POLICIES)
-      if (!configured.has(p.key)) not_run.push({ policy_name: p.key, reason: 'Not registered on this server: no replay artifact or checkpoint exists for this policy.' })
+      if (!configured.has(p.key)) addNotRun(p.key, 'Not registered on this server: no replay artifact or checkpoint exists for this policy.')
     if (records.length < 2) return null
     const cmp: PolicyComparisonRecord = { scenario: seedScenario(seed), seed, records, not_run, provenance: records[0].provenance }
     return adaptComparison(cmp)

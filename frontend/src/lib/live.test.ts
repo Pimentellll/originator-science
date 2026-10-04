@@ -39,7 +39,7 @@ const EVALS: Record<string, ApiEpisodeEvaluation> = {
 
 const json = (body: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }))
 
-function fakeApi(opts: { benchmarks?: 'off' | 'summary'; evaluation?: boolean } = {}) {
+function fakeApi(opts: { benchmarks?: 'off' | 'summary'; evaluation?: boolean; policyErrors?: Record<string, number> } = {}) {
   const eps = new Map<string, { policy: string; i: number }>()
   const calls: string[] = []
   let n = 0
@@ -50,6 +50,8 @@ function fakeApi(opts: { benchmarks?: 'off' | 'summary'; evaluation?: boolean } 
     if (path === '/health') return json({ status: 'ok', version: 'mirage.api/1' })
     if (path === '/episodes' && method === 'POST') {
       const policy = JSON.parse(init!.body as string).policy_name as string
+      const errorStatus = opts.policyErrors?.[policy]
+      if (errorStatus) return json({ detail: errorStatus === 422 ? 'unknown policy' : 'server error' }, errorStatus)
       if (!REPLAYS[policy]) return json({ detail: 'unknown policy' }, 422)
       const id = `ep-${++n}`
       eps.set(id, { policy, i: 0 })
@@ -150,7 +152,7 @@ describe('LiveApiTransport against a fake server serving real captured output', 
     const { handler, calls } = fakeApi()
     const eps = await new LiveApiTransport({ seeds: [9] }, handler).listEpisodes()
     expect(calls[0]).toBe('GET /health')
-    expect(eps.map((e) => e.policy.label)).toEqual(['RESCUE PLANNER', 'GREEDY EIG', 'FIXED PIPELINE', 'RANDOM'])
+    expect(eps.map((e) => e.policy.label)).toEqual(['RESCUE PLANNER', 'FIXED PIPELINE', 'RANDOM'])
   })
 
   it('reset -> recommendation -> executes the recommended action -> terminal, with the verdict when configured', async () => {
@@ -194,7 +196,8 @@ describe('LiveApiTransport against a fake server serving real captured output', 
 
   it('same-seed comparison: real lanes for configured policies, NOT RUN for Lookahead and PPO, without probing', async () => {
     const api = fakeApi({ evaluation: true })
-    const cmp = (await new LiveApiTransport({ evaluation: true }, api.handler).getPolicyComparison('seed-9'))!
+    const policies = ['rescue_planner', 'greedy_eig', 'fixed_pipeline', 'random']
+    const cmp = (await new LiveApiTransport({ evaluation: true, policies }, api.handler).getPolicyComparison('seed-9'))!
     expect(cmp.tracks.map((x) => x.policy.name).sort()).toEqual(['fixed_pipeline', 'greedy_eig', 'random', 'rescue_planner'])
     expect(cmp.tracks.every((x) => x.provenance.source === 'live')).toBe(true)
     expect(new Set(cmp.tracks.map((x) => x.frames[0].seed))).toEqual(new Set([9]))
@@ -203,6 +206,23 @@ describe('LiveApiTransport against a fake server serving real captured output', 
     const end = (n: string) => cmp.tracks.find((x) => x.policy.name === n)!.frames.at(-1)!
     expect(end('greedy_eig').resources.spr_health).toBeLessThan(end('rescue_planner').resources.spr_health)
     expect(end('greedy_eig').terminal!.evaluation).toMatchObject({ justified: false, lucky_correct: true })
+  })
+
+  it('keeps available comparison lanes and reports a configured 422 policy exactly once as NOT RUN', async () => {
+    const api = fakeApi({ policyErrors: { greedy_eig: 422 } })
+    const policies = ['rescue_planner', 'greedy_eig', 'fixed_pipeline', 'random']
+    const cmp = (await new LiveApiTransport({ policies }, api.handler).getPolicyComparison('seed-9'))!
+    expect(cmp.tracks).toHaveLength(3)
+    expect(cmp.tracks.map((track) => track.policy.name).sort()).toEqual(['fixed_pipeline', 'random', 'rescue_planner'])
+    const skipped = cmp.not_run.filter((entry) => entry.policy.name === 'greedy_eig')
+    expect(skipped).toHaveLength(1)
+    expect(skipped[0].reason).toBe('Not served by this server (POST /episodes answered 422 unknown policy).')
+  })
+
+  it('propagates non-422 errors from a configured comparison policy', async () => {
+    const api = fakeApi({ policyErrors: { rescue_planner: 500 } })
+    const t = new LiveApiTransport({ policies: ['rescue_planner', 'fixed_pipeline', 'random'] }, api.handler)
+    await expect(t.getPolicyComparison('seed-9')).rejects.toMatchObject({ status: 500 })
   })
 
   it('benchmarks: not configured => NOT RUN with no request; 404 => NOT RUN; a real summary => real report', async () => {
