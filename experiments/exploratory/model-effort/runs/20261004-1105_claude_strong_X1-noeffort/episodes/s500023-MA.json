@@ -1,0 +1,782 @@
+{
+  "agent": {
+    "effort": null,
+    "kind": "llm",
+    "model": "claude-haiku-4-5-20251001",
+    "name": "claude",
+    "prompt_sha256": "dc07da980883558de995de94ed9c3affc1c8982f31fc5f149f9bfcacda1d91d1",
+    "prompt_version": "prompt-v2",
+    "sdk_version": "1.10.0"
+  },
+  "audit": [
+    {
+      "before_diagnosis": true,
+      "diagnostic_control": true,
+      "event_index": 0,
+      "in_diagnostic_set": true,
+      "in_useful_region": false,
+      "is_diluted": true,
+      "is_late": true,
+      "latent_biomass_odeq": 4.504134804607778,
+      "noise_free_reading": 0.9444613664509606,
+      "presented_biomass_odeq": 2.252067402303889,
+      "reconstruction_adequate": false,
+      "request_index": 0
+    },
+    {
+      "before_diagnosis": true,
+      "diagnostic_control": true,
+      "event_index": 1,
+      "in_diagnostic_set": true,
+      "in_useful_region": false,
+      "is_diluted": true,
+      "is_late": true,
+      "latent_biomass_odeq": 4.504134804607778,
+      "noise_free_reading": 0.9444613664509606,
+      "presented_biomass_odeq": 2.252067402303889,
+      "reconstruction_adequate": false,
+      "request_index": 1
+    },
+    {
+      "before_diagnosis": true,
+      "diagnostic_control": true,
+      "event_index": 2,
+      "in_diagnostic_set": true,
+      "in_useful_region": false,
+      "is_diluted": true,
+      "is_late": true,
+      "latent_biomass_odeq": 4.504134804607778,
+      "noise_free_reading": 0.8439936728685175,
+      "presented_biomass_odeq": 0.9008269609215557,
+      "reconstruction_adequate": false,
+      "request_index": 2
+    }
+  ],
+  "diagnosis": {
+    "diagnosis": "BIOMASS_ABOVE_READING",
+    "late_biomass_estimate_od": 1.6,
+    "p_biomass_above_reading": 0.85,
+    "rationale": "The undiluted readings from the final hours show a plateau around OD 0.91-0.97 starting from hour 6. However, dilution experiments at hour 18 reveal critical inconsistencies: a 2x dilution yielded 0.9953 (expected ~0.459 if linear), and a 5x dilution yielded 0.8488 (expected ~0.184 if linear). These results demonstrate that the undiluted sample's OD is suppressed relative to its actual biomass content. The most likely explanation is optical density saturation and/or cell aggregation at high density, which reduces light scattering efficiency per unit biomass in the undiluted culture. The true biomass in the final hours is substantially higher than the undiluted readings indicate. Extrapolating from dilution behavior, the actual OD600 at 18 h is estimated at approximately 1.6 or higher if the reader operated in a fully linear range."
+  },
+  "episode": {
+    "assay": {
+      "eps_lin": 0.05,
+      "n": 8.0,
+      "resolution": 0.0001,
+      "s_odeq": 0.9445743852140908,
+      "sigma_abs": 0.003,
+      "sigma_rel": 0.02,
+      "y_loq": 0.03
+    },
+    "condition": "MEASUREMENT_ARTIFACT",
+    "episode_id": "s500023-MA",
+    "growth": {
+      "k_odeq": 4.504134804607778,
+      "nu": 8.0,
+      "r_per_h": 0.7032466223365215,
+      "x0_odeq": 0.018204539199202716
+    },
+    "k_ratio": 4.768427849741979,
+    "scenario_sha256": "5291e69c061fa42973cf541bd84b78a90770dc971227f32f052acfc404c0ce08",
+    "scenario_version": "scenario-v1",
+    "seed": 500023
+  },
+  "events": [
+    {
+      "arguments": {
+        "dilution_factor": 2,
+        "replicates": 2,
+        "time_h": 18
+      },
+      "error": null,
+      "index": 0,
+      "ok": true,
+      "result": {
+        "budget_remaining": 4,
+        "dilution_factor": 2.0,
+        "mean_reading": 0.9953,
+        "readings": [
+          1.0011,
+          0.9895
+        ],
+        "time_h": 18
+      },
+      "tool": "measure_od",
+      "turn": 1
+    },
+    {
+      "arguments": {
+        "dilution_factor": 2,
+        "replicates": 2,
+        "time_h": 16
+      },
+      "error": null,
+      "index": 1,
+      "ok": true,
+      "result": {
+        "budget_remaining": 2,
+        "dilution_factor": 2.0,
+        "mean_reading": 0.944,
+        "readings": [
+          0.9514,
+          0.9366
+        ],
+        "time_h": 16
+      },
+      "tool": "measure_od",
+      "turn": 2
+    },
+    {
+      "arguments": {
+        "dilution_factor": 5,
+        "replicates": 2,
+        "time_h": 18
+      },
+      "error": null,
+      "index": 2,
+      "ok": true,
+      "result": {
+        "budget_remaining": 0,
+        "dilution_factor": 5.0,
+        "mean_reading": 0.8488,
+        "readings": [
+          0.8495,
+          0.8481
+        ],
+        "time_h": 18
+      },
+      "tool": "measure_od",
+      "turn": 3
+    },
+    {
+      "arguments": {
+        "notes": "The 2x and 5x diluted samples from hour 18 show readings (0.9953 and 0.8488) that are inconsistent with linear scaling from the undiluted reading (0.9178). Specifically: if truly 0.9178 OD, a 2x dilution should read ~0.459 but reads 0.995; a 5x dilution should read ~0.184 but reads 0.849. This indicates the undiluted sample's OD is being artificially suppressed - likely due to optical density saturation, cell clumping, or aggregate formation at high biomass density that reduces light scattering efficiency per unit biomass. The actual biomass is higher than the undiluted readings indicate. The culture reached stationary phase around hour 6 and remained there through hour 18, but the undiluted measurements underestimate the true biomass level in these final hours.",
+        "p_biomass_above_reading": 0.85
+      },
+      "error": null,
+      "index": 3,
+      "ok": true,
+      "result": {
+        "status": "recorded"
+      },
+      "tool": "declare_state",
+      "turn": 4
+    },
+    {
+      "arguments": {
+        "diagnosis": "BIOMASS_ABOVE_READING",
+        "late_biomass_estimate_od": 1.6,
+        "p_biomass_above_reading": 0.85,
+        "rationale": "The undiluted readings from the final hours show a plateau around OD 0.91-0.97 starting from hour 6. However, dilution experiments at hour 18 reveal critical inconsistencies: a 2x dilution yielded 0.9953 (expected ~0.459 if linear), and a 5x dilution yielded 0.8488 (expected ~0.184 if linear). These results demonstrate that the undiluted sample's OD is suppressed relative to its actual biomass content. The most likely explanation is optical density saturation and/or cell aggregation at high density, which reduces light scattering efficiency per unit biomass in the undiluted culture. The true biomass in the final hours is substantially higher than the undiluted readings indicate. Extrapolating from dilution behavior, the actual OD600 at 18 h is estimated at approximately 1.6 or higher if the reader operated in a fully linear range."
+      },
+      "error": null,
+      "index": 4,
+      "ok": true,
+      "result": {
+        "status": "received"
+      },
+      "tool": "submit_diagnosis",
+      "turn": 5
+    }
+  ],
+  "llm_transcript": [
+    {
+      "content": "{\"budget\": {\"cost\": \"1 unit per replicate reading\", \"remaining_units\": 6, \"total_units\": 6}, \"experiment\": {\"assay\": \"OD600 plate reader; blank-subtracted readings of undiluted culture\", \"culture\": \"bacterial batch culture inoculated at t = 0 h, incubated 18 h\", \"retained_aliquots_h\": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]}, \"limits\": {\"dilution_factor\": \"1 to 100\", \"max_turns\": 12, \"replicates\": \"1 to 3\", \"time_h\": \"integer 0 to 18\"}, \"passive_readings\": [{\"dilution_factor\": 1.0, \"reading\": 0.0153, \"time_h\": 0}, {\"dilution_factor\": 1.0, \"reading\": 0.0417, \"time_h\": 1}, {\"dilution_factor\": 1.0, \"reading\": 0.0804, \"time_h\": 2}, {\"dilution_factor\": 1.0, \"reading\": 0.1423, \"time_h\": 3}, {\"dilution_factor\": 1.0, \"reading\": 0.3081, \"time_h\": 4}, {\"dilution_factor\": 1.0, \"reading\": 0.5962, \"time_h\": 5}, {\"dilution_factor\": 1.0, \"reading\": 0.9279, \"time_h\": 6}, {\"dilution_factor\": 1.0, \"reading\": 0.9514, \"time_h\": 7}, {\"dilution_factor\": 1.0, \"reading\": 0.9464, \"time_h\": 8}, {\"dilution_factor\": 1.0, \"reading\": 0.9575, \"time_h\": 9}, {\"dilution_factor\": 1.0, \"reading\": 0.9416, \"time_h\": 10}, {\"dilution_factor\": 1.0, \"reading\": 0.9254, \"time_h\": 11}, {\"dilution_factor\": 1.0, \"reading\": 0.9099, \"time_h\": 12}, {\"dilution_factor\": 1.0, \"reading\": 0.9497, \"time_h\": 13}, {\"dilution_factor\": 1.0, \"reading\": 0.9551, \"time_h\": 14}, {\"dilution_factor\": 1.0, \"reading\": 0.9336, \"time_h\": 15}, {\"dilution_factor\": 1.0, \"reading\": 0.9717, \"time_h\": 16}, {\"dilution_factor\": 1.0, \"reading\": 0.9291, \"time_h\": 17}, {\"dilution_factor\": 1.0, \"reading\": 0.9178, \"time_h\": 18}]}",
+      "kind": "user"
+    },
+    {
+      "kind": "assistant",
+      "request": {
+        "max_tokens": 16000,
+        "model": "claude-haiku-4-5-20251001",
+        "tool_choice": {
+          "disable_parallel_tool_use": true,
+          "type": "auto"
+        }
+      },
+      "request_id": "req_011Cfh6YFy8dtyrKmVcP24Rz",
+      "response": {
+        "container": null,
+        "content": [
+          {
+            "text": "I'll analyze this bacterial culture growth data to determine whether the biomass in the final hours is at the level indicated by undiluted readings or higher.\n\nLet me first examine the passive readings:\n\n**Observations:**\n- 0-6 h: Clear exponential growth (0.0153 → 0.9279)\n- 6-18 h: Plateau phase with readings hovering around 0.91-0.97\n\nThe culture appears to have reached stationary phase around hour 6. The final hours (13-18) show readings clustering around 0.93-0.97, with relatively small fluctuations.\n\n**Key Question:** Are these readings being artificially suppressed due to optical density saturation or cell aggregation at high density?\n\nThe concern would be if:\n1. The plate reader has a linear range limit and readings above ~1.0 OD are being compressed\n2. Cell aggregates or clumping at stationary phase are reducing light scattering per unit biomass\n3. The actual biomass is higher than what undiluted readings suggest\n\nTo test this, I should measure the final hours at different dilution factors. If biomass is truly at the level indicated, diluted samples should scale proportionally. If biomass is higher, undiluted readings would be more suppressed than expected.\n\nLet me test the final timepoint (18 h) at higher dilutions:",
+            "type": "text"
+          },
+          {
+            "caller": {
+              "type": "direct"
+            },
+            "id": "toolu_01FYrRRMJEE2gGQrQTv34nbS",
+            "input": {
+              "dilution_factor": 2,
+              "replicates": 2,
+              "time_h": 18
+            },
+            "name": "measure_od",
+            "type": "tool_use"
+          }
+        ],
+        "diagnostics": null,
+        "id": "msg_011Cfh6YGKxkDTen4QTXxDWp",
+        "model": "claude-haiku-4-5-20251001",
+        "role": "assistant",
+        "stop_details": null,
+        "stop_reason": "tool_use",
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "not_available",
+          "input_tokens": 2000,
+          "output_tokens": 394,
+          "service_tier": "standard"
+        }
+      },
+      "stop_reason": "tool_use",
+      "turn": 1
+    },
+    {
+      "content": [
+        {
+          "content": "{\"budget_remaining\": 4, \"dilution_factor\": 2.0, \"mean_reading\": 0.9953, \"readings\": [1.0011, 0.9895], \"time_h\": 18}",
+          "is_error": false,
+          "tool_use_id": "toolu_01FYrRRMJEE2gGQrQTv34nbS",
+          "type": "tool_result"
+        }
+      ],
+      "kind": "user",
+      "turn": 1
+    },
+    {
+      "kind": "assistant",
+      "request": {
+        "max_tokens": 16000,
+        "model": "claude-haiku-4-5-20251001",
+        "tool_choice": {
+          "disable_parallel_tool_use": true,
+          "type": "auto"
+        }
+      },
+      "request_id": "req_011Cfh6Yb3MdSNtyWXGGYkSA",
+      "response": {
+        "container": null,
+        "content": [
+          {
+            "text": "Interesting! At 2x dilution, the reading is ~0.995, which is higher than the undiluted reading of 0.9178. This strongly suggests **optical density saturation** — the undiluted sample's reading is being suppressed.\n\nLet me test another late timepoint to confirm this pattern:",
+            "type": "text"
+          },
+          {
+            "caller": {
+              "type": "direct"
+            },
+            "id": "toolu_01AGWUYLX6FtGj7vbJgwwuib",
+            "input": {
+              "dilution_factor": 2,
+              "replicates": 2,
+              "time_h": 16
+            },
+            "name": "measure_od",
+            "type": "tool_use"
+          }
+        ],
+        "diagnostics": null,
+        "id": "msg_011Cfh6YbSezTu2zYJaGwK3h",
+        "model": "claude-haiku-4-5-20251001",
+        "role": "assistant",
+        "stop_details": null,
+        "stop_reason": "tool_use",
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "not_available",
+          "input_tokens": 2467,
+          "output_tokens": 155,
+          "service_tier": "standard"
+        }
+      },
+      "stop_reason": "tool_use",
+      "turn": 2
+    },
+    {
+      "content": [
+        {
+          "content": "{\"budget_remaining\": 2, \"dilution_factor\": 2.0, \"mean_reading\": 0.944, \"readings\": [0.9514, 0.9366], \"time_h\": 16}",
+          "is_error": false,
+          "tool_use_id": "toolu_01AGWUYLX6FtGj7vbJgwwuib",
+          "type": "tool_result"
+        }
+      ],
+      "kind": "user",
+      "turn": 2
+    },
+    {
+      "kind": "assistant",
+      "request": {
+        "max_tokens": 16000,
+        "model": "claude-haiku-4-5-20251001",
+        "tool_choice": {
+          "disable_parallel_tool_use": true,
+          "type": "auto"
+        }
+      },
+      "request_id": "req_011Cfh6YiaXUZbastEpwxSCq",
+      "response": {
+        "container": null,
+        "content": [
+          {
+            "text": "At 16 h: undiluted = 0.9717, diluted 2x = 0.944\n\nThis is less dramatic than hour 18, but still shows the undiluted reading is slightly higher than expected from linear scaling.\n\nLet me test at even higher dilution to better understand the relationship:",
+            "type": "text"
+          },
+          {
+            "caller": {
+              "type": "direct"
+            },
+            "id": "toolu_01XZb5imoJBofuikDccNvr5r",
+            "input": {
+              "dilution_factor": 5,
+              "replicates": 2,
+              "time_h": 18
+            },
+            "name": "measure_od",
+            "type": "tool_use"
+          }
+        ],
+        "diagnostics": null,
+        "id": "msg_011Cfh6YizanoQaQA8kryNaN",
+        "model": "claude-haiku-4-5-20251001",
+        "role": "assistant",
+        "stop_details": null,
+        "stop_reason": "tool_use",
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "not_available",
+          "input_tokens": 2694,
+          "output_tokens": 154,
+          "service_tier": "standard"
+        }
+      },
+      "stop_reason": "tool_use",
+      "turn": 3
+    },
+    {
+      "content": [
+        {
+          "content": "{\"budget_remaining\": 0, \"dilution_factor\": 5.0, \"mean_reading\": 0.8488, \"readings\": [0.8495, 0.8481], \"time_h\": 18}",
+          "is_error": false,
+          "tool_use_id": "toolu_01XZb5imoJBofuikDccNvr5r",
+          "type": "tool_result"
+        }
+      ],
+      "kind": "user",
+      "turn": 3
+    },
+    {
+      "kind": "assistant",
+      "request": {
+        "max_tokens": 16000,
+        "model": "claude-haiku-4-5-20251001",
+        "tool_choice": {
+          "disable_parallel_tool_use": true,
+          "type": "auto"
+        }
+      },
+      "request_id": "req_011Cfh6YrhBrYrNv2Z43J9p2",
+      "response": {
+        "container": null,
+        "content": [
+          {
+            "text": "**Critical Finding:**\n- Hour 18, undiluted (1x): 0.9178\n- Hour 18, 2x dilution: 0.9953\n- Hour 18, 5x dilution: 0.8488\n\nIf readings scaled linearly:\n- 2x dilution should give: 0.9178 × 0.5 = 0.4589 (but got 0.9953)\n- 5x dilution should give: 0.9178 × 0.2 = 0.1836 (but got 0.8488)\n\nThe diluted samples show much higher readings than expected from the undiluted measurement. This is **not due to saturation of the undiluted sample** (which would give lower readings than linear scaling predicts). Instead, this reveals **the undiluted sample itself has optical density issues**.\n\nActually, reconsidering: if the undiluted sample is heavily clumped or aggregated, dilution could break up aggregates, reducing light scattering and OD. But the diluted samples gave HIGHER readings, not lower...\n\nWait - let me reconsider the interpretation. The diluted readings being higher than proportionally expected from the undiluted means **the undiluted reading is suppressed**. The actual biomass must be **higher** than the undiluted reading indicates.",
+            "type": "text"
+          },
+          {
+            "caller": {
+              "type": "direct"
+            },
+            "id": "toolu_017cCQeVo2QpMJoxZTAQhDS1",
+            "input": {
+              "notes": "The 2x and 5x diluted samples from hour 18 show readings (0.9953 and 0.8488) that are inconsistent with linear scaling from the undiluted reading (0.9178). Specifically: if truly 0.9178 OD, a 2x dilution should read ~0.459 but reads 0.995; a 5x dilution should read ~0.184 but reads 0.849. This indicates the undiluted sample's OD is being artificially suppressed - likely due to optical density saturation, cell clumping, or aggregate formation at high biomass density that reduces light scattering efficiency per unit biomass. The actual biomass is higher than the undiluted readings indicate. The culture reached stationary phase around hour 6 and remained there through hour 18, but the undiluted measurements underestimate the true biomass level in these final hours.",
+              "p_biomass_above_reading": 0.85
+            },
+            "name": "declare_state",
+            "type": "tool_use"
+          }
+        ],
+        "diagnostics": null,
+        "id": "msg_011Cfh6Ys5WPNupwV3WtQsNj",
+        "model": "claude-haiku-4-5-20251001",
+        "role": "assistant",
+        "stop_details": null,
+        "stop_reason": "tool_use",
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "not_available",
+          "input_tokens": 2921,
+          "output_tokens": 582,
+          "service_tier": "standard"
+        }
+      },
+      "stop_reason": "tool_use",
+      "turn": 4
+    },
+    {
+      "content": [
+        {
+          "content": "{\"status\": \"recorded\"}",
+          "is_error": false,
+          "tool_use_id": "toolu_017cCQeVo2QpMJoxZTAQhDS1",
+          "type": "tool_result"
+        }
+      ],
+      "kind": "user",
+      "turn": 4
+    },
+    {
+      "kind": "assistant",
+      "request": {
+        "max_tokens": 16000,
+        "model": "claude-haiku-4-5-20251001",
+        "tool_choice": {
+          "disable_parallel_tool_use": true,
+          "type": "auto"
+        }
+      },
+      "request_id": "req_011Cfh6ZJZBxfh5BbzKyCgL2",
+      "response": {
+        "container": null,
+        "content": [
+          {
+            "text": "Now I'll submit my final diagnosis based on this evidence:",
+            "type": "text"
+          },
+          {
+            "caller": {
+              "type": "direct"
+            },
+            "id": "toolu_013xeQBUtekWopNDUHdPJAQc",
+            "input": {
+              "diagnosis": "BIOMASS_ABOVE_READING",
+              "late_biomass_estimate_od": 1.6,
+              "p_biomass_above_reading": 0.85,
+              "rationale": "The undiluted readings from the final hours show a plateau around OD 0.91-0.97 starting from hour 6. However, dilution experiments at hour 18 reveal critical inconsistencies: a 2x dilution yielded 0.9953 (expected ~0.459 if linear), and a 5x dilution yielded 0.8488 (expected ~0.184 if linear). These results demonstrate that the undiluted sample's OD is suppressed relative to its actual biomass content. The most likely explanation is optical density saturation and/or cell aggregation at high density, which reduces light scattering efficiency per unit biomass in the undiluted culture. The true biomass in the final hours is substantially higher than the undiluted readings indicate. Extrapolating from dilution behavior, the actual OD600 at 18 h is estimated at approximately 1.6 or higher if the reader operated in a fully linear range."
+            },
+            "name": "submit_diagnosis",
+            "type": "tool_use"
+          }
+        ],
+        "diagnostics": null,
+        "id": "msg_011Cfh6ZJwkhSMFqf8W6dVmn",
+        "model": "claude-haiku-4-5-20251001",
+        "role": "assistant",
+        "stop_details": null,
+        "stop_reason": "tool_use",
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "not_available",
+          "input_tokens": 3530,
+          "output_tokens": 348,
+          "service_tier": "standard"
+        }
+      },
+      "stop_reason": "tool_use",
+      "turn": 5
+    },
+    {
+      "content": [
+        {
+          "content": "{\"status\": \"received\"}",
+          "is_error": false,
+          "tool_use_id": "toolu_013xeQBUtekWopNDUHdPJAQc",
+          "type": "tool_result"
+        }
+      ],
+      "kind": "user",
+      "turn": 5
+    }
+  ],
+  "passive": [
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.0153,
+      "readings": [
+        0.0153
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 0
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.0417,
+      "readings": [
+        0.0417
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 1
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.0804,
+      "readings": [
+        0.0804
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 2
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.1423,
+      "readings": [
+        0.1423
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 3
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.3081,
+      "readings": [
+        0.3081
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 4
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.5962,
+      "readings": [
+        0.5962
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 5
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9279,
+      "readings": [
+        0.9279
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 6
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9514,
+      "readings": [
+        0.9514
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 7
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9464,
+      "readings": [
+        0.9464
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 8
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9575,
+      "readings": [
+        0.9575
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 9
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9416,
+      "readings": [
+        0.9416
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 10
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9254,
+      "readings": [
+        0.9254
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 11
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9099,
+      "readings": [
+        0.9099
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 12
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9497,
+      "readings": [
+        0.9497
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 13
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9551,
+      "readings": [
+        0.9551
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 14
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9336,
+      "readings": [
+        0.9336
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 15
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9717,
+      "readings": [
+        0.9717
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 16
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9291,
+      "readings": [
+        0.9291
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 17
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9178,
+      "readings": [
+        0.9178
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 18
+    }
+  ],
+  "run_meta": {
+    "finished_at": "2026-10-04T11:12:07+00:00",
+    "run_id": "20261004-1105_claude_strong_X1-noeffort",
+    "started_at": "2026-10-04T11:11:49+00:00"
+  },
+  "schema_version": "episode-result-v2",
+  "scores": {
+    "brier": 0.022500000000000006,
+    "correct": true,
+    "cost_units": 6,
+    "diagnostic_control": true,
+    "justified": true,
+    "m5_diagnosticity": null,
+    "measure_calls_before_diagnosis": 3,
+    "reconstruction_adequate": false
+  },
+  "status": "DIAGNOSED",
+  "versions": {
+    "anthropic": "1.10.0",
+    "mirage": "0.1.0",
+    "numpy": "2.3.5",
+    "pydantic": "2.12.5",
+    "python": "3.12.15"
+  }
+}

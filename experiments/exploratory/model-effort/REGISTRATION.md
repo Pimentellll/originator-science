@@ -159,3 +159,12 @@ None at registration time. Dated entries below were added after the registration
   `spend_ledger.jsonl` here is the only spend record for the session. (5) A one-line driver
   change: the CLI now also reports `FileExistsError`/`FileNotFoundError` from the runner as a
   clean exit 2. No change to configurations, prompt, tools, seeds, metrics or decision rule.
+- **2026-10-04 11:40 UTC, analysis additions after the results were in (post hoc, descriptive).**
+  (1) `analyze.py` also lists every episode with Q1 = false, whatever its class. This was added
+  after X1's Q1 of 28/30 turned out to come from two *justified* episodes, which the registered
+  breakdown (non-justified episodes only) does not show. It is labelled post hoc in
+  `analysis.md` and `RESULT.md`. (2) RESULT.md adds a per-episode BP plateau-gap table (true
+  plateau over the noise-free undiluted reading, from each episode's scenario parameters) to
+  link the misses to OPEN_RULINGS §H. (3) Figure layout only: explicit x-limits and a tight
+  bounding box. The registered metrics, decision rule and verdicts are unchanged.
+

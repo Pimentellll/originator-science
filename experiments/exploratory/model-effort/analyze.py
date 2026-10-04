@@ -125,6 +125,8 @@ def analyse_run(run_dir: Path) -> dict:
             "estimate_od": d.late_biomass_estimate_od if d else None,
             "units": r.scores.cost_units,
             "brier": r.scores.brier,
+            "q1": r.scores.reconstruction_adequate,
+            "latent_odeq": r.audit[0].latent_biomass_odeq if r.audit else None,
             "failed_clauses": failures,
         }
     prim = summary["metrics"]["primary"]
@@ -219,6 +221,15 @@ def render_md(res: dict) -> str:
                 f"- {k} {eid}: {e['class']}, answer {e['diagnosis']}, p_above {e['p_above']}, "
                 f"estimate {e['estimate_od']}, units {e['units']}. Clauses: {clauses}"
             )
+    out += ["", "## Q1 failures in any class (post hoc, descriptive; not in REGISTRATION §5)", ""]
+    for k in keys:
+        for eid, e in res["runs"][k]["episodes"].items():
+            if e["q1"] is False:
+                latent = e["latent_odeq"]
+                out.append(
+                    f"- {k} {eid}: {e['class']}, estimate {e['estimate_od']}, true late biomass "
+                    f"{'n/a' if latent is None else f'{latent:.2f}'} OD-eq"
+                )
     out += ["", f"## {WATCH}", ""]
     for k in keys:
         e = res["runs"][k]["episodes"].get(WATCH)
@@ -257,6 +268,8 @@ def write_figure(res: dict, path: Path) -> None:
         ax.annotate(f"{LABELS[k]}\n{m3['k']}/{a['primary']['overall']['n']}", (x, m3["rate"]),
                     textcoords="offset points", xytext=(6, -14), fontsize=7)
     ax.set_xscale("log")
+    xs = [a["usage"]["per_episode"]["usd"] for a in res["runs"].values()]
+    ax.set_xlim(min(xs) * 0.7, max(xs) * 2.5)
     ax.set_xlabel("Estimated API cost per episode (USD, log scale)")
     ax.set_ylabel("M3, justified diagnosis (rate)")
     ax.set_ylim(0, 1.05)
@@ -264,7 +277,7 @@ def write_figure(res: dict, path: Path) -> None:
     for s in ("top", "right"):
         ax.spines[s].set_visible(False)
     fig.tight_layout()
-    fig.savefig(path)
+    fig.savefig(path, bbox_inches="tight", metadata={"Software": None})
     plt.close(fig)
 
 
