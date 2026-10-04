@@ -19,6 +19,7 @@ from mirage.ui.server import make_server
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "experiments" / "results"
 C1_RUN = "20261003-2323_claude_strong"
+C2_RUN = "20261004-0049_claude_strong"
 GS_RUN = "20261003-2333_good_scientist_strong"
 PB_RUN = "20261003-2333_passive_bayes_strong"
 DEMO_RUN = "20261004-0016_claude_demo"
@@ -174,18 +175,26 @@ def test_run_detail_and_episode_derived_curves() -> None:
 def test_grid_has_expected_strong_run_outcomes() -> None:
     result = get_grid(RESULTS, "strong")
     columns = result["columns"]
-    assert [column["run_id"] for column in columns] == [C1_RUN, GS_RUN, PB_RUN]
+    assert [column["run_id"] for column in columns] == [C1_RUN, C2_RUN, GS_RUN, PB_RUN]
     pb_id = next(column["run_id"] for column in columns if column["agent"] == "passive_bayes")
     opus_id = next(
         column["run_id"]
         for column in columns
         if column["agent"] == "claude" and column["model"] == "claude-opus-5-5"
     )
+    sonnet_id = next(
+        column["run_id"]
+        for column in columns
+        if column["agent"] == "claude" and column["model"] == "claude-sonnet-5-5"
+    )
     pb_cells = [row["cells"][pb_id] for row in result["rows"]]
     opus_cells = [row["cells"][opus_id] for row in result["rows"]]
+    sonnet_cells = [row["cells"][sonnet_id] for row in result["rows"]]
     assert sum(cell["correct"] is True for cell in pb_cells) == 20
     assert sum(cell["justified"] is True for cell in pb_cells) == 0
     assert sum(cell["justified"] is True for cell in opus_cells) == 29
+    assert sum(cell["justified"] is True for cell in sonnet_cells) == 29
+    assert sum(cell["correct"] is True for cell in sonnet_cells) == 29
     assert all({"status", "correct", "justified", "diagnostic_control"} <= cell.keys()
                for row in result["rows"] for cell in row["cells"].values())
 
