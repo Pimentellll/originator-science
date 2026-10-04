@@ -134,9 +134,9 @@ export function Overview({ navigate }: { navigate: Nav }) {
             <Card title="Try it yourself" go={() => navigate('lab')}>
               Be the scientist: pick a culture, run a dilution, give your diagnosis, then see the hidden truth.
             </Card>
-            <Card title="Watch an agent work" go={() => navigate('cockpit')} tag="in development">
-              The next environment: a planner tries to rescue a failing protein binder, one experiment at a time.
-            </Card>
+            <Card title="Watch an agent work" go={() => navigate('launch')} tag="guided demo">
+            A second environment: a failing protein binder. The planner chooses assays, updates its belief about why the campaign failed, and is judged the same way.
+          </Card>
           </div>
           <p className="small faint ov__foot">
             One synthetic scenario, {n} held-out episodes per agent. The <button onClick={() => navigate('method')}>Method</button> page lists the model, the scoring rules

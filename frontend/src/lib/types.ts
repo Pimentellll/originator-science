@@ -175,7 +175,8 @@ export interface TerminalView {
     lucky_correct?: boolean
     supported_but_wrong?: boolean
     unnecessary_redesigns?: number
-    checks?: { name: string; passed: boolean }[]
+    justified_abstention?: boolean
+    checks?: { name: string; passed: boolean; detail?: string }[]
   } | null
 }
 
@@ -184,6 +185,8 @@ export interface CockpitState {
   seed: number
   /** Public scientific profile, e.g. RECEPTOR_BINDER_RESCUE. */
   campaign: string | null
+  /** Scenario-semantics version recorded with the episode, when the backend reports it. */
+  semantics: string | null
   step: number
   /** Known episode length; null while a live episode is still open-ended. */
   total_steps: number | null
@@ -262,4 +265,72 @@ export interface BenchmarkReport {
   families: { id: string; label: string; slice?: boolean }[]
   metrics: MetricInfo[]
   cells: Record<string, Record<string, Record<string, MetricCell>>>
+}
+
+// ------------------------------------------------------- launcher / system
+
+/** How a campaign is driven: the policy runs it, or the person picks each action. */
+export type Control = 'auto' | 'manual'
+
+/** Orchestration choices made by the human running the demo. None of this is policy input. */
+export interface LaunchConfig {
+  /** Showcase id or world-mode name; null = the server's default scenario. */
+  scenario: string | null
+  /** SEMANTICS_V2 | BASELINE_V1; null = the server's default. */
+  semantics: string | null
+  policy: string | null
+  seed: number
+  control: Control
+  guided: boolean
+}
+
+export interface PolicyEntry {
+  name: string
+  label: string
+  kind: string
+  available: boolean
+  description: string
+  reason: string | null
+}
+
+export interface ScenarioEntry {
+  id: string
+  title: string
+  summary: string
+  /** World-mode spelling used by `./mirage demo --scenario`. */
+  cli_name: string
+  is_default: boolean
+}
+
+export interface SystemVersion {
+  mirage_version: string
+  git_sha: string
+  git_dirty: boolean | null
+  commit_date: string | null
+  api_version: string
+  contract_version: string
+  semantics_default: string
+  semantics_available: string[]
+  python_version: string
+}
+
+/** Public/system-safe catalogue served by the backend. Absent fields mean the server predates them. */
+export interface Catalogue {
+  version: SystemVersion | null
+  /** null = the server has no /policies route; the configured list is used instead. */
+  policies: PolicyEntry[] | null
+  scenarios: ScenarioEntry[] | null
+}
+
+export interface SystemCheck {
+  name: string
+  status: 'pass' | 'fail' | 'skip'
+  detail: string
+}
+
+export interface SystemReport {
+  reachable: boolean
+  checks: SystemCheck[]
+  catalogue: Catalogue
+  note?: string
 }

@@ -1,0 +1,49 @@
+# Fallback runtime for machines where Python/Node cannot be installed natively: ./mirage demo --docker
+# Native `./mirage demo` is the primary path. Ports are published on loopback only.
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
+    command:
+      - python
+      - scripts/serve_api.py
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --records
+      - /data/records
+      - --scenario
+      - ${MIRAGE_SCENARIO:-COMPOUND_FAILURE}
+      - --scenario-version
+      - ${MIRAGE_SCENARIO_VERSION:-SEMANTICS_V2}
+      - --cors-origin
+      - http://localhost:${MIRAGE_WEB_PORT:-5173}
+    environment:
+      MIRAGE_EVAL_TOKEN: ${MIRAGE_EVAL_TOKEN:-}
+      MIRAGE_GIT_SHA: ${MIRAGE_GIT_SHA:-unknown}
+    volumes:
+      - mirage-records:/data/records
+    ports:
+      - "127.0.0.1:${MIRAGE_API_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).status == 200 else 1)"]
+      interval: 3s
+      timeout: 4s
+      retries: 30
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    environment:
+      MIRAGE_API_PROXY: http://api:8000
+      MIRAGE_EVAL_TOKEN: ${MIRAGE_EVAL_TOKEN:-}
+      VITE_MIRAGE_EVALUATION: "1"
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${MIRAGE_WEB_PORT:-5173}:5173"
+volumes:
+  mirage-records:

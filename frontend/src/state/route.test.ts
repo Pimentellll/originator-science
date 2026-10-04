@@ -29,3 +29,17 @@ describe('parseHash', () => {
     expect(parseHash('#/')).toEqual({ route: 'overview', params: [] })
   })
 })
+
+describe('live default', () => {
+  it('lands on the launcher for ?transport=live with no hash', () => {
+    expect(parseHash('', '?transport=live')).toEqual({ route: 'launch', params: [] })
+    expect(parseHash('#/', '?transport=live&seed=4')).toEqual({ route: 'launch', params: [] })
+  })
+  it('goes straight to the cockpit for a guided link (./mirage demo --guided)', () => {
+    expect(parseHash('', '?transport=live&guided=1').route).toBe('cockpit')
+  })
+  it('keeps an explicit route and the original default otherwise', () => {
+    expect(parseHash('#/cockpit', '?transport=live').route).toBe('cockpit')
+    expect(parseHash('', '?transport=mock').route).toBe('overview')
+  })
+})
