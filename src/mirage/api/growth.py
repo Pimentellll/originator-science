@@ -16,10 +16,14 @@ from mirage.ui import api
 
 
 def create_growth_router(
-    results_root: Path, *, aggregate_token: str | None
+    results_root: Path,
+    *,
+    aggregate_token: str | None,
+    exploratory_root: Path | None = None,
 ) -> APIRouter:
     router = APIRouter()
     sandbox = api.Sandbox()
+    exploratory_root = exploratory_root or results_root.parent / "exploratory"
 
     def _error(error: api.APIError) -> JSONResponse:
         return JSONResponse(
@@ -77,6 +81,15 @@ def create_growth_router(
     ) -> Any:
         return _gated(
             x_mirage_eval_token, lambda: api.list_runs(results_root)
+        )
+
+    @router.get("/benchmarks/growth/exploratory")
+    def list_growth_exploratory_runs(
+        x_mirage_eval_token: str | None = Header(default=None),
+    ) -> Any:
+        return _gated(
+            x_mirage_eval_token,
+            lambda: api.list_exploratory_runs(exploratory_root),
         )
 
     @router.get("/benchmarks/growth/runs/{run_id}")

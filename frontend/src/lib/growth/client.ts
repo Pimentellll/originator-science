@@ -4,6 +4,7 @@ import type {
   AutoplayResult,
   Condition,
   DiagnosisBody,
+  ExploratoryRun,
   GrowthEpisode,
   GrowthGrid,
   GrowthRun,
@@ -28,6 +29,7 @@ export interface GrowthSandbox {
 export interface GrowthClient {
   readonly kind: 'live' | 'static'
   listRuns(): Promise<GrowthRunEntry[]>
+  listExploratory(): Promise<ExploratoryRun[]>
   getRun(runId: string): Promise<GrowthRun>
   getEpisode(runId: string, episodeId: string): Promise<GrowthEpisode>
   getGrid(matrix: string): Promise<GrowthGrid>
@@ -97,6 +99,7 @@ function createLiveClient(base: string, fetchImpl: typeof fetch): GrowthClient {
   return {
     kind: 'live',
     listRuns: () => get<GrowthRunEntry[]>('/benchmarks/growth/runs'),
+    listExploratory: () => get<ExploratoryRun[]>('/benchmarks/growth/exploratory'),
     getRun: (runId) => get<GrowthRun>(`/benchmarks/growth/runs/${segment(runId)}`),
     getEpisode: (runId, episodeId) =>
       get<GrowthEpisode>(
@@ -114,6 +117,7 @@ function createStaticClient(base: string, fetchImpl: typeof fetch): GrowthClient
   return {
     kind: 'static',
     listRuns: () => get<GrowthRunEntry[]>('runs.json'),
+    listExploratory: () => get<ExploratoryRun[]>('exploratory.json'),
     getRun: (runId) => get<GrowthRun>(`runs/${segment(runId)}.json`),
     getEpisode: (runId, episodeId) =>
       get<GrowthEpisode>(`runs/${segment(runId)}/episodes/${segment(episodeId)}.json`),

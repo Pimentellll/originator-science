@@ -22,6 +22,10 @@ def export_growth_static(results_root: str | Path, output_root: str | Path) -> N
     output = Path(output_root)
     runs = api.list_runs(results)
     _write_json(output / "runs.json", runs)
+    _write_json(
+        output / "exploratory.json",
+        api.list_exploratory_runs(results.parent / "exploratory"),
+    )
 
     for entry in runs:
         run_id = entry["run_id"]

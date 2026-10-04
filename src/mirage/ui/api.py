@@ -126,6 +126,49 @@ def list_runs(results_root: str | Path) -> list[dict[str, Any]]:
     return sorted(entries, key=lambda entry: (entry["group"], entry["run_id"]))
 
 
+def list_exploratory_runs(
+    exploratory_root: str | Path,
+) -> list[dict[str, Any]]:
+    root = Path(exploratory_root)
+    index_path = root / "index.json"
+    if not root.is_dir() or not index_path.is_file():
+        return []
+
+    registry = _load_json(index_path)
+    entries = []
+    for registered in registry.get("runs", []):
+        experiment = registered["experiment"]
+        run_id = registered["run"]
+        run_dir = root / experiment / "runs" / run_id
+        manifest_path = run_dir / "manifest.json"
+        if not run_dir.is_dir() or not manifest_path.is_file():
+            raise APIError(
+                500,
+                f"registered exploratory run is missing: {experiment}/{run_id}",
+            )
+
+        manifest = _load_json(manifest_path)
+        summary_path = run_dir / "summary.json"
+        summary = _load_json(summary_path) if summary_path.is_file() else {}
+        overall = (
+            summary.get("metrics", {})
+            .get("intention_to_treat", {})
+            .get("overall", {})
+        )
+        entry = _run_entry(run_dir, manifest, group="exploratory")
+        entry.update(
+            {
+                "label": registered["label"],
+                "variable": registered["variable"],
+                "experiment": experiment,
+                "result_path": f"experiments/exploratory/{experiment}/RESULT.md",
+                "units_mean": overall.get("M4", {}).get("mean"),
+            }
+        )
+        entries.append(entry)
+    return entries
+
+
 def _find_run(results_root: str | Path, run_id: str) -> tuple[Path, dict[str, Any], str]:
     for run_dir, manifest, group in _discover_runs(results_root):
         if run_dir.name == run_id:

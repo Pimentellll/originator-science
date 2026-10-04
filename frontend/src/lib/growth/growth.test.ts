@@ -197,11 +197,13 @@ describe('growth clients', () => {
     expect(client.kind).toBe('static')
     expect(client.sandbox).toBeNull()
     await client.listRuns()
+    await client.listExploratory()
     await client.getRun('run one/blue')
     await client.getEpisode('run one', 'ep ?#/2')
     await client.getGrid('strong matrix')
     expect(urls).toEqual([
       '/offline-growth/runs.json',
+      '/offline-growth/exploratory.json',
       '/offline-growth/runs/run%20one%2Fblue.json',
       '/offline-growth/runs/run%20one/episodes/ep%20%3F%23%2F2.json',
       '/offline-growth/grid-strong%20matrix.json',
@@ -220,6 +222,7 @@ describe('growth clients', () => {
     }
     const client = createGrowthClient({ liveBase: '/api', search: '', fetch: fetchImpl })
     await client.listRuns()
+    await client.listExploratory()
     await client.getRun('run/1')
     await client.getEpisode('run/1', 'ep 1')
     await client.getGrid('strong')
@@ -236,6 +239,7 @@ describe('growth clients', () => {
 
     expect(calls.map(({ url, method }) => [method, url])).toEqual([
       ['GET', '/api/benchmarks/growth/runs'],
+      ['GET', '/api/benchmarks/growth/exploratory'],
       ['GET', '/api/benchmarks/growth/runs/run%2F1'],
       ['GET', '/api/benchmarks/growth/runs/run%2F1/episodes/ep%201'],
       ['GET', '/api/benchmarks/growth/grid?matrix=strong'],
@@ -245,7 +249,7 @@ describe('growth clients', () => {
       ['GET', '/api/benchmarks/growth/sandbox/session%2F1/verdict'],
       ['POST', '/api/benchmarks/growth/sandbox/session%201/autoplay'],
     ])
-    expect(JSON.parse(calls[8].body ?? '{}')).toEqual({ agent: 'good_scientist' })
+    expect(JSON.parse(calls[9].body ?? '{}')).toEqual({ agent: 'good_scientist' })
   })
 
   it('throws TransportError with HTTP status and the server detail', async () => {
