@@ -49,6 +49,7 @@ class LatentSchema:
     factors: tuple[str, ...]
     failure_rules: Mapping[str, FailureRule]
     summary_factors: tuple[str, ...]
+    binary_factors: tuple[str, ...] = ()  # stored as 0.0/1.0; MCMC moves flip rather than perturb
 
     def __post_init__(self) -> None:
         if len(set(self.factors)) != len(self.factors):
@@ -60,6 +61,9 @@ class LatentSchema:
         for name, rule in self.failure_rules.items():
             if rule.factor not in self.factors:
                 raise ValueError(f"rule {name} references unknown factor {rule.factor!r}")
+        for factor in self.binary_factors:
+            if factor not in self.factors:
+                raise ValueError(f"binary factor {factor!r} is not a latent factor")
         for factor in self.summary_factors:
             if factor not in self.factors:
                 raise ValueError(f"summary factor {factor!r} is not a latent factor")
@@ -72,10 +76,12 @@ class LatentSchema:
         return self.factors.index(factor)
 
 
-# Factor names follow scientific-spec/CAUSAL_STATE.md. Units and thresholds are
-# PLACEHOLDERS (log_kd ~ log10 M, log_koff ~ log10 s^-1, others in [0, 1]) and
-# must be replaced by the environment's canonical values before any claim about
-# calibration is made.
+# Factor names are the BinderHypothesis fields of the public predictive model;
+# boolean factors (functional_epitope, assay_valid, model_valid) are stored as
+# 0.0/1.0 columns. The failure THRESHOLDS are PLACEHOLDERS (log_kd ~ log10 M,
+# log_koff ~ log10 s^-1, others in [0, 1]); no canonical scenario/evaluator
+# definition of "failure regime" exists yet, so they must be replaced once it
+# does, before any claim about calibration is made.
 BINDER_SCHEMA_PROVISIONAL = LatentSchema(
     factors=(
         "stability",
@@ -83,9 +89,9 @@ BINDER_SCHEMA_PROVISIONAL = LatentSchema(
         "log_kd",
         "log_koff",
         "functional_epitope",
-        "liability",
-        "assay_validity",
-        "model_validity",
+        "developability_liability",
+        "assay_valid",
+        "model_valid",
     ),
     failure_rules={
         "p_folding_failure": FailureRule("stability", "below", 0.5),
@@ -93,9 +99,9 @@ BINDER_SCHEMA_PROVISIONAL = LatentSchema(
         "p_affinity_failure": FailureRule("log_kd", "above", -7.0),
         "p_kinetic_failure": FailureRule("log_koff", "above", -2.0),
         "p_epitope_failure": FailureRule("functional_epitope", "below", 0.5),
-        "p_developability_failure": FailureRule("liability", "above", 0.5),
-        "p_assay_invalid": FailureRule("assay_validity", "below", 0.5),
-        "p_model_invalid": FailureRule("model_validity", "below", 0.5),
+        "p_developability_failure": FailureRule("developability_liability", "above", 0.5),
+        "p_assay_invalid": FailureRule("assay_valid", "below", 0.5),
+        "p_model_invalid": FailureRule("model_valid", "below", 0.5),
     },
     summary_factors=(
         "stability",
@@ -103,6 +109,7 @@ BINDER_SCHEMA_PROVISIONAL = LatentSchema(
         "log_kd",
         "log_koff",
         "functional_epitope",
-        "liability",
+        "developability_liability",
     ),
+    binary_factors=("functional_epitope", "assay_valid", "model_valid"),
 )

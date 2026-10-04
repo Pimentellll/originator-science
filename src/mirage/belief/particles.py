@@ -9,38 +9,21 @@ those kernels.
 from __future__ import annotations
 
 import copy
-from dataclasses import dataclass
-from typing import Callable, Mapping, Protocol
+from dataclasses import dataclass, replace
+from typing import Callable
 
 import numpy as np
 
+from mirage.belief.predictive import ParticlePredictiveModel
+from mirage.belief.priors import Prior
 from mirage.belief.resampling import RESAMPLERS
 from mirage.belief.schema import FAILURE_FIELDS, LatentSchema
 from mirage.belief.summary import BeliefSummary
+from mirage.core.contracts import ScientificAction, ScientificObservation
 
 
 class DegenerateBeliefError(ValueError):
     """Every particle has zero likelihood for the supplied evidence."""
-
-
-class Prior(Protocol):
-    """Public prior over latent worlds: returns an (n, dim) array."""
-
-    def sample(self, rng: np.random.Generator, n: int) -> np.ndarray: ...
-
-
-class IndependentPrior:
-    """Prior with independent factors, one sampler ``f(rng, n) -> (n,)`` each."""
-
-    def __init__(self, schema: LatentSchema, samplers: Mapping[str, Callable[[np.random.Generator, int], np.ndarray]]):
-        missing = [f for f in schema.factors if f not in samplers]
-        if missing:
-            raise ValueError(f"no sampler for factors {missing}")
-        self._schema = schema
-        self._samplers = dict(samplers)
-
-    def sample(self, rng: np.random.Generator, n: int) -> np.ndarray:
-        return np.column_stack([np.asarray(self._samplers[f](rng, n), dtype=float) for f in self._schema.factors])
 
 
 # p(z' | z): maps (n, dim) parent particles to (n, dim) child particles.
@@ -54,6 +37,16 @@ class UpdateInfo:
     ess_after: float
     resampled: bool
     log_evidence: float  # log of the predictive probability of the evidence under the belief
+    rejuvenated: bool = False  # MCMC moves applied after resampling
+    move_acceptance: float | None = None  # mean Metropolis acceptance over the moves
+
+
+def binary_entropy(p: np.ndarray) -> np.ndarray:
+    """Elementwise Bernoulli entropy in nats, with 0 log 0 = 0."""
+    p = np.clip(np.asarray(p, dtype=float), 0.0, 1.0)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        h = -(p * np.log(p) + (1.0 - p) * np.log1p(-p))
+    return np.where((p > 0.0) & (p < 1.0), h, 0.0)
 
 
 def logsumexp(x: np.ndarray) -> float:
@@ -75,6 +68,9 @@ class ParticleBelief:
         seed: int = 0,
         ess_threshold: float = 0.5,
         resampling: str = "systematic",
+        prior: Prior | None = None,
+        rejuvenation_sweeps: int = 2,
+        move_scale: float = 0.6,
     ) -> None:
         particles = np.array(particles, dtype=float)
         if particles.ndim != 2 or particles.shape[1] != schema.dim or particles.shape[0] < 1:
@@ -91,6 +87,14 @@ class ParticleBelief:
         self.ess_threshold = ess_threshold
         self.resampling = resampling
         self._rng = np.random.default_rng(seed)
+        # Resample-move state. Moves target prior(z) * prod_t p(y_t | z, a_t), so they
+        # need the prior density and the complete evidence history on the CURRENT
+        # candidate; either missing (raw update(), redesign) disables them.
+        self._prior = prior if hasattr(prior, "log_prob") else None
+        self._evidence: list[tuple[ParticlePredictiveModel, ScientificAction, ScientificObservation]] = []
+        self._evidence_complete = True
+        self.rejuvenation_sweeps = rejuvenation_sweeps
+        self.move_scale = move_scale
         if log_weights is None:
             self._log_w = np.full(n, -np.log(n))
         else:
@@ -106,7 +110,7 @@ class ParticleBelief:
         """Draw n particles with uniform weights. Prior draws use a stream
         independent of the belief's resampling stream."""
         particles = prior.sample(np.random.default_rng([seed, 0]), n)
-        return cls(schema, particles, seed=seed, **kwargs)
+        return cls(schema, particles, seed=seed, prior=prior, **kwargs)
 
     # -- weights ---------------------------------------------------------
 
@@ -145,12 +149,18 @@ class ParticleBelief:
     # -- inference -------------------------------------------------------
 
     def update(self, log_likelihood: np.ndarray, *, resample: bool | None = None) -> UpdateInfo:
-        """Bayes update w'_i ∝ w_i p(y | z_i, a) in log space.
+        """Bayes update w'_i ∝ w_i p(y | z_i, a) in log space from raw log likelihoods.
 
         ``resample=None`` resamples iff ESS < ess_threshold * n; True/False force it.
         Raises DegenerateBeliefError, leaving the belief unchanged, if the evidence
-        has zero likelihood under every particle.
+        has zero likelihood under every particle. Raw updates carry no evidence
+        record, so MCMC rejuvenation is disabled afterwards; use ``observe``.
         """
+        info = self._reweight(log_likelihood, resample)
+        self._evidence_complete = False
+        return info
+
+    def _reweight(self, log_likelihood: np.ndarray, resample: bool | None) -> UpdateInfo:
         ll = np.asarray(log_likelihood, dtype=float)
         if ll.shape != (self.n,):
             raise ValueError(f"log_likelihood must have shape ({self.n},), got {ll.shape}")
@@ -167,6 +177,70 @@ class ParticleBelief:
         if do_resample:
             self.resample()
         return UpdateInfo(ess_before, ess_weighted, self.effective_sample_size, do_resample, log_evidence)
+
+    def observe(
+        self,
+        model: ParticlePredictiveModel,
+        action: ScientificAction,
+        observation: ScientificObservation,
+        *,
+        resample: bool | None = None,
+    ) -> UpdateInfo:
+        """Update on a public observation using the environment's public likelihood.
+
+        After a resample, MCMC moves (resample-move) restore particle diversity
+        when the prior density and full evidence history are available.
+        """
+        info = self._reweight(model.log_likelihood(observation, self.particles, action), resample)
+        self._evidence.append((model, action, observation))
+        if info.resampled and self.can_rejuvenate:
+            acceptance = self._rejuvenate()
+            info = replace(info, rejuvenated=True, move_acceptance=acceptance)
+        return info
+
+    @property
+    def can_rejuvenate(self) -> bool:
+        return self._prior is not None and self._evidence_complete and self.rejuvenation_sweeps > 0
+
+    def _log_target(self, z: np.ndarray) -> np.ndarray:
+        """log prior(z) + sum_t log p(y_t | z, a_t), up to a constant."""
+        lp = np.asarray(self._prior.log_prob(z), dtype=float)
+        ok = np.isfinite(lp)
+        if ok.any():
+            zz = z[ok]
+            lp[ok] += sum(m.log_likelihood(y, zz, a) for m, a, y in self._evidence)
+        return lp
+
+    def _rejuvenate(self) -> float:
+        """Metropolis-within-Gibbs sweeps over each factor (symmetric proposals), run
+        on every particle at once. Each sweep leaves prior * likelihood-history
+        invariant, so it adds diversity without biasing the posterior."""
+        z = self._particles.copy()
+        scale = np.maximum(z.std(axis=0), 1e-3 * (np.abs(z.mean(axis=0)) + 1.0))
+        binary = {self.schema.index(f) for f in self.schema.binary_factors}
+        cur = self._log_target(z)
+        accepted = total = 0
+        for _ in range(self.rejuvenation_sweeps):
+            for c in range(self.schema.dim):
+                prop = z.copy()
+                if c in binary:
+                    prop[:, c] = 1.0 - prop[:, c]
+                else:
+                    prop[:, c] += self.move_scale * scale[c] * self._rng.normal(size=self.n)
+                new = self._log_target(prop)
+                with np.errstate(invalid="ignore"):
+                    accept = np.log(self._rng.random(self.n)) < new - cur
+                accept &= np.isfinite(new)
+                z[accept] = prop[accept]
+                cur = np.where(accept, new, cur)
+                accepted += int(accept.sum())
+                total += self.n
+        self._particles = z
+        return accepted / total
+
+    def apply_redesign(self, model: ParticlePredictiveModel, action: ScientificAction) -> None:
+        """After a redesign action, move to a belief about the NEW candidate."""
+        self.transition(lambda z, rng: model.redesign(z, action, rng))
 
     def resample(self, method: str | None = None) -> None:
         """Replace the weighted set by an equally weighted one (seeded)."""
@@ -187,10 +261,20 @@ class ParticleBelief:
         if child.shape != self._particles.shape or not np.all(np.isfinite(child)):
             raise ValueError("transition kernel must return finite particles of unchanged shape")
         self._particles = child
+        # The child's prior is the transported cloud, whose density is intractable, and the
+        # old evidence belongs to the parent: restart the evidence record, disable moves.
+        self._prior = None
+        self._evidence = []
 
     def copy(self) -> "ParticleBelief":
-        """Independent deep copy including RNG state (for hypothetical updates)."""
-        return copy.deepcopy(self)
+        """Independent copy including RNG state (for hypothetical updates). The prior,
+        models and recorded observations are immutable and shared."""
+        other = copy.copy(self)
+        other._particles = self._particles.copy()
+        other._log_w = self._log_w.copy()
+        other._rng = copy.deepcopy(self._rng)
+        other._evidence = list(self._evidence)
+        return other
 
     # -- summaries -------------------------------------------------------
 
@@ -208,17 +292,31 @@ class ParticleBelief:
         p = self.weights @ self.failure_indicators().astype(float)
         return {name: float(np.clip(v, 0.0, 1.0)) for name, v in zip(FAILURE_FIELDS, p)}
 
+    def pattern_codes(self) -> np.ndarray:
+        """Per-particle integer code of its joint failure pattern (bit k = FAILURE_FIELDS[k])."""
+        bits = 1 << np.arange(len(FAILURE_FIELDS))
+        return self.failure_indicators().astype(np.int64) @ bits
+
     def pattern_distribution(self) -> np.ndarray:
         """Posterior over the 2**8 joint failure patterns (compound-aware)."""
-        bits = 1 << np.arange(len(FAILURE_FIELDS))
-        codes = self.failure_indicators().astype(np.int64) @ bits
-        return np.bincount(codes, weights=self.weights, minlength=1 << len(FAILURE_FIELDS))
+        return np.bincount(self.pattern_codes(), weights=self.weights, minlength=1 << len(FAILURE_FIELDS))
 
-    def mechanism_entropy(self) -> float:
-        """Shannon entropy (nats) of the joint failure-pattern distribution."""
+    def pattern_entropy(self) -> float:
+        """Shannon entropy (nats) of the JOINT failure-pattern distribution (diagnostic).
+
+        Captures dependence between mechanisms but its plug-in estimate is badly
+        biased at modest ESS (up to 256 patterns), so it is not the EIG objective.
+        """
         p = self.pattern_distribution()
         p = p[p > 0]
         return float(max(0.0, -np.sum(p * np.log(p))))
+
+    def mechanism_entropy(self) -> float:
+        """Total marginal mechanism entropy (nats): sum over the eight failure
+        marginals of the binary entropy H(p_k). In [0, 8 ln 2]. This is the
+        quantity reported as ``BeliefSummary.posterior_entropy`` and the objective
+        of expected information gain."""
+        return float(binary_entropy(self.weights @ self.failure_indicators().astype(float)).sum())
 
     def summary(self) -> BeliefSummary:
         w = self.weights

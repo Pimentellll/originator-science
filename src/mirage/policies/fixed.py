@@ -7,7 +7,12 @@ from typing import Sequence
 
 from mirage.belief.summary import BeliefSummary
 from mirage.core.contracts import ActionType, AgentState, ScientificAction
-from mirage.policies.base import TERMINAL_ACTIONS, PolicyError, ScientificPolicy
+from mirage.policies.base import (
+    PolicyError,
+    ScientificPolicy,
+    threshold_terminal_decision,
+    usable_actions,
+)
 
 # QC-before-SPR order, as a conventional workflow would run it.
 DEFAULT_PIPELINE: tuple[ActionType, ...] = (
@@ -18,15 +23,6 @@ DEFAULT_PIPELINE: tuple[ActionType, ...] = (
     ActionType.MEASURE_DEVELOPABILITY,
     ActionType.VALIDATE_ASSAY,
     ActionType.ORTHOGONAL_FUNCTION,
-)
-
-_MOLECULAR_FIELDS = (
-    "p_folding_failure",
-    "p_aggregation_failure",
-    "p_affinity_failure",
-    "p_kinetic_failure",
-    "p_epitope_failure",
-    "p_developability_failure",
 )
 
 
@@ -65,37 +61,14 @@ class FixedPipelinePolicy(ScientificPolicy):
     ) -> ScientificAction:
         self._require_decidable(state, available_actions)
         cid = state.active_candidate.candidate_id
-        usable = {a.action_type: a for a in available_actions if a.candidate_id in (cid, None)}
-        # prefer an action explicitly bound to the active candidate
-        for a in available_actions:
-            if a.candidate_id == cid:
-                usable[a.action_type] = a
+        usable = usable_actions(state, available_actions)
 
         done = {o.action_type for o in state.observations if o.candidate_id == cid}
         for action_type in self.config.sequence:
             if action_type not in done and action_type in usable:
                 return usable[action_type]
 
-        return self._decide(belief, usable, available_actions)
-
-    def _decide(
-        self,
-        belief: BeliefSummary,
-        usable: dict[ActionType, ScientificAction],
-        available_actions: Sequence[ScientificAction],
-    ) -> ScientificAction:
-        t = self.config.decision_threshold
-        if belief.p_assay_invalid >= t:
-            wanted = ActionType.ABSTAIN
-        elif belief.p_model_invalid >= t:
-            wanted = ActionType.MODEL_INVALID
-        elif any(getattr(belief, f) >= t for f in _MOLECULAR_FIELDS):
-            wanted = ActionType.REJECT
-        else:
-            wanted = ActionType.SELECT
-        if wanted in usable:
-            return usable[wanted]
-        for fallback in (ActionType.ABSTAIN, *sorted(TERMINAL_ACTIONS, key=lambda a: a.value)):
-            if fallback in usable:
-                return usable[fallback]
-        raise PolicyError("pipeline exhausted and no terminal action is available")
+        try:
+            return threshold_terminal_decision(belief, usable, self.config.decision_threshold)
+        except PolicyError as exc:
+            raise PolicyError("pipeline exhausted and no terminal action is available") from exc

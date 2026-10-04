@@ -28,7 +28,7 @@ def make_belief(**kw) -> BeliefSummary:
 
 def make_state(done=(), cid="c0", terminal=False) -> AgentState:
     cand = Candidate(candidate_id=cid, generation=0)
-    obs = tuple(ScientificObservation(action_type=a, candidate_id=cid) for a in done)
+    obs = tuple(ScientificObservation(action_type=a, candidate_id=cid, measurements={"x": 0.0}, quality="nominal") for a in done)
     return AgentState(
         active_candidate=cand, candidates=(cand,),
         resources=ResourceState(budget_remaining=10, sample_remaining=10, simulated_time=0, spr_instrument_health=1.0),
