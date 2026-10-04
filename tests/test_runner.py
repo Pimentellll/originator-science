@@ -152,7 +152,9 @@ def test_demo_pair_run_uses_matched_configs_and_manifest(tmp_path) -> None:
         cfg.episode_id: cfg
         for cfg in load_demo_pair(runner.DEMO, PRIOR, seeds=runner.DEMO_SEEDS)
     }
-    records = [EpisodeResult.model_validate_json(path.read_text(encoding="utf-8")) for path in paths]
+    records = [
+        EpisodeResult.model_validate_json(path.read_text(encoding="utf-8")) for path in paths
+    ]
     for record in records:
         expected = configs[record.episode.episode_id]
         assert record.episode.model_dump(mode="json") == expected.model_dump(mode="json")
