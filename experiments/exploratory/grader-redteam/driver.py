@@ -14,18 +14,13 @@ the manifest, the runner's summary.json, results.md and a compact episodes.jsonl
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import shutil
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-
-HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))
-
-import rescore
-from agents import EDGE_CONTROL, make_agents
 
 from mirage.biology.conditions import Condition
 from mirage.config import (
@@ -39,6 +34,28 @@ from mirage.evaluation.metrics import wilson
 from mirage.evaluation.passive import REFERENCE_SEEDS, build_reference
 from mirage.lab.environment import LabEnvironment
 from mirage.lab.tools import PROMPT_VERSION, Observation, ToolResponse
+
+HERE = Path(__file__).resolve().parent
+
+
+def _load_sibling(name: str) -> Any:
+    module_name = f"exp_grader_redteam_{name}"
+    if module_name in sys.modules:
+        return sys.modules[module_name]
+    path = HERE / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load grader-redteam sibling {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+rescore = _load_sibling("rescore")
+agents = _load_sibling("agents")
+EDGE_CONTROL = agents.EDGE_CONTROL
+make_agents = agents.make_agents
 
 ROOT = runner.ROOT
 RUNS = HERE / "runs"

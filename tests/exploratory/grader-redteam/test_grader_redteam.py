@@ -6,6 +6,7 @@ module-scoped fixtures stay fast.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import sys
 from itertools import pairwise
@@ -13,18 +14,34 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT / "experiments" / "exploratory" / "grader-redteam"))
-
-import agents
-import driver
-import rescore
-
 from mirage.biology.conditions import Condition
 from mirage.config import load_prior, sample_episode
 from mirage.evaluation import metrics, runner
 from mirage.evaluation.passive import build_reference
 from mirage.lab.environment import LabEnvironment
+
+ROOT = Path(__file__).resolve().parents[3]
+EXP = ROOT / "experiments" / "exploratory" / "grader-redteam"
+
+
+def _load_module(name: str, filename: str):
+    module_name = f"exp_grader_redteam_{name}"
+    module = sys.modules.get(module_name)
+    if module is not None:
+        return module
+    path = EXP / filename
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+driver = _load_module("driver", "driver.py")
+agents = _load_module("agents", "agents.py")
+rescore = _load_module("rescore", "rescore.py")
 
 ABOVE, AS_READ = "BIOMASS_ABOVE_READING", "BIOMASS_AS_READ"
 DEV_SEEDS = (0, 1)  # 0 = BP, 1 = MA
