@@ -39,13 +39,13 @@ class ScenarioClass(str, Enum):
 
 
 class Archetype(str, Enum):
-    """The minimum required cases (BINDER_ENVIRONMENT.md)."""
+    """The five canonical showcase scenarios (core ``SHOWCASE_SCENARIOS`` names)."""
 
-    SIMPLE_INSTABILITY = "SIMPLE_INSTABILITY"
-    AGGREGATION_KINETIC = "AGGREGATION_KINETIC"
-    BROKEN_ASSAY = "BROKEN_ASSAY"
-    INVALID_MODEL = "INVALID_MODEL"
-    PROXY_TRAP = "PROXY_TRAP"
+    INSTABILITY = "instability"
+    AGGREGATION_KINETIC_DEFECT = "aggregation_kinetic_defect"
+    BROKEN_ASSAY = "broken_assay"
+    INVALID_BIOLOGICAL_MODEL = "invalid_biological_model"
+    MISLEADING_PROXY_TRAP = "misleading_proxy_trap"
 
 
 class Regime(str, Enum):
@@ -59,11 +59,11 @@ class Regime(str, Enum):
 
 # Default reporting tags; the world source may override them per world.
 ARCHETYPE_TAGS: dict[Archetype, tuple[ScenarioClass, Regime]] = {
-    Archetype.SIMPLE_INSTABILITY: (ScenarioClass.SINGLE_FAILURE, Regime.MYOPIC),
-    Archetype.AGGREGATION_KINETIC: (ScenarioClass.COMPOUND_FAILURE, Regime.PATH_DEPENDENT),
+    Archetype.INSTABILITY: (ScenarioClass.SINGLE_FAILURE, Regime.MYOPIC),
+    Archetype.AGGREGATION_KINETIC_DEFECT: (ScenarioClass.COMPOUND_FAILURE, Regime.PATH_DEPENDENT),
     Archetype.BROKEN_ASSAY: (ScenarioClass.ASSAY_FAILURE, Regime.INVALID),
-    Archetype.INVALID_MODEL: (ScenarioClass.MODEL_FAILURE, Regime.INVALID),
-    Archetype.PROXY_TRAP: (ScenarioClass.MIXED, Regime.ADVERSARIAL),
+    Archetype.INVALID_BIOLOGICAL_MODEL: (ScenarioClass.MODEL_FAILURE, Regime.INVALID),
+    Archetype.MISLEADING_PROXY_TRAP: (ScenarioClass.MIXED, Regime.ADVERSARIAL),
 }
 
 
@@ -164,8 +164,13 @@ class BenchmarkRun:
 
 @dataclass(frozen=True)
 class PolicySpec:
-    factory: Callable[[], PolicyLike]
+    """``factory()`` builds the policy. With ``bind=True`` it is called as ``factory(belief)``
+    with the episode's belief session, for policies (e.g. GreedyEIG) that need the particle
+    belief handle that the controller owns."""
+
+    factory: Callable[..., PolicyLike]
     config: Mapping[str, str | int | float | bool | None] = field(default_factory=dict)
+    bind: bool = False
 
 
 def _fingerprint(record: EpisodeRecord) -> str:
@@ -184,13 +189,16 @@ def play_episode(
     max_steps: int,
     environment_id: str,
     code_version: str,
-) -> tuple[EpisodeRecord, ScientificEnvironment, str | None]:
-    """Run one policy on one world. Returns (public record, env for the oracle, incident kind)."""
+) -> tuple[EpisodeRecord, ScientificEnvironment, str | None, tuple[str, ...]]:
+    """Run one policy on one world. Returns (public record, env for the oracle, incident kind,
+    belief-engine incident kinds)."""
     env = world.make_env()
     state = env.reset(seed=world.seed)
-    policy = spec.factory()
-    policy.reset(world.seed)
     belief = belief_factory(world.seed, state) if belief_factory else None
+    if spec.bind and belief is None:
+        raise ValueError(f"policy {policy_name} needs a belief session but no belief_factory was given")
+    policy = spec.factory(belief) if spec.bind else spec.factory()
+    policy.reset(world.seed)
     recorder = EpisodeRecorder(
         episode_id=episode_id,
         seed=world.seed,
@@ -230,7 +238,8 @@ def play_episode(
             break
     else:
         incident = "max_steps"
-    return recorder.finish(), env, incident
+    belief_incidents = tuple(getattr(belief, "incidents", ()) or ())
+    return recorder.finish(), env, incident, belief_incidents
 
 
 def run_benchmark(
@@ -268,7 +277,7 @@ def run_benchmark(
             key = f"{archetype.value}/{world.seed}"
             for name in sorted(policies):
                 episode_id = f"{benchmark_id}-{archetype.value}-{world.seed}-{name}"
-                record, env, incident = play_episode(
+                record, env, incident, belief_incidents = play_episode(
                     world,
                     policies[name],
                     name,
@@ -283,6 +292,8 @@ def run_benchmark(
                     raise PairingError(f"policy {name} saw a different initial world for {key}")
                 if incident:
                     incidents.append(Incident(episode_id=episode_id, policy_name=name, seed=world.seed, kind=incident))
+                for kind in belief_incidents:
+                    incidents.append(Incident(episode_id=episode_id, policy_name=name, seed=world.seed, kind=kind))
                 oracle = _TaggedOracle(world.make_oracle(env), world.archetype, world.scenario_class, world.regime)
                 evaluation = evaluator.evaluate(record, oracle)
                 if record_store:

@@ -38,8 +38,8 @@ class StubSource:
             World(
                 seed=s,
                 archetype=archetype.value,
-                scenario_class="COMPOUND_FAILURE" if archetype == Archetype.AGGREGATION_KINETIC else "SINGLE_FAILURE",
-                regime="path_dependent" if archetype == Archetype.AGGREGATION_KINETIC else "myopic",
+                scenario_class="COMPOUND_FAILURE" if archetype == Archetype.AGGREGATION_KINETIC_DEFECT else "SINGLE_FAILURE",
+                regime="path_dependent" if archetype == Archetype.AGGREGATION_KINETIC_DEFECT else "myopic",
                 make_env=StubLabEnv,
                 make_oracle=StubOracle,
             )
@@ -83,7 +83,7 @@ def specs():
 
 def run(**overrides):
     kwargs = dict(
-        benchmark_id="bm", source=StubSource(), archetypes=[Archetype.SIMPLE_INSTABILITY, Archetype.AGGREGATION_KINETIC],
+        benchmark_id="bm", source=StubSource(), archetypes=[Archetype.INSTABILITY, Archetype.AGGREGATION_KINETIC_DEFECT],
         seeds=[11, 12, 13], split="development", policies=specs(), belief_factory=belief_factory,
         environment_id="stub", code_version="t", scenario_version="stub/0",
     )
@@ -97,7 +97,7 @@ def test_every_policy_plays_every_world_once():
     pairs = {(e.policy_name, e.seed, e.scenario_class) for e in result.evaluations}
     assert len(pairs) == len(result.evaluations)
     assert result.summary.seeds == (11, 12, 13)
-    assert set(result.manifest.world_fingerprints) == {f"{a}/{s}" for a in ("SIMPLE_INSTABILITY", "AGGREGATION_KINETIC") for s in (11, 12, 13)}
+    assert set(result.manifest.world_fingerprints) == {f"{a}/{s}" for a in ("instability", "aggregation_kinetic_defect") for s in (11, 12, 13)}
 
 
 def test_regimes_are_reported_separately():
@@ -149,7 +149,7 @@ def test_policies_receive_only_public_objects():
             seen.append((state, belief, available_actions))
             return next(a for a in available_actions if a.action_type == A.ABSTAIN)
 
-    run(policies={"spy": PolicySpec(Spy)}, archetypes=[Archetype.SIMPLE_INSTABILITY], seeds=[1])
+    run(policies={"spy": PolicySpec(Spy)}, archetypes=[Archetype.INSTABILITY], seeds=[1])
     state, belief, available = seen[0]
     assert isinstance(state, AgentState)
     assert all(isinstance(a, ScientificAction) for a in available)
@@ -174,7 +174,7 @@ def test_world_mismatch_between_policies_is_refused():
             return [World(s, archetype.value, "X", "myopic", Drifting, StubOracle) for s in seeds]
 
     with pytest.raises(PairingError):
-        run(source=DriftSource(), archetypes=[Archetype.SIMPLE_INSTABILITY], seeds=[1])
+        run(source=DriftSource(), archetypes=[Archetype.INSTABILITY], seeds=[1])
 
 
 def test_wrong_seed_set_from_source_is_refused():
@@ -202,7 +202,7 @@ def test_policy_failures_become_incidents_not_crashes():
 
     result = run(
         policies={"crashes": PolicySpec(Crashes), "cheats": PolicySpec(Cheats)},
-        archetypes=[Archetype.SIMPLE_INSTABILITY], seeds=[1], max_steps=5,
+        archetypes=[Archetype.INSTABILITY], seeds=[1], max_steps=5,
     )
     kinds = {i.policy_name: i.kind for i in result.manifest.incidents}
     assert kinds == {"crashes": "policy_error", "cheats": "illegal_action"}
@@ -220,7 +220,7 @@ def test_environment_step_rejection_is_an_incident():
         def choose_action(self, state, belief, available_actions):
             return available_actions[0]
 
-    result = run(source=RejectingSource_(), policies={"p": PolicySpec(Selects)}, archetypes=[Archetype.SIMPLE_INSTABILITY], seeds=[1])
+    result = run(source=RejectingSource_(), policies={"p": PolicySpec(Selects)}, archetypes=[Archetype.INSTABILITY], seeds=[1])
     assert result.manifest.incidents[0].kind == "step_error"
     assert "_simulator_truth" not in result.manifest.model_dump_json()
 
@@ -245,7 +245,7 @@ def test_max_steps_incident():
         def choose_action(self, state, belief, available_actions):
             return next(a for a in available_actions if a.action_type == A.MEASURE_STABILITY)
 
-    result = run(policies={"slow": PolicySpec(Slow)}, archetypes=[Archetype.SIMPLE_INSTABILITY], seeds=[1], max_steps=2)
+    result = run(policies={"slow": PolicySpec(Slow)}, archetypes=[Archetype.INSTABILITY], seeds=[1], max_steps=2)
     assert result.manifest.incidents[0].kind == "max_steps"
 
 

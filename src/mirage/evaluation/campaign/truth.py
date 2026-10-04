@@ -64,23 +64,25 @@ class TruthOracle(Protocol):
 
 
 def correct_terminal_decisions(labels: FailureLabels) -> frozenset[ActionType]:
-    """Terminal actions that are correct for a candidate (rules_v1).
+    """Truth-correct terminal actions for a candidate (frozen evaluator rulings, rules_v1).
 
-    * assay and model both invalid: nothing downstream is interpretable -> ABSTAIN.
-    * model invalid with a valid assay: MODEL_INVALID.
-    * assay invalid: refusing to conclude is correct, as is the decision the molecule itself
-      warrants (SELECT if good, REJECT if defective). Whether that decision is *justified*
-      depends on evidence that does not rely on the broken assay.
+    * assay AND model invalid: the canonical adversarial terminal is ABSTAIN. MODEL_INVALID
+      states a true fact, so it is truth-correct too, but it is justified only if independent
+      valid evidence specifically establishes model invalidity (the standard MODEL_INVALID
+      support checks, which a broken assay control cannot satisfy).
+    * model invalid, assay valid: MODEL_INVALID.
+    * assay invalid (model valid): the disposition the molecule itself warrants (SELECT for a
+      good molecule, REJECT for a defective one). ABSTAIN is *not* truth-correct, although it
+      can be a justified abstention. SELECT is justified only with sufficient orthogonal support.
     * any molecular defect: REJECT.
     * otherwise: SELECT.
     """
     if labels.assay_invalid and labels.model_invalid:
-        return frozenset({ActionType.ABSTAIN})
+        return frozenset({ActionType.ABSTAIN, ActionType.MODEL_INVALID})
     if labels.model_invalid:
         return frozenset({ActionType.MODEL_INVALID})
     if labels.assay_invalid:
-        own = ActionType.SELECT if labels.molecule_is_good else ActionType.REJECT
-        return frozenset({own, ActionType.ABSTAIN})
+        return frozenset({ActionType.SELECT if labels.molecule_is_good else ActionType.REJECT})
     if labels.molecular_failures:
         return frozenset({ActionType.REJECT})
     return frozenset({ActionType.SELECT})
