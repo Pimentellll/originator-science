@@ -166,4 +166,9 @@ sample, and no comparison with models not run on this matrix.
 
 ## Deviations
 
-(none yet)
+### 2026-10-04: blocked before any run
+
+`ANTHROPIC_API_KEY` was not set in this session and no secret was available. No API call was
+made, and no dry-run or strong-matrix episode exists. The only computed output is the
+read-only C2 baseline from `analyze.py` (C-id on frozen transcripts), produced after this
+registration was pushed. The registered design is unchanged and can be executed as written.
