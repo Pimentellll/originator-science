@@ -12,16 +12,21 @@ from pathlib import Path
 
 import pytest
 
+from mirage.agents.claude import DEFAULT_MODEL
 from mirage.biology.conditions import Condition
 from mirage.config import canonical_sha256, load_prior
 from mirage.evaluation import metrics, runner
 from mirage.evaluation.metrics import EpisodeResult, PRIMARY_STATUSES
 from mirage.evaluation.passive import REFERENCE_SEEDS
 import mirage.evaluation.report as report
+from test_runner_claude import diagnosed_responses, msg, run_claude
 
 ROOT = Path(__file__).resolve().parents[1]
 PRIOR = load_prior(runner.SCENARIO)
 SCENARIO_SHA = canonical_sha256(PRIOR)
+CLAUDE_STRONG = ROOT / "experiments" / "results" / "20261003-2323_claude_strong"
+SONNET_MODEL = "claude-sonnet-5-5"
+C2_LABEL = "C2 Claude Sonnet 5.5"
 Q1_NOTE = (
     "Q1 is secondary and descriptive (reconstruction adequacy, DESIGN §15); it is not part of M3."
 )
@@ -102,6 +107,22 @@ def real_runs(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Path]:
         "good_scientist": make_run(base / "gs", "good_scientist", "gs-report-test"),
         "passive_bayes": make_run(base / "pb", "passive_bayes", "pb-report-test"),
     }
+
+
+@pytest.fixture(scope="module")
+def sonnet_run(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    base = tmp_path_factory.mktemp("report-sonnet-run")
+    refusal = msg(
+        {"type": "text", "text": "I cannot help with that request."},
+        model=SONNET_MODEL,
+        stop="refusal",
+    )
+    return run_claude(
+        base,
+        [*diagnosed_responses(model=SONNET_MODEL), refusal],
+        run_id="sonnet-report-test",
+        model=SONNET_MODEL,
+    )
 
 
 def _format_row(
@@ -196,6 +217,22 @@ def _q1_cell(markdown: str, heading: str, label: str) -> str:
     return row[header.index("Q1 (descriptive)")]
 
 
+def test_c1_report_matches_committed_output_byte_for_byte(tmp_path: Path) -> None:
+    run_dirs = {
+        "claude": CLAUDE_STRONG,
+        "good_scientist": ROOT
+        / "experiments"
+        / "results"
+        / "20261003-2333_good_scientist_strong",
+        "passive_bayes": ROOT
+        / "experiments"
+        / "results"
+        / "20261003-2333_passive_bayes_strong",
+    }
+    markdown_path, _ = report.build_report(run_dirs, tmp_path / "c1-report")
+    assert markdown_path.read_bytes() == (CLAUDE_STRONG / "results.md").read_bytes()
+
+
 def test_report_writes_markdown_and_png(real_runs: dict[str, Path], tmp_path: Path) -> None:
     out = tmp_path / "report"
     assert report.main(
@@ -261,7 +298,7 @@ def _make_claude_run(source: Path, destination: Path) -> tuple[Path, list[Episod
             {
                 "name": "claude",
                 "kind": "llm",
-                "model": "claude-test",
+                "model": DEFAULT_MODEL,
                 "effort": "high",
                 "prompt_version": "test-prompt-v2",
                 "prompt_sha256": None,
@@ -290,6 +327,7 @@ def _make_claude_run(source: Path, destination: Path) -> tuple[Path, list[Episod
         **source_manifest,
         "run_id": "claude-synthetic",
         "agent": "claude",
+        "model": DEFAULT_MODEL,
         "n_episodes": len(records),
     }
     (destination / "manifest.json").write_text(
@@ -383,6 +421,81 @@ def test_primary_q1_cells_match_independent_record_counts(
             ]
             k = sum(record.scores.reconstruction_adequate for record in selected)
             assert _q1_cell(markdown, f"### {heading}", label) == f"{k}/{len(selected)}"
+
+
+def test_c2_slot_renders_record_counts_in_primary_and_itt_tables(
+    sonnet_run: Path, tmp_path: Path
+) -> None:
+    out = tmp_path / "c2-report"
+    assert report.main(
+        [
+            "--out",
+            str(out),
+            "--claude",
+            str(CLAUDE_STRONG),
+            "--claude-c2",
+            str(sonnet_run),
+        ]
+    ) == 0
+    markdown = (out / "results.md").read_text(encoding="utf-8")
+    _assert_metric_table_shapes(markdown)
+    assert "| C2 Claude Sonnet 5.5 |" in markdown
+    records = runner.load_results(sonnet_run)
+    primary_section = _section(markdown, "## Primary")
+    itt_section = _section(markdown, "## Intention-to-treat")
+    assert "### Overall" in itt_section
+
+    for heading, condition in (
+        ("Overall", None),
+        ("BIOLOGICAL_PLATEAU", Condition.BIOLOGICAL_PLATEAU),
+        ("MEASUREMENT_ARTIFACT", Condition.MEASUREMENT_ARTIFACT),
+    ):
+        assert _format_row(C2_LABEL, records, condition) in _section(
+            primary_section, f"### {heading}"
+        )
+        assert _format_row(
+            C2_LABEL, records, condition, intention_to_treat=True
+        ) in _section(itt_section, f"### {heading}")
+
+
+def test_claude_slots_reject_wrong_manifest_models(
+    sonnet_run: Path, tmp_path: Path
+) -> None:
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join(
+        [str(ROOT / "src"), env.get("PYTHONPATH", "")]
+    )
+    env.pop("ANTHROPIC_API_KEY", None)
+    cases = (
+        (
+            "claude_c2",
+            ["--claude-c2", str(CLAUDE_STRONG)],
+            "claude_c2: expected model 'claude-sonnet-5-5', found 'claude-opus-5-5'",
+        ),
+        (
+            "claude",
+            ["--claude", str(sonnet_run)],
+            "claude: expected model 'claude-opus-5-5', found 'claude-sonnet-5-5'",
+        ),
+    )
+    for slot, arguments, expected_message in cases:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "mirage.evaluation.report",
+                "--out",
+                str(tmp_path / f"wrong-model-{slot}"),
+                *arguments,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+            env=env,
+        )
+        assert completed.returncode == 2
+        assert completed.stderr.strip() == f"report: {expected_message}"
 
 
 def test_n_zero_metric_rows_have_one_cell_per_column(real_runs: dict[str, Path]) -> None:
