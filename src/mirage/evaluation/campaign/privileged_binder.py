@@ -66,6 +66,23 @@ class LabelRules:
         return {k: getattr(self, k) for k in self.__dataclass_fields__}
 
 
+def _digest(h: BinderHypothesis) -> str:
+    import hashlib
+
+    return hashlib.sha256(repr(h).encode()).hexdigest()
+
+
+def world_digests(archetypes: Sequence[Archetype], seeds: Sequence[int]) -> dict[str, str]:
+    """Digest of each seeded world, computed by resetting a fresh environment (no policy runs)."""
+    out = {}
+    for archetype in archetypes:
+        for seed in seeds:
+            env = BinderBioPOMDP.from_showcase(archetype.value)
+            env.reset(seed=seed)
+            out[f"{archetype.value}/{seed}"] = BinderPrivilegedOracle(env).world_digest()
+    return out
+
+
 class BinderPrivilegedOracle:
     """Failure labels for every candidate of one finished (or running) BinderBioPOMDP episode."""
 
@@ -83,6 +100,14 @@ class BinderPrivilegedOracle:
 
     def scenario_class(self) -> str:  # overridden by the harness' tagging
         return "BINDER"
+
+    def world_digest(self) -> str:
+        """Hash of the ROOT candidate's hidden state: identifies the exact seeded world.
+
+        The public initial state is the same for every seed, so only this digest can show that
+        two runs (or an appended policy) really played the identical world.
+        """
+        return _digest(self._hidden["binder-000"])
 
 
 class BinderWorldSource:

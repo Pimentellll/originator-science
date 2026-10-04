@@ -105,7 +105,11 @@ def test_oracle_rejects_other_environments():
 
 # ----------------------------------------------------------- boundary checks
 def test_privileged_accessor_is_imported_only_by_the_benchmark_layer():
-    allowed = {"evaluation/campaign/binder_benchmark.py", "evaluation/campaign/privileged_binder.py"}
+    allowed = {
+        "evaluation/campaign/binder_benchmark.py",
+        "evaluation/campaign/privileged_binder.py",
+        "evaluation/campaign/baseline_export.py",  # offline evaluator-side export
+    }
     offenders = []
     for path in SRC.rglob("*.py"):
         rel = path.relative_to(SRC).as_posix()
@@ -276,3 +280,64 @@ def test_session_swallows_degenerate_updates_but_records_them():
                    StepResult(action=ScientificAction(action_type="MEASURE_SEC", candidate_id="binder-000"),
                               observation=impossible, state=state, terminal=False))
     assert session.incidents == ["belief_degenerate"]
+
+
+def test_append_run_reuses_the_baseline_worlds_and_refuses_any_other(run):
+    """New policies are appended on identical worlds: same fingerprints, baselines untouched."""
+    class Abstain:
+        name = "later"
+
+        def reset(self, seed=None):
+            pass
+
+        def choose_action(self, state, belief, available_actions):
+            return next(a for a in available_actions if a.action_type.value == "ABSTAIN")
+
+    appended = run_binder_benchmark(
+        benchmark_id="t-append", split=SPLIT, split_name="held_out", per_archetype=2, config=SMALL, code_version="test",
+        include_baselines=False, extra_policies={"later": PolicySpec(Abstain)},
+        expected_fingerprints=run.manifest.world_fingerprints, expected_world_digests=run.manifest.world_digests,
+    )
+    assert set(appended.summary.policies) == {"later"}
+    assert appended.manifest.world_fingerprints == run.manifest.world_fingerprints
+    assert appended.manifest.world_digests == run.manifest.world_digests and len(run.manifest.world_digests) == 10
+    other_seeds = SeedSplit(development=(1, 2, 3), held_out=(90100, 90101))
+    from mirage.evaluation.campaign.aggregate import PairingError
+
+    with pytest.raises(PairingError):
+        run_binder_benchmark(
+            benchmark_id="t-bad", split=other_seeds, split_name="held_out", per_archetype=2, config=SMALL, code_version="test",
+            include_baselines=False, extra_policies={"later": PolicySpec(Abstain)},
+            expected_fingerprints=run.manifest.world_fingerprints,
+        )
+
+
+def test_public_fingerprint_cannot_tell_seeds_apart_but_the_world_digest_can(run):
+    """The public initial state is seed-independent, so the digest is what proves identical worlds."""
+    from mirage.evaluation.campaign.privileged_binder import world_digests
+
+    assert len(set(run.manifest.world_fingerprints.values())) == 1
+    assert len(set(run.manifest.world_digests.values())) == 10
+    again = world_digests(list(Archetype), [90000, 90001])
+    assert again == run.manifest.world_digests
+
+
+def test_digest_check_catches_a_changed_hidden_world_with_identical_public_state(run):
+    class Abstain:
+        name = "later"
+
+        def reset(self, seed=None):
+            pass
+
+        def choose_action(self, state, belief, available_actions):
+            return next(a for a in available_actions if a.action_type.value == "ABSTAIN")
+
+    from mirage.evaluation.campaign.aggregate import PairingError
+
+    tampered = {k: ("0" * 64 if k.endswith("/90000") else v) for k, v in run.manifest.world_digests.items()}
+    with pytest.raises(PairingError):
+        run_binder_benchmark(
+            benchmark_id="t-d", split=SPLIT, split_name="held_out", per_archetype=2, config=SMALL, code_version="test",
+            include_baselines=False, extra_policies={"later": PolicySpec(Abstain)},
+            expected_fingerprints=run.manifest.world_fingerprints, expected_world_digests=tampered,
+        )
