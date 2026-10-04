@@ -74,7 +74,7 @@ interleaved (ER-001): even seed offsets are `BIOLOGICAL_PLATEAU` and odd offsets
 | C1 (primary) | Claude adapter: `claude-opus-5-5`, effort `high`, adaptive thinking (model default), `prompt-v2` (minimal; no hypothesis scaffolding; `declare_state` optional), ≤ 12 turns, budget 6, no model fallback | MVP |
 | B1 | `GoodScientist` (DESIGN §16.1) | MVP |
 | B2 | `PassiveBayes` (DESIGN §16.2) | MVP |
-| C2 | One additional configuration (another model or effort level) on the same matrix and prompt | **Phase 2 only**, after MS4 is frozen ([DEVELOPMENT_PLAN §9](DEVELOPMENT_PLAN.md#9-expansion-plan)) |
+| C2 | Claude adapter: `claude-sonnet-5-5`, effort `high`, adaptive thinking (model default), `prompt-v2`, ≤ 12 turns, budget 6, no model fallback. Same adapter, tools and strong matrix as C1; only the model differs (`--model claude-sonnet-5-5`). Registered 2026-10-04 after MS4 was frozen (`experiments/results/20261003-2323_claude_strong/FREEZE.md`) and before any C2 call. Decided by Ben, pending Arnav. | **Phase 2** ([DEVELOPMENT_PLAN §9](DEVELOPMENT_PLAN.md#9-expansion-plan)); MS4 frozen |
 
 ## 6. Seeds and repetitions
 
@@ -86,6 +86,7 @@ interleaved (ER-001): even seed offsets are `BIOLOGICAL_PLATEAU` and odd offsets
 | Baseline reference | Gate 0 test seeds 900,000–900,999 | 1,000 per condition | Precise baseline values (B1, B2) |
 | Demo | `demo_pair.json` (2 episodes) | 2 | Demo only. Never in metrics. |
 
+- C2 runs 4 development-seed episodes first (seeds 0–3, the same as the C1 practice run), as a pipeline check only. They are never reported. Then it runs the strong matrix once. If the practice run finds a bug, the fix is a new reviewed PR before any strong-matrix C2 episode. The prompt, tools and scoring do not change for C2.
 - Each (seed, configuration) is run **once**. An `API_FAILURE` episode is re-run once
   with the same seed. The second outcome is final and both are retained.
 - Baselines B1 and B2 are run on exactly the same evaluation episodes as C1, plus
@@ -191,6 +192,7 @@ The same table is repeated per condition.
   (`GoodScientist` M3 = …)."
 - "On n evaluation episodes, Claude Opus 5.5 (effort high, prompt-v2) achieved
   justified accuracy k/n [Wilson 95 % CI], diagnostic-control rate …, at mean cost …"
+- "On the same n episodes, Claude Sonnet 5.5 (effort high, prompt-v2) achieved k/n [Wilson 95 % CI], compared with k/n for Opus 5.5." This is descriptive only: with n = 30, overlapping intervals are reported as no detectable difference, not as equality.
 - "Failures were of type … (audit breakdown)."
 - "The environment, evaluator and every reported number are reproducible from the
   committed configuration and records."
