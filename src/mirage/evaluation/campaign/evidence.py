@@ -70,6 +70,12 @@ class Ledger:
     def assay_validation_run(self) -> bool:
         return bool(self.observed(None, ActionType.VALIDATE_ASSAY))
 
+    def assay_validation_failed(self) -> bool:
+        return self.assay_validation_run() and not self.assay_validation_passed()
+
+    def reliable_measurement_count(self) -> int:
+        return sum(1 for e in self.events if e.observation is not None and not self.degraded(e))
+
     def orthogonal_function_present(self) -> bool:
         threshold = self.config.orthogonal_pass_threshold
         return any(
@@ -105,13 +111,34 @@ def supports_select(ledger: Ledger, cand: str, belief: dict | None) -> list[Chec
     ]
     if ActionType.MEASURE_SPR in cfg.select_required_actions:
         checks.append(Check("spr_readout_reliable", bool(ledger.clean(cand, ActionType.MEASURE_SPR))))
+    # Assay integrity: either the control passed (and the assay is believed valid), or the
+    # control failed and function is shown orthogonally with the assay failure believed.
+    broken_but_resolved = (
+        ledger.assay_validation_failed()
+        and ledger.orthogonal_function_present()
+        and belief is not None
+        and float(belief["p_assay_invalid"]) >= cfg.support_min_marginal
+    )
     if cfg.select_requires_assay_validation:
-        checks.append(Check("assay_validated", ledger.assay_validation_passed(), "VALIDATE_ASSAY control passed"))
+        checks.append(
+            Check(
+                "assay_integrity_resolved",
+                ledger.assay_validation_passed() or broken_but_resolved,
+                "control passed, or control failed with orthogonal function evidence",
+            )
+        )
     if belief is None:
         checks.append(Check("belief_supports_select", False, "no belief recorded at decision"))
     else:
-        worst = max(float(belief[m]) for m in (*MOLECULAR_MARGINALS, "p_assay_invalid", "p_model_invalid"))
-        checks.append(Check("belief_supports_select", worst <= cfg.support_max_marginal, f"max failure marginal {worst:.3f}"))
+        invalid_ok = broken_but_resolved or float(belief["p_assay_invalid"]) <= cfg.support_max_marginal
+        worst = max(float(belief[m]) for m in (*MOLECULAR_MARGINALS, "p_model_invalid"))
+        checks.append(
+            Check(
+                "belief_supports_select",
+                invalid_ok and worst <= cfg.support_max_marginal,
+                f"max molecular/model failure marginal {worst:.3f}",
+            )
+        )
     return checks
 
 
@@ -157,18 +184,28 @@ def supports_model_invalid(ledger: Ledger, cand: str, belief: dict | None) -> li
 def supports_abstain(
     ledger: Ledger, cand: str, belief: dict | None, *, exhausted: bool
 ) -> list[Check]:
-    """Abstention is justified when no committal decision is evidence-supported, or the
-    campaign has run out of resources to improve the evidence."""
+    """Abstention is justified when it follows real work and no committal decision is
+    evidence-supported (or the campaign is exhausted). If the belief blames the assay, the
+    failed control must be on record, so a policy cannot abstain for free."""
+    cfg = ledger.config
     committal = {
         "SELECT": supports_select(ledger, cand, belief),
         "REJECT": supports_reject(ledger, cand, belief),
         "MODEL_INVALID": supports_model_invalid(ledger, cand, belief),
     }
     already = [name for name, checks in committal.items() if all(c.passed for c in checks)]
-    return [
+    checks = [
         Check(
             "no_committal_decision_supported",
             not already or exhausted,
-            f"supported alternatives: {already}; exhausted={exhausted}",
-        )
+            f"supported alternatives: {already}",
+        ),
+        Check(
+            "abstention_followed_effort",
+            exhausted or ledger.reliable_measurement_count() >= cfg.abstain_min_measurements,
+            f"{ledger.reliable_measurement_count()} reliable measurements",
+        ),
     ]
+    if belief is not None and float(belief["p_assay_invalid"]) >= cfg.support_min_marginal:
+        checks.append(Check("assay_failure_evidenced", ledger.assay_validation_failed(), "failed control on record"))
+    return checks

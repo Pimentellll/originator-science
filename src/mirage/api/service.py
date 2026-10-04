@@ -6,9 +6,8 @@ from __future__ import annotations
 
 import threading
 import uuid
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Protocol
 
 from mirage.api.dto import (
     ActionRequest,
@@ -21,30 +20,10 @@ from mirage.api.dto import (
     replay_dto,
     state_dto,
 )
-from mirage.core import AgentState, ScientificAction, ScientificEnvironment, StepResult
+from mirage.core import ScientificEnvironment
 from mirage.provenance import EpisodeRecorder, PolicyMetadata, PublicRecordStore
+from mirage.provenance.protocols import BeliefFactory, BeliefSession, PolicyLike
 from mirage.provenance.recorder import CONTRACT_VERSION
-
-
-class BeliefSession(Protocol):
-    """Per-episode belief tracker supplied by the belief workstream (adapter owned by integration)."""
-
-    def summary(self) -> Any: ...
-
-    def update(self, action: ScientificAction, result: StepResult) -> None: ...
-
-
-BeliefFactory = Callable[[int, AgentState], BeliefSession]
-
-
-class PolicyLike(Protocol):
-    name: str
-
-    def reset(self, seed: int | None = None) -> None: ...
-
-    def choose_action(
-        self, state: AgentState, belief: Any, available_actions: Sequence[ScientificAction]
-    ) -> ScientificAction: ...
 
 
 class ServiceError(Exception):

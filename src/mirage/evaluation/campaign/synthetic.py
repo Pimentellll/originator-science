@@ -222,13 +222,18 @@ class SyntheticOracle:
         default: FailureLabels,
         by_candidate: dict[str, FailureLabels] | None = None,
         scenario: str = "SYNTHETIC",
+        regime: str = "unspecified",
     ) -> None:
         self._default = default
         self._by = by_candidate or {}
         self._scenario = scenario
+        self._regime = regime
 
     def failure_labels(self, candidate_id: str) -> FailureLabels:
         return self._by.get(candidate_id, self._default)
 
     def scenario_class(self) -> str:
         return self._scenario
+
+    def regime(self) -> str:
+        return self._regime

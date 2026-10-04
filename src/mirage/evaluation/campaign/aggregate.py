@@ -113,6 +113,7 @@ class PolicySummary(_Frozen):
     policy_name: str
     overall: GroupSummary
     by_scenario_class: dict[str, GroupSummary]
+    by_regime: dict[str, GroupSummary]
 
 
 class BenchmarkSummary(_Frozen):
@@ -135,29 +136,33 @@ class PairingError(ValueError):
     """Policies were not evaluated on identical seeded worlds."""
 
 
-def seeds_by_policy(evals: Sequence[CampaignEvaluation]) -> dict[str, list[int]]:
-    return {p: sorted(e.seed for e in rows) for p, rows in _by(evals, lambda e: e.policy_name).items()}
+def world_key(e: CampaignEvaluation) -> tuple[str, int]:
+    """A world is an (archetype, seed) pair; seeds alone may repeat across archetypes."""
+    return (e.archetype, e.seed)
 
 
 def assert_identical_worlds(evals: Sequence[CampaignEvaluation]) -> tuple[int, ...]:
-    """Every policy must have exactly one episode per seed, on the same seed set, with the
-    same scenario class per seed (G13)."""
-    per_policy = seeds_by_policy(evals)
-    reference: list[int] | None = None
-    for policy, seeds in per_policy.items():
-        if len(seeds) != len(set(seeds)):
-            raise PairingError(f"{policy} has duplicate seeds")
-        if reference is None:
-            reference = seeds
-        elif seeds != reference:
-            raise PairingError(f"{policy} was run on different seeds than the other policies")
-    classes: dict[int, set[str]] = {}
+    """Every policy must have exactly one episode per world, on the same world set, with
+    the same scenario class and regime per world (G13). Returns the sorted unique seeds."""
+    per_policy: dict[str, list[tuple[str, int]]] = {}
     for e in evals:
-        classes.setdefault(e.seed, set()).add(e.scenario_class)
-    mismatched = [s for s, c in classes.items() if len(c) > 1]
+        per_policy.setdefault(e.policy_name, []).append(world_key(e))
+    reference: list[tuple[str, int]] | None = None
+    for policy, keys in sorted(per_policy.items()):
+        if len(keys) != len(set(keys)):
+            raise PairingError(f"{policy} has duplicate worlds")
+        keys = sorted(keys)
+        if reference is None:
+            reference = keys
+        elif keys != reference:
+            raise PairingError(f"{policy} was run on different worlds than the other policies")
+    tags: dict[tuple[str, int], set[tuple[str, str]]] = {}
+    for e in evals:
+        tags.setdefault(world_key(e), set()).add((e.scenario_class, e.regime))
+    mismatched = [k for k, c in tags.items() if len(c) > 1]
     if mismatched:
-        raise PairingError(f"seeds {mismatched} map to different scenario classes across policies")
-    return tuple(reference or ())
+        raise PairingError(f"worlds {mismatched} carry different tags across policies")
+    return tuple(sorted({seed for _, seed in (reference or [])}))
 
 
 def build_benchmark_summary(
@@ -174,6 +179,7 @@ def build_benchmark_summary(
             policy_name=policy,
             overall=summarize(rows),
             by_scenario_class={c: summarize(g) for c, g in sorted(_by(rows, lambda e: e.scenario_class).items())},
+            by_regime={c: summarize(g) for c, g in sorted(_by(rows, lambda e: e.regime).items())},
         )
         for policy, rows in sorted(_by(evals, lambda e: e.policy_name).items())
     }
@@ -183,7 +189,7 @@ def build_benchmark_summary(
 class PairedComparison(_Frozen):
     policy_a: str
     policy_b: str
-    n_seeds: int
+    n_worlds: int
     justified_a_only: int
     justified_b_only: int
     both_justified: int
@@ -193,17 +199,17 @@ class PairedComparison(_Frozen):
 
 def paired_comparison(evals: Sequence[CampaignEvaluation], policy_a: str, policy_b: str) -> PairedComparison:
     assert_identical_worlds([e for e in evals if e.policy_name in (policy_a, policy_b)])
-    a = {e.seed: e for e in evals if e.policy_name == policy_a}
-    b = {e.seed: e for e in evals if e.policy_name == policy_b}
+    a = {world_key(e): e for e in evals if e.policy_name == policy_a}
+    b = {world_key(e): e for e in evals if e.policy_name == policy_b}
     if not a or set(a) != set(b):
-        raise PairingError("policies do not cover the same seeds")
+        raise PairingError("policies do not cover the same worlds")
     both = sum(a[s].justified and b[s].justified for s in a)
     only_a = sum(a[s].justified and not b[s].justified for s in a)
     only_b = sum(b[s].justified and not a[s].justified for s in a)
     return PairedComparison(
         policy_a=policy_a,
         policy_b=policy_b,
-        n_seeds=len(a),
+        n_worlds=len(a),
         justified_a_only=only_a,
         justified_b_only=only_b,
         both_justified=both,

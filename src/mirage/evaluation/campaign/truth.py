@@ -59,19 +59,28 @@ class TruthOracle(Protocol):
         """Generation/reporting archetype (SINGLE_FAILURE, ...); never policy-visible."""
         ...
 
+    # Optional: ``regime() -> str`` ("myopic" | "path_dependent" | "invalid") for the
+    # BASELINES requirement to report those world kinds separately. Read via getattr.
+
 
 def correct_terminal_decisions(labels: FailureLabels) -> frozenset[ActionType]:
     """Terminal actions that are correct for a candidate (rules_v1).
 
     * assay and model both invalid: nothing downstream is interpretable -> ABSTAIN.
     * model invalid with a valid assay: MODEL_INVALID.
+    * assay invalid: refusing to conclude is correct, as is the decision the molecule itself
+      warrants (SELECT if good, REJECT if defective). Whether that decision is *justified*
+      depends on evidence that does not rely on the broken assay.
     * any molecular defect: REJECT.
-    * otherwise (good molecule, including a good molecule behind a broken assay): SELECT.
+    * otherwise: SELECT.
     """
     if labels.assay_invalid and labels.model_invalid:
         return frozenset({ActionType.ABSTAIN})
     if labels.model_invalid:
         return frozenset({ActionType.MODEL_INVALID})
+    if labels.assay_invalid:
+        own = ActionType.SELECT if labels.molecule_is_good else ActionType.REJECT
+        return frozenset({own, ActionType.ABSTAIN})
     if labels.molecular_failures:
         return frozenset({ActionType.REJECT})
     return frozenset({ActionType.SELECT})
