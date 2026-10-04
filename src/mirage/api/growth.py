@@ -10,6 +10,7 @@ from typing import Any
 
 from fastapi import APIRouter, Header, Request
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 
 from mirage.ui import api
 
@@ -26,7 +27,7 @@ def create_growth_router(
         )
 
     def _authorize(token: str | None) -> None:
-        if aggregate_token is None:
+        if not aggregate_token:
             raise api.APIError(404, "aggregate results are not enabled")
         if token is None or not hmac.compare_digest(
             token.encode(), aggregate_token.encode()
@@ -53,7 +54,8 @@ def create_growth_router(
         request: Request, operation: Callable[[dict[str, Any]], Any]
     ) -> Any:
         try:
-            return operation(await _json_object(request))
+            body = await _json_object(request)
+            return await run_in_threadpool(operation, body)
         except api.APIError as error:
             return _error(error)
 
@@ -64,7 +66,8 @@ def create_growth_router(
     ) -> Any:
         try:
             _authorize(token)
-            return operation(await _json_object(request))
+            body = await _json_object(request)
+            return await run_in_threadpool(operation, body)
         except api.APIError as error:
             return _error(error)
 

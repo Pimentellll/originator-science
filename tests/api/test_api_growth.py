@@ -78,7 +78,14 @@ def test_growth_routes_require_aggregate_token(service):
             aggregate_token="",
         )
     )
-    assert empty_token.get("/benchmarks/growth/runs").status_code == 403
+    assert empty_token.get("/benchmarks/growth/runs").status_code == 404
+    assert (
+        empty_token.get(
+            "/benchmarks/growth/runs",
+            headers={TOKEN_HEADER: ""},
+        ).status_code
+        == 404
+    )
 
     enabled = TestClient(
         create_app(
