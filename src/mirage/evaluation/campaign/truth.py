@@ -28,6 +28,9 @@ class FailureLabels(BaseModel):
     developability_failure: bool = False
     assay_invalid: bool = False
     model_invalid: bool = False
+    # Scenario semantics are privileged metadata, not extra molecular thresholds.
+    primary_failure_mechanisms: tuple[str, ...] = ()
+    secondary_consequences: tuple[str, ...] = ()
 
     @property
     def molecular_failures(self) -> tuple[str, ...]:

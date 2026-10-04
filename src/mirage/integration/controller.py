@@ -63,24 +63,17 @@ class _BinderOracle:
     def __init__(self, env: BinderBioPOMDP) -> None:
         self._env = env
 
+    def _truth(self):
+        return self._env.evaluator_truth(self._env.agent_state().active_candidate.candidate_id)
+
     def failure_labels(self, candidate_id: str) -> FailureLabels:
-        h = self._env._hidden_by_candidate[candidate_id]
-        return FailureLabels(
-            folding_failure=h.stability < 0.5,
-            aggregation_failure=h.monomer_fraction < 0.8,
-            affinity_failure=h.log_kd > -7.0,
-            kinetic_failure=h.log_koff > -2.0,
-            epitope_failure=not h.functional_epitope,
-            developability_failure=h.developability_liability > 0.5,
-            assay_invalid=not h.assay_valid,
-            model_invalid=not h.model_valid,
-        )
+        return self._env.evaluator_truth(candidate_id).labels
 
     def scenario_class(self) -> str:
-        return self._env._world_mode.value
+        return self._truth().scenario_class
 
     def regime(self) -> str:
-        return "path_dependent" if self._env._world_mode == BinderWorldMode.COMPOUND_FAILURE else "invalid" if self._env._world_mode in {BinderWorldMode.ASSAY_FAILURE, BinderWorldMode.MODEL_FAILURE} else "myopic"
+        return self._truth().regime
 
 
 class CampaignController:

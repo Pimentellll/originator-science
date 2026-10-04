@@ -7,8 +7,9 @@ from dataclasses import dataclass
 import numpy as np
 
 from mirage.core import ActionType, AgentState, Candidate, ResourceState, ScientificAction, ScientificEnvironment, ScientificObservation, StepResult
+from mirage.evaluation.campaign.truth import FailureLabels
 from mirage.environments.binder.predictive import BinderHypothesis, BinderPredictiveModel
-from mirage.environments.binder.scenarios import BinderWorldMode, sample_world, showcase_scenario
+from mirage.environments.binder.scenarios import BinderScenarioVersion, BinderWorldMode, sample_world, showcase_for_mode, showcase_scenario
 
 
 @dataclass(frozen=True)
@@ -37,8 +38,9 @@ _COSTS = {
 class BinderBioPOMDP(ScientificEnvironment):
     """A deterministic-by-seed environment with private causal state."""
 
-    def __init__(self, world_mode: BinderWorldMode = BinderWorldMode.MIXED) -> None:
+    def __init__(self, world_mode: BinderWorldMode = BinderWorldMode.MIXED, *, scenario_version: BinderScenarioVersion = BinderScenarioVersion.BASELINE_V1) -> None:
         self._world_mode = BinderWorldMode(world_mode)
+        self._scenario_version = BinderScenarioVersion(scenario_version)
         self._predictive = BinderPredictiveModel()
         self._rng = np.random.default_rng()
         self._hidden_by_candidate: dict[str, BinderHypothesis] = {}
@@ -51,14 +53,14 @@ class BinderBioPOMDP(ScientificEnvironment):
         self.reset()
 
     @classmethod
-    def from_showcase(cls, name: str) -> "BinderBioPOMDP":
+    def from_showcase(cls, name: str, *, scenario_version: BinderScenarioVersion = BinderScenarioVersion.BASELINE_V1) -> "BinderBioPOMDP":
         """Construct an environment for one canonical showcase scenario."""
-        return cls(showcase_scenario(name).world_mode)
+        return cls(showcase_scenario(name).world_mode, scenario_version=scenario_version)
 
     def reset(self, seed: int | None = None) -> AgentState:
         self._rng = np.random.default_rng(seed)
         root = Candidate(candidate_id="binder-000", generation=0)
-        self._hidden_by_candidate = {root.candidate_id: sample_world(self._world_mode, self._rng)}
+        self._hidden_by_candidate = {root.candidate_id: sample_world(self._world_mode, self._rng, self._scenario_version)}
         self._candidates, self._active_id = [root], root.candidate_id
         self._resources = ResourceState(budget_remaining=12.0, sample_remaining=8.0, simulated_time=0.0, spr_instrument_health=1.0)
         self._observations, self._terminal, self._decision = [], False, None
@@ -89,6 +91,24 @@ class BinderBioPOMDP(ScientificEnvironment):
         active = next(candidate for candidate in self._candidates if candidate.candidate_id == self._active_id)
         return AgentState(active_candidate=active, candidates=tuple(self._candidates), resources=self._resources, observations=tuple(self._observations), terminal=self._terminal)
 
+    def evaluator_truth(self, candidate_id: str) -> "BinderEvaluatorTruth":
+        """Return evaluator-only truth; policies, DTOs, and replay never receive it."""
+        hidden = self._hidden_by_candidate[candidate_id]
+        scenario = showcase_for_mode(self._world_mode)
+        labels = FailureLabels(
+            folding_failure=hidden.stability < 0.5,
+            aggregation_failure=hidden.monomer_fraction < 0.8,
+            affinity_failure=hidden.log_kd > -7.0,
+            kinetic_failure=hidden.log_koff > -2.0,
+            epitope_failure=not hidden.functional_epitope,
+            developability_failure=hidden.developability_liability > 0.5,
+            assay_invalid=not hidden.assay_valid,
+            model_invalid=not hidden.model_valid,
+        )
+        if self._scenario_version == BinderScenarioVersion.SEMANTICS_V2:
+            labels = labels.model_copy(update={"primary_failure_mechanisms": scenario.signature.primary_failure_mechanisms, "secondary_consequences": scenario.signature.secondary_consequences})
+        regime = "path_dependent" if self._world_mode == BinderWorldMode.COMPOUND_FAILURE else "invalid" if self._world_mode in {BinderWorldMode.ASSAY_FAILURE, BinderWorldMode.MODEL_FAILURE} else "myopic"
+        return BinderEvaluatorTruth(labels, scenario.name, self._world_mode.value, regime)
     def is_terminal(self) -> bool:
         return self._terminal
 
@@ -129,3 +149,12 @@ class BinderBioPOMDP(ScientificEnvironment):
         self._hidden_by_candidate[child.candidate_id] = self._predictive.redesign(self._hidden_by_candidate[parent.candidate_id], action, self._rng)
         self._candidates.append(child)
         self._active_id = child.candidate_id
+
+
+@dataclass(frozen=True)
+class BinderEvaluatorTruth:
+    """Private evaluator payload, absent from public contracts."""
+    labels: FailureLabels
+    scenario_name: str
+    scenario_class: str
+    regime: str
