@@ -1,22 +1,34 @@
 import { useCallback, useEffect, useState } from 'react'
 
-export type Route = 'cockpit' | 'compare' | 'benchmark'
-const ROUTES: Route[] = ['cockpit', 'compare', 'benchmark']
+export type Route = 'results' | 'episode' | 'lab' | 'method' | 'cockpit' | 'compare' | 'benchmark'
+const ROUTES: readonly Route[] = ['results', 'episode', 'lab', 'method', 'cockpit', 'compare', 'benchmark']
 
-function parse(): Route {
-  const h = location.hash.replace(/^#\/?/, '') as Route
-  return ROUTES.includes(h) ? h : 'cockpit'
+function decodeSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment)
+  } catch {
+    return segment
+  }
 }
 
-export function useRoute(): [Route, (r: Route) => void] {
-  const [route, setRoute] = useState<Route>(parse)
+export function parseHash(hash: string): { route: Route; params: string[] } {
+  const path = hash.replace(/^#/, '').replace(/^\/+/, '')
+  const [candidate, ...segments] = path.split('/').filter(Boolean)
+  if (!candidate || !ROUTES.includes(candidate as Route)) {
+    return { route: 'results', params: [] }
+  }
+  return { route: candidate as Route, params: segments.map(decodeSegment) }
+}
+
+export function useRoute(): [Route, (r: Route, ...params: string[]) => void, string[]] {
+  const [location, setLocation] = useState(() => parseHash(window.location.hash))
   useEffect(() => {
-    const on = () => setRoute(parse())
+    const on = () => setLocation(parseHash(window.location.hash))
     window.addEventListener('hashchange', on)
     return () => window.removeEventListener('hashchange', on)
   }, [])
-  const navigate = useCallback((r: Route) => {
-    location.hash = `/${r}`
+  const navigate = useCallback((r: Route, ...params: string[]) => {
+    window.location.hash = `/${[r, ...params].map(encodeURIComponent).join('/')}`
   }, [])
-  return [route, navigate]
+  return [location.route, navigate, location.params]
 }
