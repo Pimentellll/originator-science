@@ -172,11 +172,12 @@ def test_clean_runtime_all_refuses_without_a_terminal_or_confirmation():
 
 # ------------------------------------------------------------------ demo acceptance
 def _ready():
-    return E.venv_python().exists() and E.frontend_deps_ready() and shutil.which("node")
+    # A demo the developer already has running would be reused (and must not be disturbed): skip then.
+    return E.venv_python().exists() and E.frontend_deps_ready() and shutil.which("node") and not E.owned_pid("supervisor")
 
 
 @pytest.mark.slow
-@pytest.mark.skipif(not _ready(), reason="needs ./mirage setup (venv + frontend deps + node)")
+@pytest.mark.skipif(not _ready(), reason="needs ./mirage setup (venv + frontend deps + node), and no ./mirage demo already running")
 def test_demo_no_browser_serves_both_and_shuts_down_cleanly_on_sigint(tmp_path):
     api_port, web_port = E.find_free_port(18100), E.find_free_port(18200)
     proc = subprocess.Popen([str(MIRAGE), "demo", "--no-browser", "--port", str(api_port), "--frontend-port", str(web_port), "--seed", "9"],

@@ -279,10 +279,9 @@ def cmd_stop(_: list[str]) -> int:
 
 def cmd_clean_runtime(argv: list[str]) -> int:
     everything = "--all" in argv
-    cmd_stop([])
     disposable = [E.LOCAL, E.ROOT / ".pytest_cache", E.FRONTEND / "dist", E.FRONTEND / "node_modules" / ".vite"]
     heavy = [E.VENV, E.FRONTEND / "node_modules"] if everything else []
-    if heavy and "--yes" not in argv:
+    if heavy and "--yes" not in argv:  # confirm BEFORE touching anything, including running services
         names = ", ".join(str(p.relative_to(E.ROOT)) for p in heavy)
         if not sys.stdin.isatty():
             E.fail(f"--all would delete {names}; refusing without a terminal. Re-run with --yes to confirm.")
@@ -290,6 +289,7 @@ def cmd_clean_runtime(argv: list[str]) -> int:
         if input(f"Delete {names}? You will need ./mirage setup again. [y/N] ").strip().lower() != "y":
             print("aborted")
             return 1
+    cmd_stop([])
     for path in disposable + heavy:
         if path.exists():
             shutil.rmtree(path, ignore_errors=True)

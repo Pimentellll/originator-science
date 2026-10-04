@@ -6,6 +6,8 @@ import { fmtBits, fmtBudget, fmtNum, fmtSample, MECH_LABEL, pct } from '../lib/f
 import type { AlternativeView, CockpitState, Recommendation } from '../lib/types'
 import { actionKind, actionLabel, actionShort } from '../lib/actions'
 import { counterfactualFor } from '../lib/derive'
+import { VerdictBanner } from './Verdict'
+import { ManualControls, ManualLog } from './ManualControls'
 
 function Stat({ label, children, sub }: { label: string; children: React.ReactNode; sub?: string }) {
   return (
@@ -30,16 +32,9 @@ function Terminal({ frame }: { frame: CockpitState }) {
         <span className="pill pill--warn">
           {actionShort(t.decision)} {t.candidate_id}
         </span>
-        {ev && (
-          <>
-            <span className={`pill ${ev.terminal_correct === null ? '' : ev.terminal_correct ? 'pill--ok' : 'pill--bad'}`}>{ev.terminal_correct === null ? 'ABSTAINED' : ev.terminal_correct ? 'CORRECT' : 'INCORRECT'}</span>
-            <span className={`pill ${ev.justified ? 'pill--ok' : 'pill--bad'}`}>{ev.justified ? 'JUSTIFIED' : 'NOT JUSTIFIED'}</span>
-            {ev.lucky_correct && <span className="pill pill--warn">LUCKY-CORRECT</span>}
-            {ev.supported_but_wrong && <span className="pill pill--warn">SUPPORTED BUT WRONG</span>}
-          </>
-        )}
-        <span className="dim">{ev ? 'Correct and justified are scored separately by the privileged evaluator, after the decision.' : 'No evaluator verdict is attached to this record (the public API does not expose one).'}</span>
+        <span className="dim">{ev ? 'Correct and justified are scored separately by the privileged evaluator, after the decision.' : 'No evaluator verdict is attached to this record: it is served only after the decision, behind an access token.'}</span>
       </div>
+      <VerdictBanner evaluation={ev} decision={t.decision} />
       <div className="aterm__grid">
         <Stat label="Actions">{frame.events.length - 1}</Stat>
         <Stat label="Budget used">{fmtBudget(spent)}</Stat>
@@ -49,6 +44,7 @@ function Terminal({ frame }: { frame: CockpitState }) {
         <Stat label="SPR health">{frame.resources.spr_health.toFixed(2)}</Stat>
         <Stat label="Unnecessary redesigns">{ev?.unnecessary_redesigns ?? 'n/a'}</Stat>
       </div>
+      <ManualLog />
       {ev?.checks && ev.checks.length > 0 && (
         <div className="aterm__checks">
           <span className="hdr__label">Justification checks</span>
@@ -183,16 +179,17 @@ export function ActionPanel({ navigate }: { navigate: (r: Route) => void }) {
   const running = s.phase === 'running'
   const histStep = s.session?.mode === 'replay' && s.cursor < s.frames.length - 1
   const kind = ra ? actionKind(ra.action_type) : 'measurement'
+  const manual = s.launch.control === 'manual' && s.transport.kind === 'live'
   const apiOnly = ra !== null && ra.score === undefined && ra.confidence === undefined && ra.eig === undefined && ra.cost === undefined
 
   return (
     <Panel
       index="04"
-      title="Next action"
+      title={manual ? 'Your action · MIRAGE recommends' : 'Next action'}
       className="act"
       aside={
         <>
-          <span className="dim">{frame.policy.label}</span>
+          <span className="dim">{manual ? 'manual scientist' : frame.policy.label}</span>
           {histStep && (
             <span className="pill">
               STEP {frame.step} OF {s.frames.length - 1}
@@ -203,6 +200,11 @@ export function ActionPanel({ navigate }: { navigate: (r: Route) => void }) {
     >
       {terminal && frame.terminal ? (
         <Terminal frame={frame} />
+      ) : manual && !histStep ? (
+        <>
+          <ManualControls />
+          <ManualLog />
+        </>
       ) : ra ? (
         <div className="act__grid">
           <div className="act__main">

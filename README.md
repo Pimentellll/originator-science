@@ -1,5 +1,42 @@
 # MIRAGE
 
+## Quick start
+
+```bash
+git clone https://github.com/Pimentellll/originator-science.git
+cd originator-science
+./mirage demo
+```
+
+That installs what is missing (first run: a few minutes), starts the API and the cockpit, waits until both are healthy and
+opens your browser at `http://localhost:5173/?transport=live`. Click **START GUIDED DEMO**. `Ctrl+C` stops everything.
+
+Then check your setup and the code:
+
+```bash
+./mirage doctor          # environment diagnosis with exact fixes; exit 0 = ready
+./mirage test --quick    # about 15 seconds: contracts, trust boundary, API, E2E over a real socket, frontend checks
+```
+
+**Platforms:** Ubuntu 24.04 and WSL2 Ubuntu (primary), other Linux, macOS (secondary). Native Windows is not supported:
+use WSL2 (`wsl --install -d Ubuntu-24.04`) and run everything in the Ubuntu terminal.
+**You need:** `git`, any `python3`, and Node 20.19+ / 22.12+ ([how](docs/TROUBLESHOOTING.md#node-is-missing-or-too-old)). `./mirage` installs
+`uv`, the virtualenv and every dependency; it never uses `sudo` and never touches global Python packages.
+
+Manual fallback (no `./mirage`):
+
+```bash
+python3 -m venv .venv && .venv/bin/python -m pip install -e ".[dev,rl]"
+(cd frontend && npm ci)
+PYTHONPATH=src .venv/bin/python scripts/serve_api.py &              # API on :8000
+(cd frontend && MIRAGE_API_PROXY=http://127.0.0.1:8000 npm run dev) # http://localhost:5173/?transport=live
+```
+
+Guides: [developer setup](docs/DEVELOPER_SETUP.md) · [demo guide](docs/DEMO_GUIDE.md) · [troubleshooting](docs/TROUBLESHOOTING.md).
+The science and the architecture follow below; you do not need them to run the project.
+
+---
+
 **An autonomous causal experimental-planning system for diagnosing and rescuing failed de novo
 miniprotein binder campaigns.**
 
@@ -211,34 +248,31 @@ set equals its primary mechanisms in 300/300 worlds. `tests/binder/test_scenario
 
 ## 7. Run it
 
-Requires Python ≥ 3.11 and a current Node for the frontend. Python dependencies are pinned in `pyproject.toml`;
-Gym/PPO needs the `rl` extra.
-
-```bash
-uv venv --python 3.11 .venv
-uv pip install --python .venv/bin/python -e ".[dev]"          # use ".[dev,rl]" for Gym / PPO
-.venv/bin/python -m pytest -q
-```
+The one-command path is the [Quick start](#quick-start). Everything it runs, by hand:
 
 ```bash
 # 1. deterministic integrated campaign (controller -> provenance -> evaluation -> replay), no server
-PYTHONPATH=src .venv/bin/python scripts/h0_smoke.py
+./mirage smoke       # or: PYTHONPATH=src .venv/bin/python scripts/h0_smoke.py
 # prints: MEASURE_SEC -> REDESIGN_SOLUBILITY -> MEASURE_SPR -> REJECT
 #         events=4 replay_frames=4
 #         scenario=COMPOUND_FAILURE regime=path_dependent justified=True
 
-# 2. public API (terminal 1) and cockpit (terminal 2)
-PYTHONPATH=src .venv/bin/python scripts/serve_api.py --records .local/mirage-api
-cd frontend && npm ci && VITE_MIRAGE_TRANSPORT=live npm run dev      # http://localhost:5173/?transport=live
+# 2. public API and cockpit
+./mirage demo                                   # both, with a browser
+./mirage dev                                    # both, [API]/[WEB] logs, hot reload
+./mirage demo --scenario ASSAY_FAILURE --scenario-version BASELINE_V1 --seed 4 --policy greedy_eig
 ```
 
-The API registers `random`, `fixed_pipeline`, `rescue_planner` and `greedy_eig`; the live transport defaults to all
-four and can be configured via `VITE_MIRAGE_POLICIES`. The `--scenario` option selects the backend world; it is never
-sent to the browser. Aggregate `/benchmarks*` routes return 404 unless an evaluation store and token are configured,
-which `serve_api.py` does not do.
+The API serves `random`, `fixed_pipeline`, `rescue_planner` and `greedy_eig`; `GET /policies` lists them and marks Lookahead and
+PPO **NOT AVAILABLE** (they are not wired into the live API). New live demonstrations use `SEMANTICS_V2`; **Baseline V1 stays
+selectable** (`--scenario-version BASELINE_V1`) and its frozen results are untouched. The scenario is orchestration metadata for
+the person running the demo: it is never sent to a policy and never appears in the public record (only the semantics version,
+the seed, the policy and the git SHA do). `GET /version` and `GET /diagnostics` (and the cockpit's **System check** tab) make a
+screenshot reproducible. The per-episode correct-vs-justified verdict is served only after the decision, behind a per-run token
+that `./mirage` hands to the API and the Vite proxy through the environment.
 
 Offline cockpit with mock data (watermarked DEV / MOCK, not results): `cd frontend && npm run dev:mock`.
-Frontend gates: `npm run typecheck && npm run lint && npm test && npm run build`.
+Frontend gates: `cd frontend && npm run typecheck && npm run lint && npm test && npm run build`, or `./mirage test`.
 
 Growth benchmark views (Results, Episode, Lab, Method) in the same app: start the API with
 `MIRAGE_EVAL_TOKEN=<token> PYTHONPATH=src .venv/bin/python scripts/serve_api.py --records .local/mirage-api --growth-results experiments/results`
@@ -362,14 +396,18 @@ After merging current `main` (`PYTHONPATH=src`, Python 3.11.17):
 
 | Suite | Python 3.11.17 | Python 3.12 |
 |---|---|---|
-| Python, excluding `tests/rl` | 1194 passed, 4 skipped, 1 xfailed, 4 failed | Not rerun after merge |
+| Python, excluding `tests/rl` | 1195 passed, 4 skipped, 1 xfailed, 4 failed | Not rerun after merge |
 | Python `tests/rl` (Gym/PPO environment) | 40 passed | Not rerun after merge |
 
 The same four non-RL tests failed in the Python 3.11 run; they were also seen in the pre-merge Python 3.12 run:
 `test_tempered_posterior_matches_exact_reference_at_512_particles`
 for `invalid_biological_model-50000-greedy_eig|1` and `broken_assay-50000-greedy_eig|1`, plus
 `test_committed_lock_matches_the_files_on_disk` and `test_lock_detects_any_change_to_spec_scoring_or_doc`.
-Frontend validation: typecheck and lint passed; Vitest reported 72 passed and 4 skipped.
+Frontend validation: typecheck and lint passed; Vitest reported 93 passed and 4 skipped.
+
+After the launcher, guided demo and system routes (`./mirage test`, full): every software group passes (core 78, binder 33, belief 61, policies 59,
+trust boundary 70, evaluator 130, API 47, RL 36, launcher 24, provenance + legacy 675 with 3 skipped, frontend 91 with 4 skipped, E2E smoke 9).
+The same **2 scientific validation gates are NOT PASSED** (B4A convergence 13/15, V2 preregistration lock 0/2); they are unchanged by this work and exit code 2 reports them.
 
 ## 14. Collaboration and secrets
 

@@ -222,6 +222,7 @@ export function projectEpisode(record: EpisodeRecord): CockpitState[] {
       episode_id: record.episode_id,
       seed: record.seed,
       campaign: record.campaign ?? null,
+      semantics: record.semantics ?? null,
       step: i,
       total_steps: record.complete ? n : null,
       policy,

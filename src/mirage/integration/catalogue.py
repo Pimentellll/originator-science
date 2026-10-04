@@ -75,9 +75,10 @@ def policy_catalogue(registered: tuple[str, ...]) -> tuple[PolicyInfoDTO, ...]:
     return tuple(out)
 
 
-def scenario_catalogue() -> tuple[ScenarioInfoDTO, ...]:
+def scenario_catalogue(default_world: BinderWorldMode | None = None) -> tuple[ScenarioInfoDTO, ...]:
     return tuple(
-        ScenarioInfoDTO(id=s.name, title=_TITLES.get(s.name, s.name), summary=s.description, cli_name=s.world_mode.value)
+        ScenarioInfoDTO(id=s.name, title=_TITLES.get(s.name, s.name), summary=s.description, cli_name=s.world_mode.value,
+                        is_default=s.world_mode == default_world)
         for s in SHOWCASE_SCENARIOS
     )
 
@@ -133,7 +134,7 @@ def run_selfchecks(default_world: BinderWorldMode, version: BinderScenarioVersio
 def receptor_binder_catalogue(service, default_world: BinderWorldMode, version: BinderScenarioVersion) -> SystemCatalogue:
     return SystemCatalogue(
         policies=policy_catalogue(service.policy_names),
-        scenarios=scenario_catalogue(),
+        scenarios=scenario_catalogue(default_world),
         semantics_default=version.value,
         semantics_available=tuple(v.value for v in BinderScenarioVersion),
         selfcheck=SelfCheck(lambda: run_selfchecks(default_world, version)),

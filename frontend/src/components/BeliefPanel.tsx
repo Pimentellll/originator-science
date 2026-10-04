@@ -44,8 +44,11 @@ export function BeliefPanel() {
 
   return (
     <Panel index="03" title="Causal belief" aside={<span className="dim">Δ vs. {prevFrame ? `step ${prevFrame.step}` : '—'}</span>} className="belief">
+      <p className="belief__caveat">
+        <b>Model posterior, not an empirical biological probability.</b>
+      </p>
       <p className="belief__note">
-        Probability that each failure mode afflicts <span className="mono">{frame.candidate.id}</span>. <b>Not mutually exclusive</b>: several can be high at once, and rows need not sum to 1.
+        How strongly the evidence so far implicates each failure mode of <span className="mono">{frame.candidate.id}</span>. <b>Not mutually exclusive</b>: several can be high at once, and rows need not sum to 1.
       </p>
 
       <div className="belief__axis mono" aria-hidden>
@@ -105,6 +108,11 @@ export function BeliefPanel() {
         <div className="belief__sum mono">
           Σ p = {sum.toFixed(2)} <span className="faint">· marginals, not a distribution</span>
         </div>
+        {frame.belief.ess !== null && (
+          <div className="belief__ess2 mono" title="Effective sample size of the posterior approximation (higher means less degenerate). Particle count and inference-validation status are not part of the public state, so they are not shown.">
+            ESS <b>{Math.round(frame.belief.ess)}</b> <span className="faint">· posterior approximation health</span>
+          </div>
+        )}
       </div>
 
       {est.length > 0 && (
@@ -122,11 +130,6 @@ export function BeliefPanel() {
               </li>
             ))}
           </ul>
-          {frame.belief.ess !== null && (
-            <div className="mono belief__ess">
-              effective sample size <b>{Math.round(frame.belief.ess)}</b>
-            </div>
-          )}
         </div>
       )}
     </Panel>

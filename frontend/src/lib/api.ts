@@ -128,7 +128,50 @@ export interface ApiEpisodeEvaluation {
   lucky_correct?: boolean
   supported_but_wrong?: boolean
   unnecessary_redesigns?: number
-  justification_checks?: { name: string; passed: boolean }[]
+  justified_abstention?: boolean
+  evidence_supported?: boolean
+  justification_checks?: { name: string; passed: boolean; detail?: string }[]
+}
+
+/** GET /version */
+export interface ApiVersion {
+  mirage_version: string
+  git_sha: string
+  git_dirty: boolean | null
+  commit_date: string | null
+  api_version: string
+  contract_version: string
+  scenario_semantics_default: string
+  scenario_semantics_available: string[]
+  python_version: string
+}
+
+/** GET /policies */
+export interface ApiPolicy {
+  name: string
+  display_name: string
+  kind: string
+  available: boolean
+  description: string
+  reason: string | null
+}
+
+/** GET /scenarios: orchestration metadata for the human running the demo, never policy input. */
+export interface ApiScenario {
+  id: string
+  title: string
+  summary: string
+  cli_name: string
+  is_default?: boolean
+}
+
+/** GET /diagnostics */
+export interface ApiDiagnostics {
+  status: string
+  checks: { name: string; status: string; detail: string }[]
+  git_sha: string
+  scenario_semantics_default: string
+  note: string
 }
 
 // ----------------------------------------------------------------- benchmark
