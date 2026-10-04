@@ -32,9 +32,9 @@ export function Header({ route, navigate, growthKind }: { route: Route; navigate
   return (
     <header className="hdr">
       <div className="hdr__brand">
-        <span className="hdr__logo">
+        <button type="button" className="hdr__logo hdr__home" aria-current={route === 'overview' ? 'page' : undefined} title="Overview: what MIRAGE is" onClick={() => navigate('overview')}>
           MIRAG<i>E</i>
-        </span>
+        </button>
         <div className="hdr__tags">
           <span className="hdr__tag1">
             <b>Does the agent know when it is wrong?</b> Benchmarks for scientific agents
