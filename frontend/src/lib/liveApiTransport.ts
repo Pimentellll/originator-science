@@ -311,7 +311,7 @@ export class LiveApiTransport implements ScientificTransport {
     if (!this.cfg.benchmarks) return notRunReport('Start the live demo and run `./mirage benchmark-dev` to generate the development-split aggregate.', 'live')
     const ids = await this.request<string[]>('/benchmarks', undefined, { nullOn: [403, 404] })
     if (!ids) return notRunReport('The development benchmark store is not available. Restart with `./mirage demo`, then run `./mirage benchmark-dev`.', 'live')
-    if (ids.length === 0) return notRunReport('No development benchmark summary exists yet. Run `./mirage benchmark-dev` from the repository root to generate the DEVELOPMENT split.', 'live')
+    if (ids.length === 0) return notRunReport('The development-split benchmark hasn\'t been generated yet. `./mirage demo` generates it automatically about 30 seconds after starting; refresh this page then. Otherwise run `./mirage benchmark-dev` from the repository root.', 'live')
     const id = [...ids].sort().at(-1)!
     const summary = await this.need<ApiBenchmarkSummary>(`/benchmarks/${encodeURIComponent(id)}`)
     return adaptBenchmark(reportFromSummary(summary, 'LIVE · authorised aggregate results'))
