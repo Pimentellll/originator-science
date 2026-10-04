@@ -159,7 +159,11 @@ def make_receptor_binder_service(store: PublicRecordStore, *, scenario: BinderWo
         env_factory=lambda: BinderBioPOMDP(scenario),
         store=store,
         belief_factory=lambda seed, _state: BinderBeliefSession(seed),
-        policies={"random": lambda: RandomPolicy(allow_terminal=False), "fixed_pipeline": FixedPipelinePolicy},
+        policies={
+            "random": lambda: RandomPolicy(allow_terminal=False),
+            "fixed_pipeline": FixedPipelinePolicy,
+            "rescue_planner": ReceptorRescuePlannerPolicy,
+        },
         environment_id=ScientificProfile.RECEPTOR_BINDER_RESCUE.value,
         code_version=code_version,
     )

@@ -1,5 +1,34 @@
 # MIRAGE
 
+## Integrated receptor-binder demo (H1)
+
+The working integrated system is a semi-mechanistic, EGFR-inspired **causal rescue
+planner for failed extracellular receptor-binding miniproteins**. It is not a
+quantitative EGFR model.
+
+Install the Python package once, then use these three commands from the repository
+root:
+
+```bash
+uv venv --python 3.11 .venv
+uv pip install --python .venv/bin/python -e ".[dev]"
+
+# terminal 1: public FastAPI backend (the compound showcase is the default)
+PYTHONPATH=src .venv/bin/python scripts/serve_api.py --records .local/mirage-api
+
+# terminal 2: frontend; open http://localhost:5173/?transport=live
+cd frontend && npm ci && VITE_MIRAGE_TRANSPORT=live npm run dev
+
+# terminal 3: deterministic controller, provenance, evaluation, and replay smoke
+cd .. && PYTHONPATH=src .venv/bin/python scripts/h0_smoke.py
+```
+
+The API accepts only public campaign state. The selected backend scenario is never
+sent to the browser; use `--scenario SINGLE_FAILURE|COMPOUND_FAILURE|ASSAY_FAILURE|MODEL_FAILURE|MIXED`
+for the five QA worlds. Saved replays are record-only and need neither an environment
+RNG nor an LLM.
+
+
 **A stress-testing environment for autonomous scientists. It asks whether they know
 when evidence is insufficient, and what experiment would make the answer
 knowable.**
@@ -26,8 +55,9 @@ Initial observation ─► multiple explanations remain ─► agent chooses an 
 > The benchmark does not ask whether an AI scientist knows the answer. It places the
 > scientist in a situation where the answer is deliberately unknowable from current
 > evidence, and asks whether it knows what experiment would make it knowable.
+for the five QA worlds. Saved replays are record-only and need neither an environment
+RNG nor an LLM.
 
-## MIRAGE-Bio, the first environment
 
 **Is late biomass at the level the undiluted readings indicate, or higher?**
 

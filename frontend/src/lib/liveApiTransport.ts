@@ -1,27 +1,23 @@
+import { assertPublic, assertRecord } from './validate'
+import { notRunReport } from './project'
 import { TransportError } from './transport'
 import type { EpisodeSession, ScientificTransport } from './transport'
-import { adaptBenchmark, adaptComparison, adaptRecord, adaptSummaries } from './adapters'
-import { notRunReport } from './project'
+import type { BenchmarkReport, EpisodeSummary, PolicyComparison } from './types'
+import type { EpisodeRecord, ScientificAction } from './wire'
 
-/**
- * LiveApiTransport — E1.
- *
- * PROVISIONAL endpoint map for the planned operations in FRONTEND_API_CONTRACT.md
- * (reset episode, read public state, take public action, read stored replay,
- * read authorised aggregate benchmark results). Reconcile here and in
- * adapters.ts when the API lands; nothing else should change.
- *
- *   GET  {base}/scenarios                          -> EpisodeSummaryDto[]
- *   POST {base}/episodes {scenario_id, policy_name?}-> {session_id, mode, record}
- *   POST {base}/episodes/{id}/actions {action}     -> {session_id, mode, record}   (take public action)
- *   GET  {base}/episodes/{id}                      -> {session_id, mode, record}   (read public state / stored replay)
- *   GET  {base}/scenarios/{id}/compare             -> PolicyComparisonRecord | 404
- *   GET  {base}/benchmark                          -> BenchmarkReportDto | 404 (=> NOT RUN)
- *
- * Every record is validated (public-only, contiguous, resource accounting)
- * before it reaches the UI. A `mode: "replay"` response with a complete record
- * is scrubbed locally and never stepped.
- */
+type ApiState = {
+  episode_id: string
+  terminal: boolean
+  active_candidate: EpisodeRecord['initial_state']['candidate']
+  resources: EpisodeRecord['initial_state']['resources']
+  belief: EpisodeRecord['initial_state']['belief'] | null
+}
+
+type ApiStep = { event: Omit<EpisodeRecord['events'][number], 'active_candidate_after'>; state: ApiState }
+type ApiRecommendation = { action: ScientificAction }
+
+const scenario = { id: 'receptor-binder-rescue', title: 'Receptor binder rescue', summary: 'Public causal-rescue campaign.' }
+
 export class LiveApiTransport implements ScientificTransport {
   readonly kind = 'live' as const
   readonly label = 'LIVE API'
@@ -34,50 +30,81 @@ export class LiveApiTransport implements ScientificTransport {
     this.fetchImpl = fetchImpl
   }
 
-  private async request(path: string, init?: RequestInit, opts: { nullOn404?: boolean } = {}): Promise<unknown> {
+  private legacy(raw: unknown): EpisodeSession | null {
+    if (!raw || typeof raw !== 'object' || !('session_id' in raw) || !('record' in raw)) return null
+    const value = raw as { session_id: unknown; mode?: unknown; record: unknown }
+    if (typeof value.session_id !== 'string') throw new TransportError('session: missing session_id')
+    const session: EpisodeSession = { session_id: value.session_id, mode: value.mode === 'replay' ? 'replay' : 'live', record: assertRecord(value.record) }
+    this.sessions.set(session.session_id, session)
+    return session
+  }
+
+  private async request(path: string, init?: RequestInit): Promise<unknown> {
     let res: Response
     try {
-      res = await this.fetchImpl(`${this.base}${path}`, {
-        ...init,
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...init?.headers },
-      })
+      res = await this.fetchImpl(this.base + path, { ...init, headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...init?.headers } })
     } catch (e) {
-      throw new TransportError(`Cannot reach backend at ${this.base}${path}: ${e instanceof Error ? e.message : String(e)}`)
+      throw new TransportError('Cannot reach backend at ' + this.base + path + ': ' + (e instanceof Error ? e.message : String(e)))
     }
-    if (res.status === 404 && opts.nullOn404) return null
-    if (!res.ok) throw new TransportError(`${init?.method ?? 'GET'} ${path} -> ${res.status} ${res.statusText}`, res.status)
-    return res.json()
+    if (!res.ok) throw new TransportError((init?.method ?? 'GET') + ' ' + path + ' -> ' + res.status + ' ' + res.statusText, res.status)
+    const body = await res.json()
+    assertPublic(body, 'api')
+    return body
   }
 
-  private session(raw: unknown): EpisodeSession {
-    const r = raw as { session_id?: unknown; mode?: unknown; record?: unknown }
-    if (!r || typeof r.session_id !== 'string') throw new TransportError('session: missing session_id')
-    const s: EpisodeSession = { session_id: r.session_id, mode: r.mode === 'replay' ? 'replay' : 'live', record: adaptRecord(r.record) }
-    this.sessions.set(s.session_id, s)
-    return s
+  private record(state: ApiState, policyName: string, seed: number): EpisodeRecord {
+    if (!state.belief) throw new TransportError('API state is missing public belief')
+    return assertRecord({
+      contract_version: 'mirage.core/1', episode_id: state.episode_id, seed, scenario, policy: { name: policyName },
+      initial_state: { candidate: state.active_candidate, resources: state.resources, belief: state.belief, notes: [] },
+      events: [], terminal_decision: null, provenance: { source: 'live', label: 'FastAPI public DTO' }, complete: state.terminal,
+    })
   }
 
-  async listEpisodes() {
-    return adaptSummaries(await this.request('/scenarios'))
+  private async recommend(session: EpisodeSession): Promise<EpisodeSession> {
+    if (session.record.complete) return session
+    const raw = await this.request('/episodes/' + encodeURIComponent(session.session_id) + '/recommendation') as ApiRecommendation
+    const next = { ...session, record: assertRecord({ ...session.record, pending: { recommendation: { action: raw.action } } }) }
+    this.sessions.set(next.session_id, next)
+    return next
   }
 
-  async openEpisode(scenarioId: string, policyName?: string) {
-    return this.session(await this.request('/episodes', { method: 'POST', body: JSON.stringify({ scenario_id: scenarioId, policy_name: policyName }) }))
+  async listEpisodes(): Promise<EpisodeSummary[]> {
+    await this.request('/health')
+    return [{ episode_id: scenario.id, scenario, policy: { name: 'fixed_pipeline', label: 'Fixed pipeline' }, seed: 9, provenance: { source: 'live', label: 'FastAPI public DTO' } }]
   }
 
-  async step(sessionId: string) {
+  async openEpisode(_scenarioId: string, policyName = 'fixed_pipeline'): Promise<EpisodeSession> {
+    const seed = 9
+    const raw = await this.request('/episodes', { method: 'POST', body: JSON.stringify({ seed, policy_name: policyName }) })
+    const old = this.legacy(raw)
+    if (old) return old
+    const state = raw as ApiState
+    const session: EpisodeSession = { session_id: state.episode_id, mode: 'live', record: this.record(state, policyName, seed) }
+    this.sessions.set(session.session_id, session)
+    return this.recommend(session)
+  }
+
+  async step(sessionId: string): Promise<EpisodeSession> {
     const current = this.sessions.get(sessionId)
-    const rec = current?.record.pending?.recommendation
-    if (!rec) throw new TransportError('No recommended action to execute for this session')
-    return this.session(await this.request(`/episodes/${encodeURIComponent(sessionId)}/actions`, { method: 'POST', body: JSON.stringify({ action: rec.action }) }))
+    const action = current?.record.pending?.recommendation?.action
+    if (!current || !action) throw new TransportError('No recommended action to execute for this session')
+    const raw = await this.request('/episodes/' + encodeURIComponent(sessionId) + '/actions', { method: 'POST', body: JSON.stringify({ action_type: action.action_type, candidate_id: action.candidate_id }) })
+    const old = this.legacy(raw)
+    if (old) return old
+    const step = raw as ApiStep
+    const event = { ...step.event, step: step.event.step + 1, active_candidate_after: step.state.active_candidate }
+    const record = assertRecord({ ...current.record, events: [...current.record.events, event], terminal_decision: step.state.terminal ? action : null, complete: step.state.terminal, pending: undefined })
+    const next: EpisodeSession = { session_id: sessionId, mode: 'live', record }
+    this.sessions.set(sessionId, next)
+    return this.recommend(next)
   }
 
-  async getPolicyComparison(scenarioId: string) {
-    return adaptComparison(await this.request(`/scenarios/${encodeURIComponent(scenarioId)}/compare`, undefined, { nullOn404: true }))
+  async getPolicyComparison(_scenarioId: string): Promise<PolicyComparison | null> {
+    return null
   }
 
-  async getBenchmark() {
-    const raw = await this.request('/benchmark', undefined, { nullOn404: true })
-    return raw === null ? notRunReport('Backend has no benchmark report', 'live') : adaptBenchmark(raw)
+  async getBenchmark(): Promise<BenchmarkReport> {
+    return notRunReport('No authorised aggregate benchmark configured', 'live')
   }
 }

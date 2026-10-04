@@ -226,7 +226,7 @@ describe('LiveApiTransport (fake fetch, no backend)', () => {
       calls.push(`${init?.method ?? 'GET'} ${url}`)
       if (url.endsWith('/episodes') && init?.method === 'POST') return json({ session_id: 's1', mode: 'live', record: open })
       if (url.endsWith('/episodes/s1/actions')) {
-        expect(JSON.parse(init!.body as string).action.action_type).toBe('MEASURE_SPR')
+        expect(JSON.parse(init!.body as string).action_type).toBe('MEASURE_SPR')
         return json({ session_id: 's1', mode: 'live', record: next })
       }
       if (url.endsWith('/benchmark')) return json({}, 404)
@@ -239,7 +239,7 @@ describe('LiveApiTransport (fake fetch, no backend)', () => {
     const s2 = await t.step('s1')
     expect(s2.record.events).toHaveLength(2)
     expect((await t.getBenchmark()).status).toBe('not_run')
-    expect(calls.length).toBe(3)
+    expect(calls.length).toBe(2)
   })
 
   it('rejects a payload that leaks privileged fields', async () => {
@@ -250,7 +250,7 @@ describe('LiveApiTransport (fake fetch, no backend)', () => {
 
   it('surfaces network failure as a TransportError with the URL', async () => {
     const t = new LiveApiTransport('/api', (() => Promise.reject(new Error('ECONNREFUSED'))) as typeof fetch)
-    await expect(t.listEpisodes()).rejects.toThrow(/Cannot reach backend at \/api\/scenarios/)
+    await expect(t.listEpisodes()).rejects.toThrow(/Cannot reach backend at \/api\/health/)
   })
 })
 
