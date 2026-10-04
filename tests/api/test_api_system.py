@@ -29,16 +29,23 @@ def client(tmp_path):
     return TestClient(create_app(service, aggregate_token=TOKEN, catalogue=catalogue))
 
 
-def play(client, seed=9, policy="rescue_planner", **extra):
+def play_with_actions(client, seed=9, policy="rescue_planner", **extra):
     state = client.post("/episodes", json={"seed": seed, "policy_name": policy, **extra})
     assert state.status_code == 201, state.text
     eid = state.json()["episode_id"]
+    actions = []
     for _ in range(16):
         action = client.get(f"/episodes/{eid}/recommendation").json()["action"]
+        actions.append(action["action_type"])
         step = client.post(f"/episodes/{eid}/actions", json=action).json()
         if step["state"]["terminal"]:
-            return eid
+            return eid, actions
     raise AssertionError("episode did not terminate")
+
+
+def play(client, seed=9, policy="rescue_planner", **extra):
+    eid, _ = play_with_actions(client, seed=seed, policy=policy, **extra)
+    return eid
 
 
 def test_version_is_safe_and_reports_semantics_default(client):
@@ -51,12 +58,29 @@ def test_version_is_safe_and_reports_semantics_default(client):
 
 def test_policy_catalogue_lists_only_wired_policies_as_available(client):
     rows = {p["name"]: p for p in client.get("/policies").json()}
-    for name in ("rescue_planner", "greedy_eig", "fixed_pipeline", "random"):
+    for name in ("rescue_planner", "greedy_eig", "fixed_pipeline", "random", "lookahead"):
         assert rows[name]["available"] is True
         client.post("/episodes", json={"seed": 1, "policy_name": name}).raise_for_status()
-    for name in ("lookahead", "ppo"):
+    for name in ("ppo",):
         assert rows[name]["available"] is False and rows[name]["reason"]
         assert client.post("/episodes", json={"seed": 1, "policy_name": name}).status_code == 422
+
+
+def test_lookahead_reaches_a_terminal_decision_deterministically(client):
+    _, first = play_with_actions(
+        client,
+        policy="lookahead",
+        scenario="aggregation_kinetic_defect",
+        scenario_version="SEMANTICS_V2",
+    )
+    _, second = play_with_actions(
+        client,
+        policy="lookahead",
+        scenario="aggregation_kinetic_defect",
+        scenario_version="SEMANTICS_V2",
+    )
+    assert first == second
+    assert first[-1] in {"SELECT", "REJECT", "MODEL_INVALID", "ABSTAIN"}
 
 
 def test_scenario_selection_is_recorded_as_version_only_never_as_world(client):
@@ -104,6 +128,30 @@ def test_verdict_requires_token_and_terminal_episode(client):
     assert {"decision", "correct", "justified", "justification_checks"} <= body.keys()
     leaked = {"scenario_class", "archetype", "regime", "true_level", "assay_invalid_truth", "model_invalid_truth"}
     assert not leaked & body.keys()
+
+
+def test_rescue_planner_validates_a_doubted_assay_before_semantics_v2_verdict(client):
+    eid, actions = play_with_actions(
+        client,
+        scenario="aggregation_kinetic_defect",
+        scenario_version="SEMANTICS_V2",
+    )
+    assert actions.index("VALIDATE_ASSAY") < len(actions) - 1
+    verdict = client.get(f"/benchmarks/episodes/{eid}", headers=HEADERS).json()
+    assert verdict["correct"] is True
+    assert verdict["justified"] is True
+
+
+def test_rescue_planner_baseline_v1_action_sequence_is_unchanged(client):
+    eid, actions = play_with_actions(
+        client,
+        scenario="aggregation_kinetic_defect",
+        scenario_version="BASELINE_V1",
+    )
+    assert actions == ["MEASURE_SEC", "REDESIGN_SOLUBILITY", "MEASURE_SPR", "REJECT"]
+    verdict = client.get(f"/benchmarks/episodes/{eid}", headers=HEADERS).json()
+    assert verdict["correct"] is True
+    assert verdict["justified"] is True
 
 
 def test_verdict_is_off_without_a_token(tmp_path):

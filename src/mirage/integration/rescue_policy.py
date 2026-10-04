@@ -16,13 +16,20 @@ class ReceptorRescuePlannerPolicy(ScientificPolicy):
     access to a world mode, latent state, or environment object. A solubility
     redesign is selected only after severe aggregation is observed and only
     while resources make that intervention legal.
+    It rules out the assay before committing when its belief still doubts it.
     """
 
     name = "receptor_rescue_planner"
 
-    def __init__(self, severe_aggregation_threshold: float = 0.45, decision_threshold: float = 0.5) -> None:
+    def __init__(
+        self,
+        severe_aggregation_threshold: float = 0.45,
+        decision_threshold: float = 0.5,
+        assay_doubt_threshold: float = 0.2,
+    ) -> None:
         self.severe_aggregation_threshold = severe_aggregation_threshold
         self.decision_threshold = decision_threshold
+        self.assay_doubt_threshold = assay_doubt_threshold
 
     def choose_action(self, state: AgentState, belief: BeliefSummary, available_actions: Sequence[ScientificAction]) -> ScientificAction:
         self._require_decidable(state, available_actions)
@@ -37,4 +44,10 @@ class ReceptorRescuePlannerPolicy(ScientificPolicy):
             return usable[ActionType.REDESIGN_SOLUBILITY]
         if ActionType.MEASURE_SPR in usable and not any(o.candidate_id == current.candidate_id and o.action_type == ActionType.MEASURE_SPR for o in state.observations):
             return usable[ActionType.MEASURE_SPR]
+        if (
+            belief.p_assay_invalid > self.assay_doubt_threshold
+            and ActionType.VALIDATE_ASSAY in usable
+            and not any(o.action_type == ActionType.VALIDATE_ASSAY for o in state.observations)
+        ):
+            return usable[ActionType.VALIDATE_ASSAY]
         return threshold_terminal_decision(belief, usable, self.decision_threshold)

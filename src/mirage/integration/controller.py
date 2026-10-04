@@ -13,7 +13,7 @@ from mirage.core import ActionType, AgentState, ScientificAction, StepResult
 from mirage.environments.binder import BinderBioPOMDP, BinderWorldMode
 from mirage.environments.binder.scenarios import BinderScenarioVersion
 from mirage.evaluation.campaign import CampaignEvaluation, CampaignEvaluator, FailureLabels
-from mirage.policies import FixedPipelinePolicy, GreedyEIGPolicy, RandomPolicy, ScientificPolicy
+from mirage.policies import FixedPipelinePolicy, GreedyEIGPolicy, LookaheadPolicy, RandomPolicy, ScientificPolicy
 from mirage.policies.base import REDESIGN_ACTIONS
 from mirage.provenance import EpisodeRecord, EpisodeRecorder, PolicyMetadata, PublicRecordStore
 from mirage.integration.profiles import ScientificProfile, default_world_mode
@@ -179,6 +179,11 @@ def make_receptor_binder_service(store: PublicRecordStore, *, scenario: BinderWo
         pending.box = box
         return GreedyEIGPolicy(BinderParticleModel(), lambda: box["session"].belief, seed=0, n_samples=32)
 
+    def lookahead():
+        box: dict = {}
+        pending.box = box
+        return LookaheadPolicy(BinderParticleModel(), lambda: box["session"].belief, seed=0)
+
     return EpisodeService(
         env_factory=lambda: BinderBioPOMDP(scenario, scenario_version=version),
         store=store,
@@ -188,6 +193,7 @@ def make_receptor_binder_service(store: PublicRecordStore, *, scenario: BinderWo
             "fixed_pipeline": FixedPipelinePolicy,
             "rescue_planner": ReceptorRescuePlannerPolicy,
             "greedy_eig": greedy_eig,
+            "lookahead": lookahead,
         },
         environment_id=profile,
         default_environment_tag=None if scenario_version is None else version.value,

@@ -24,13 +24,22 @@ function orderTracks(tracks: PolicyTrack[]): PolicyTrack[] {
 
 /**
  * The long-horizon thesis is claimed only when the data back it: a real campaign-level lane that
- * ends with a healthier SPR instrument than greedy EIG, or the clearly labelled mock lane.
+ * ends with a healthier SPR instrument than greedy EIG and is not evaluator-marked unjustified,
+ * or the clearly labelled mock lane.
  */
 function thesisKind(tracks: PolicyTrack[]): { kind: 'real' | 'mock'; label: string } | null {
   const spr = (t: PolicyTrack) => t.frames[t.frames.length - 1].resources.spr_health
   const greedy = tracks.find((t) => t.policy.family === 'myopic')
   if (!greedy) return null
-  const real = tracks.find((t) => t.policy.family === 'campaign' && t.provenance.source !== 'mock' && spr(t) > spr(greedy))
+  const real = tracks.find((t) => {
+    const final = t.frames[t.frames.length - 1]
+    return (
+      t.policy.family === 'campaign' &&
+      t.provenance.source !== 'mock' &&
+      spr(t) > spr(greedy) &&
+      final.terminal?.evaluation?.justified !== false
+    )
+  })
   if (real) return { kind: 'real', label: real.policy.label }
   const mock = tracks.find((t) => t.policy.family === 'mock')
   if (mock) return { kind: 'mock', label: mock.policy.label }

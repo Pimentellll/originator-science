@@ -219,7 +219,7 @@ scenario names.
 | `fixed_pipeline` | scripted characterisation baseline (all 7 assays in a fixed QC-before-SPR order, then a threshold rule; never redesigns) | yes | **Baseline V1** |
 | `greedy_eig` | myopic one-step information-gain policy | yes | **Baseline V1** |
 | `receptor_rescue_planner` | hand-authored domain strategy (SEC first; redesign solubility if SEC shows severe aggregation; then SPR) | yes (live demo, `h0_smoke.py`) | not run |
-| `lookahead` | explicit model-based long-horizon planner | yes, unit-tested | **NOT RUN** |
+| `lookahead` | explicit model-based long-horizon planner | yes, unit-tested; served live for interactive demos | **NOT RUN** |
 | `ppo` | learned campaign-level planner | training stack + `PPOPolicy` adapter | **NOT RUN** (no valid checkpoint) |
 
 **MIRAGE itself is not synonymous with PPO.** PPO is one swappable candidate planner; the contribution is the
@@ -263,8 +263,8 @@ The one-command path is the [Quick start](#quick-start). Everything it runs, by 
 ./mirage demo --scenario ASSAY_FAILURE --scenario-version BASELINE_V1 --seed 4 --policy greedy_eig
 ```
 
-The API serves `random`, `fixed_pipeline`, `rescue_planner` and `greedy_eig`; `GET /policies` lists them and marks Lookahead and
-PPO **NOT AVAILABLE** (they are not wired into the live API). New live demonstrations use `SEMANTICS_V2`; **Baseline V1 stays
+The API serves `random`, `fixed_pipeline`, `rescue_planner`, `greedy_eig` and `lookahead`; `GET /policies` marks PPO **NOT AVAILABLE**
+because no validated checkpoint is served. New live demonstrations use `SEMANTICS_V2`; **Baseline V1 stays
 selectable** (`--scenario-version BASELINE_V1`) and its frozen results are untouched. The scenario is orchestration metadata for
 the person running the demo: it is never sent to a policy and never appears in the public record (only the semantics version,
 the seed, the policy and the git SHA do). `GET /version` and `GET /diagnostics` (and the cockpit's **System check** tab) make a
