@@ -11,6 +11,7 @@ from mirage.belief.binder import BinderParticleModel
 from mirage.belief.seeding import belief_stream_seed
 from mirage.core import ActionType, AgentState, ScientificAction, StepResult
 from mirage.environments.binder import BinderBioPOMDP, BinderWorldMode
+from mirage.environments.binder.scenarios import BinderScenarioVersion
 from mirage.evaluation.campaign import CampaignEvaluation, CampaignEvaluator, FailureLabels
 from mirage.policies import FixedPipelinePolicy, GreedyEIGPolicy, RandomPolicy, ScientificPolicy
 from mirage.policies.base import REDESIGN_ACTIONS
@@ -150,19 +151,47 @@ class CampaignController:
             return GreedyEIGPolicy(self.session.model, lambda: self.session.belief, seed=seed, n_samples=32)
         raise ValueError(f"unknown policy {name!r}")
 
-def make_receptor_binder_service(store: PublicRecordStore, *, scenario: BinderWorldMode = BinderWorldMode.COMPOUND_FAILURE, code_version: str = "integration-h0"):
-    """Wire the frozen EpisodeService to the Binder environment and belief adapter."""
+def make_receptor_binder_service(store: PublicRecordStore, *, scenario: BinderWorldMode = BinderWorldMode.COMPOUND_FAILURE, code_version: str = "integration-h0", scenario_version: BinderScenarioVersion | None = None):
+    """Wire the frozen EpisodeService to the Binder environment and belief adapter.
+
+    ``scenario_version=None`` keeps the historical behaviour (Baseline V1, untagged environment
+    id). Passing a version selects those semantics and records it in every public record.
+    """
+    import threading
+
     from mirage.api import EpisodeService
+    from mirage.integration.catalogue import make_scenario_factory, verdict_from_evaluation
+
+    version = scenario_version or BinderScenarioVersion.BASELINE_V1
+    profile = ScientificProfile.RECEPTOR_BINDER_RESCUE.value
+    pending = threading.local()
+
+    def belief_factory(seed, _state):
+        session = BinderBeliefSession(seed)
+        box = getattr(pending, "box", None)
+        if box is not None:  # GreedyEIG built just before this call, on this same request thread
+            box["session"] = session
+            pending.box = None
+        return session
+
+    def greedy_eig():
+        box: dict = {}
+        pending.box = box
+        return GreedyEIGPolicy(BinderParticleModel(), lambda: box["session"].belief, seed=0, n_samples=32)
 
     return EpisodeService(
-        env_factory=lambda: BinderBioPOMDP(scenario),
+        env_factory=lambda: BinderBioPOMDP(scenario, scenario_version=version),
         store=store,
-        belief_factory=lambda seed, _state: BinderBeliefSession(seed),
+        belief_factory=belief_factory,
         policies={
             "random": lambda: RandomPolicy(allow_terminal=False),
             "fixed_pipeline": FixedPipelinePolicy,
             "rescue_planner": ReceptorRescuePlannerPolicy,
+            "greedy_eig": greedy_eig,
         },
-        environment_id=ScientificProfile.RECEPTOR_BINDER_RESCUE.value,
+        environment_id=profile,
+        default_environment_tag=None if scenario_version is None else version.value,
         code_version=code_version,
+        scenario_factory=make_scenario_factory(scenario, version),
+        verdict_fn=verdict_from_evaluation,
     )

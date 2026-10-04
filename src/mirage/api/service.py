@@ -21,7 +21,7 @@ from mirage.api.dto import (
     state_dto,
 )
 from mirage.core import ScientificEnvironment
-from mirage.provenance import EpisodeRecorder, PolicyMetadata, PublicRecordStore
+from mirage.provenance import EpisodeRecord, EpisodeRecorder, PolicyMetadata, PublicRecordStore
 from mirage.provenance.protocols import BeliefFactory, BeliefSession, PolicyLike
 from mirage.provenance.recorder import CONTRACT_VERSION
 
@@ -56,6 +56,16 @@ class UnknownPolicy(ServiceError):
     status = 422
 
 
+class UnknownScenario(ServiceError):
+    status = 422
+
+
+# (scenario, scenario_version) -> (environment, public semantics label). Scenario selection is
+# orchestration metadata chosen by the human running the demo; it is never policy input and is
+# never echoed back, recorded, or replayed.
+ScenarioFactory = Callable[[str | None, str | None], tuple[ScientificEnvironment, str]]
+
+
 @dataclass
 class _Live:
     episode_id: str
@@ -80,6 +90,9 @@ class EpisodeService:
         code_version: str = "unversioned",
         id_factory: Callable[[], str] | None = None,
         max_live_episodes: int = 256,
+        scenario_factory: ScenarioFactory | None = None,
+        verdict_fn: Callable[[EpisodeRecord, ScientificEnvironment], dict] | None = None,
+        default_environment_tag: str | None = None,
     ) -> None:
         self._env_factory = env_factory
         self._store = store
@@ -89,6 +102,9 @@ class EpisodeService:
         self._code_version = code_version
         self._id_factory = id_factory or (lambda: f"ep-{uuid.uuid4().hex[:12]}")
         self._max_live = max_live_episodes
+        self._scenario_factory = scenario_factory
+        self._default_tag = default_environment_tag
+        self._verdict_fn = verdict_fn
         self._live: dict[str, _Live] = {}
         self._guard = threading.Lock()
 
@@ -110,7 +126,23 @@ class EpisodeService:
         return state_dto(live.episode_id, state, belief, available)
 
     # ------------------------------------------------------------- API
-    def create(self, seed: int | None, policy_name: str | None) -> PublicStateDTO:
+    def create(
+        self,
+        seed: int | None,
+        policy_name: str | None,
+        scenario: str | None = None,
+        scenario_version: str | None = None,
+    ) -> PublicStateDTO:
+        environment_id = f"{self._environment_id}/{self._default_tag}" if self._default_tag else self._environment_id
+        selected = None
+        if scenario is not None or scenario_version is not None:
+            if self._scenario_factory is None:
+                raise UnknownScenario("scenario selection is not supported by this server")
+            try:
+                selected = self._scenario_factory(scenario, scenario_version)
+            except ValueError:
+                raise UnknownScenario("unknown scenario or scenario version") from None
+            environment_id = f"{self._environment_id}/{selected[1]}"
         policy = None
         if policy_name is not None:
             if policy_name not in self._policies:
@@ -122,7 +154,7 @@ class EpisodeService:
             episode_id = self._id_factory()
             if episode_id in self._live or self._store.exists(episode_id):
                 raise Conflict("episode id collision")
-            env = self._env_factory()
+            env = selected[0] if selected else self._env_factory()
             used_seed = 0 if seed is None else seed
             initial = env.reset(seed=used_seed)
             if policy is not None:
@@ -132,7 +164,7 @@ class EpisodeService:
                 seed=used_seed,
                 initial_state=initial,
                 policy=PolicyMetadata(name=policy_name or "interactive"),
-                environment_id=self._environment_id,
+                environment_id=environment_id,
                 code_version=self._code_version,
                 contract_version=CONTRACT_VERSION,
             )
@@ -198,6 +230,19 @@ class EpisodeService:
             if choice not in available:
                 raise Conflict("policy proposed an unavailable action")
             return RecommendationDTO(episode_id=episode_id, policy_name=live.policy_name, action=action_dto(choice))
+
+    def verdict(self, episode_id: str) -> dict:
+        """Authorised post-hoc verdict. Available only once the episode is terminal, so it can
+        never inform a policy decision; the caller (the token-gated route) filters the keys."""
+        live = self._live.get(episode_id)
+        if live is None:
+            raise NotFound("episode not found")
+        if self._verdict_fn is None:
+            raise NotFound("evaluation is not enabled")
+        with live.lock:
+            if not live.recorder.finished:
+                raise Conflict("evaluation is available only after the episode is terminal")
+            return self._verdict_fn(live.recorder.finish(), live.env)
 
     def replay(self, episode_id: str) -> ReplayDTO:
         live = self._live.get(episode_id)
