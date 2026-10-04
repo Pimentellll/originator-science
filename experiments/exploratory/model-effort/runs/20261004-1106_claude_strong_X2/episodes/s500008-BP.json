@@ -1,0 +1,617 @@
+{
+  "agent": {
+    "effort": "low",
+    "kind": "llm",
+    "model": "claude-sonnet-5-5",
+    "name": "claude",
+    "prompt_sha256": "dc07da980883558de995de94ed9c3affc1c8982f31fc5f149f9bfcacda1d91d1",
+    "prompt_version": "prompt-v2",
+    "sdk_version": "1.10.0"
+  },
+  "audit": [
+    {
+      "before_diagnosis": true,
+      "diagnostic_control": true,
+      "event_index": 0,
+      "in_diagnostic_set": true,
+      "in_useful_region": true,
+      "is_diluted": true,
+      "is_late": true,
+      "latent_biomass_odeq": 1.2847812134007548,
+      "noise_free_reading": 0.12847812129270259,
+      "presented_biomass_odeq": 0.12847812134007547,
+      "reconstruction_adequate": true,
+      "request_index": 0
+    },
+    {
+      "before_diagnosis": true,
+      "diagnostic_control": true,
+      "event_index": 1,
+      "in_diagnostic_set": true,
+      "in_useful_region": true,
+      "is_diluted": true,
+      "is_late": true,
+      "latent_biomass_odeq": 1.2847812134007548,
+      "noise_free_reading": 0.03211953033501869,
+      "presented_biomass_odeq": 0.03211953033501887,
+      "reconstruction_adequate": true,
+      "request_index": 1
+    }
+  ],
+  "diagnosis": {
+    "diagnosis": "BIOMASS_ABOVE_READING",
+    "late_biomass_estimate_od": 1.33,
+    "p_biomass_above_reading": 0.8,
+    "rationale": "The undiluted readings plateau at about 1.22 from 6 h to 18 h. Dilutions of the 18 h aliquot, scaled back up, read higher than that. A 10x dilution gave 0.135 (two replicates, 0.1325 and 0.1375), which scales to about 1.35. A 40x dilution gave 0.0324, which scales to about 1.30 but is noisier. Both are above 1.22, so the undiluted reader is slightly non-linear at high density and the plateau understates biomass by roughly 8-10%. The effect is modest and the evidence is not overwhelming. The 10x result is the more precise one, and it is clearly above the undiluted value."
+  },
+  "episode": {
+    "assay": {
+      "eps_lin": 0.05,
+      "n": 8.0,
+      "resolution": 0.0001,
+      "s_odeq": 1.4965986098420907,
+      "sigma_abs": 0.003,
+      "sigma_rel": 0.02,
+      "y_loq": 0.03
+    },
+    "condition": "BIOLOGICAL_PLATEAU",
+    "episode_id": "s500008-BP",
+    "growth": {
+      "k_odeq": 1.2847812134007548,
+      "nu": 8.0,
+      "r_per_h": 0.8642475078688682,
+      "x0_odeq": 0.01268948727537396
+    },
+    "k_ratio": 0.8584674641227381,
+    "scenario_sha256": "5291e69c061fa42973cf541bd84b78a90770dc971227f32f052acfc404c0ce08",
+    "scenario_version": "scenario-v1",
+    "seed": 500008
+  },
+  "events": [
+    {
+      "arguments": {
+        "dilution_factor": 10,
+        "replicates": 2,
+        "time_h": 18
+      },
+      "error": null,
+      "index": 0,
+      "ok": true,
+      "result": {
+        "budget_remaining": 4,
+        "dilution_factor": 10.0,
+        "mean_reading": 0.135,
+        "readings": [
+          0.1325,
+          0.1375
+        ],
+        "time_h": 18
+      },
+      "tool": "measure_od",
+      "turn": 1
+    },
+    {
+      "arguments": {
+        "dilution_factor": 40,
+        "replicates": 2,
+        "time_h": 18
+      },
+      "error": null,
+      "index": 1,
+      "ok": true,
+      "result": {
+        "budget_remaining": 2,
+        "dilution_factor": 40.0,
+        "mean_reading": 0.0324,
+        "readings": [
+          0.0293,
+          0.0355
+        ],
+        "time_h": 18
+      },
+      "tool": "measure_od",
+      "turn": 2
+    },
+    {
+      "arguments": {
+        "diagnosis": "BIOMASS_ABOVE_READING",
+        "late_biomass_estimate_od": 1.33,
+        "p_biomass_above_reading": 0.8,
+        "rationale": "The undiluted readings plateau at about 1.22 from 6 h to 18 h. Dilutions of the 18 h aliquot, scaled back up, read higher than that. A 10x dilution gave 0.135 (two replicates, 0.1325 and 0.1375), which scales to about 1.35. A 40x dilution gave 0.0324, which scales to about 1.30 but is noisier. Both are above 1.22, so the undiluted reader is slightly non-linear at high density and the plateau understates biomass by roughly 8-10%. The effect is modest and the evidence is not overwhelming. The 10x result is the more precise one, and it is clearly above the undiluted value."
+      },
+      "error": null,
+      "index": 2,
+      "ok": true,
+      "result": {
+        "status": "received"
+      },
+      "tool": "submit_diagnosis",
+      "turn": 3
+    }
+  ],
+  "llm_transcript": [
+    {
+      "content": "{\"budget\": {\"cost\": \"1 unit per replicate reading\", \"remaining_units\": 6, \"total_units\": 6}, \"experiment\": {\"assay\": \"OD600 plate reader; blank-subtracted readings of undiluted culture\", \"culture\": \"bacterial batch culture inoculated at t = 0 h, incubated 18 h\", \"retained_aliquots_h\": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]}, \"limits\": {\"dilution_factor\": \"1 to 100\", \"max_turns\": 12, \"replicates\": \"1 to 3\", \"time_h\": \"integer 0 to 18\"}, \"passive_readings\": [{\"dilution_factor\": 1.0, \"reading\": 0.0093, \"time_h\": 0}, {\"dilution_factor\": 1.0, \"reading\": 0.0298, \"time_h\": 1}, {\"dilution_factor\": 1.0, \"reading\": 0.0719, \"time_h\": 2}, {\"dilution_factor\": 1.0, \"reading\": 0.1783, \"time_h\": 3}, {\"dilution_factor\": 1.0, \"reading\": 0.4081, \"time_h\": 4}, {\"dilution_factor\": 1.0, \"reading\": 0.9345, \"time_h\": 5}, {\"dilution_factor\": 1.0, \"reading\": 1.2364, \"time_h\": 6}, {\"dilution_factor\": 1.0, \"reading\": 1.2638, \"time_h\": 7}, {\"dilution_factor\": 1.0, \"reading\": 1.2349, \"time_h\": 8}, {\"dilution_factor\": 1.0, \"reading\": 1.2547, \"time_h\": 9}, {\"dilution_factor\": 1.0, \"reading\": 1.2136, \"time_h\": 10}, {\"dilution_factor\": 1.0, \"reading\": 1.24, \"time_h\": 11}, {\"dilution_factor\": 1.0, \"reading\": 1.2235, \"time_h\": 12}, {\"dilution_factor\": 1.0, \"reading\": 1.2177, \"time_h\": 13}, {\"dilution_factor\": 1.0, \"reading\": 1.2082, \"time_h\": 14}, {\"dilution_factor\": 1.0, \"reading\": 1.2609, \"time_h\": 15}, {\"dilution_factor\": 1.0, \"reading\": 1.228, \"time_h\": 16}, {\"dilution_factor\": 1.0, \"reading\": 1.2259, \"time_h\": 17}, {\"dilution_factor\": 1.0, \"reading\": 1.2089, \"time_h\": 18}]}",
+      "kind": "user"
+    },
+    {
+      "kind": "assistant",
+      "request": {
+        "max_tokens": 16000,
+        "model": "claude-sonnet-5-5",
+        "output_config": {
+          "effort": "low"
+        },
+        "tool_choice": {
+          "disable_parallel_tool_use": true,
+          "type": "auto"
+        }
+      },
+      "request_id": "req_011Cfh6BDjbstXKh7nN6qoqY",
+      "response": {
+        "container": null,
+        "content": [
+          {
+            "text": "The readings plateau at about 1.22 from 6 h onward. That could be a real stationary phase, or it could be reader saturation. To tell which, I'll dilute the 18 h aliquot. If the plateau is real, a 10x dilution should read about 0.12. If the reader is saturating, it should read well above 0.12.",
+            "type": "text"
+          },
+          {
+            "caller": {
+              "type": "direct"
+            },
+            "id": "toolu_018pKA1vfPp8Lwym7c6Pgdk1",
+            "input": {
+              "dilution_factor": 10,
+              "replicates": 2,
+              "time_h": 18
+            },
+            "name": "measure_od",
+            "type": "tool_use"
+          }
+        ],
+        "diagnostics": null,
+        "id": "msg_011Cfh6BE6vc26qsebwhSZTm",
+        "model": "claude-sonnet-5-5",
+        "role": "assistant",
+        "stop_details": null,
+        "stop_reason": "tool_use",
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "global",
+          "input_tokens": 2484,
+          "output_tokens": 203,
+          "output_tokens_details": {
+            "thinking_tokens": 0
+          },
+          "service_tier": "standard"
+        }
+      },
+      "stop_reason": "tool_use",
+      "turn": 1
+    },
+    {
+      "content": [
+        {
+          "content": "{\"budget_remaining\": 4, \"dilution_factor\": 10.0, \"mean_reading\": 0.135, \"readings\": [0.1325, 0.1375], \"time_h\": 18}",
+          "is_error": false,
+          "tool_use_id": "toolu_018pKA1vfPp8Lwym7c6Pgdk1",
+          "type": "tool_result"
+        }
+      ],
+      "kind": "user",
+      "turn": 1
+    },
+    {
+      "kind": "assistant",
+      "request": {
+        "max_tokens": 16000,
+        "model": "claude-sonnet-5-5",
+        "output_config": {
+          "effort": "low"
+        },
+        "tool_choice": {
+          "disable_parallel_tool_use": true,
+          "type": "auto"
+        }
+      },
+      "request_id": "req_011Cfh6BSmBuvUUKMU8HSwrx",
+      "response": {
+        "container": null,
+        "content": [
+          {
+            "signature": "CAQSzAUKEAgSGAI4AUIIdGhpbmtpbmcSDEzOAzN3q1mZg4xK1BoM6a8utkw8FFm5FwpgIjBF4tE5qAc7hfFrkYVAuJWo2zf/gxTVBMAfXMlmPpKDBvkt1DuJlLHtz5z9K6QLlmgq6QQfqL03Kv4yz9sOmpmD3W/8SYoVvZckYymM7V1TWK8E3jCPMvscEt192/o45ubUpIxtybbuR60avm47AZgbqisR+3wUvuw5kEpeakDf9ywkF2V8RHRXdAKp3fcsRTtTGb0xoiPnLRXL+uBMBQJaP/2vuX0jGdPtCAog65r+hRVNQAZnEKaNqntzJFh9NgYcaiH6Duecv5+ldnAAbgweIKPoVqCt5/4jXAVeUt3itK1F15riVLmuo3sLrS4ZxojeGz6RGZIw922iMvWAZqj1+/SyuaOB1VUX7/208Vv0qB+Mtl5y5s7/a8USwtTuFKdLfebcBTsG2ozWW42uHyd+n+2P9dMGJbIxdc3gZGmq2BVp4uYq2mC9ov/wWzDZCpX5FaPcXWG4lQ9fLVRpV7ouTHtOGnJHxdsQzLd8fInWj8V/7Nbu9rFLGd6/8QyVRGqcIsHLAnpkTqqN4EPP0HhXIum8LuEwxwWNjofBI7Kh84P4DqZ7s8LRyhMP4k8mej0R5a889LruTo28yXVxwTVV2qdB9XsjZS9oJScsnGj9r/nUApsurUYe6EVKO7eaesfi349/XAzazQgDYbu0kUKWmlbcLfS3cdA4UKOds4L4gVxv5a9WnTLvGqjST+lysSR2kLONHZFeo4o71NXh0w61YJo7kJ7cfXp+rHtZZvLnA+QS1ibnNbkGeqzM41q2FVA8TZgfCePUTPUiKTks5Q2TU2zH8YgNIYduXfujRy6YGP+DTcxI4Kci+j1cEjMl//3zSJQhARrjr9kAYeNrr1Ddhb1XRDWNck7JPswNCoRuVEGyqvn0ztaO8FDL+RgB",
+            "thinking": "",
+            "type": "thinking"
+          },
+          {
+            "caller": {
+              "type": "direct"
+            },
+            "id": "toolu_01Tff6UBwqVCLJjfAsQPhCAa",
+            "input": {
+              "dilution_factor": 40,
+              "replicates": 2,
+              "time_h": 18
+            },
+            "name": "measure_od",
+            "type": "tool_use"
+          }
+        ],
+        "diagnostics": null,
+        "id": "msg_011Cfh6BT7mMZQoia4RpbmbF",
+        "model": "claude-sonnet-5-5",
+        "role": "assistant",
+        "stop_details": null,
+        "stop_reason": "tool_use",
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "global",
+          "input_tokens": 2755,
+          "output_tokens": 154,
+          "output_tokens_details": {
+            "thinking_tokens": 56
+          },
+          "service_tier": "standard"
+        }
+      },
+      "stop_reason": "tool_use",
+      "turn": 2
+    },
+    {
+      "content": [
+        {
+          "content": "{\"budget_remaining\": 2, \"dilution_factor\": 40.0, \"mean_reading\": 0.0324, \"readings\": [0.0293, 0.0355], \"time_h\": 18}",
+          "is_error": false,
+          "tool_use_id": "toolu_01Tff6UBwqVCLJjfAsQPhCAa",
+          "type": "tool_result"
+        }
+      ],
+      "kind": "user",
+      "turn": 2
+    },
+    {
+      "kind": "assistant",
+      "request": {
+        "max_tokens": 16000,
+        "model": "claude-sonnet-5-5",
+        "output_config": {
+          "effort": "low"
+        },
+        "tool_choice": {
+          "disable_parallel_tool_use": true,
+          "type": "auto"
+        }
+      },
+      "request_id": "req_011Cfh6Bd2KyuzQsAi9uWB68",
+      "response": {
+        "container": null,
+        "content": [
+          {
+            "signature": "CAQS+gYKEAgSGAI4AUIIdGhpbmtpbmcSDPoUVdZlz94vxEsF8BoM9jrpBhX9pOVRHCjnIjB1MxP0aiiCY3lELqJVF/cr317WfBNoo5twYsjLvSvqGErAo6QRVPYOVJZwqNwjh6wqlwZ6DK0znpUGzKITsCECvFtXRYLSDGG6Q4V9mEi5yPbrIgPA8lKjgeJkcK2udjxA4l5xEMTjOZ2rERRRbcRzRcryASe/srRqDVIIL/L39l3QSy79LPMIBLkbNGkPMPK46glU+Dap4p1uWkrDm7SHbvd6d/rozREM74QjO32T9bBGMzSZPLCgSX320wy1fqfwBtB3Vz32UUxr1+9230C0a3GrrtYs7CshwoCtyxhHo4fHzDzFCwul/Kfyd6nly4HbnfJSNrQbsKHgb05F//sO8ACXQwwbFmjWBWTGQIeT45aNFvzDL7Yoqx58fV4fxERmTrLIX0keCxQ1qMXB5k9J7vUqTZ0UXSOAJUAQf4FcBTdDgZVTAied12Ghu8WlNTHE2hN4HDAoXNqxCylBiuPxkYxSD1sq5hkgjQRl5tcOMq3CaWehhOSa9SSIZMbJWL6UXQFpE+LONFZuwt6U2yAP9iuH5WNgGcuP16dcBAbAdBPlsL88yUytqAUgMMS2ULID4ryQABmeueQnyipHVcXuxd8dpoY7OftaVpIl6Rb26MHyzwxtln4MP9Sa/kSMc2rkRD5buxWPKHRc12eXM1Ia0JYpMDcEk0jpAKuSj5uOQb73JLN45VtXQ6lnmsf1/Pt/93MkSMWGOi5TWRgYSVtbjLA8naP+G6NWP1YlnA2UakEQdstCv5OiVnbR3oQjAcDi2yZh7uZN6fnxqOPneCaieSDw3e9na2RzNd3Z+ecUunHTlNl/2f3OpgnFDH51Q5OujCr05HSVFfv7Fx6qhC4fF6lFHPuJAm2BETzxipLZY7ZueeKHT7y2uJ1fWeUUV4UwqNRKFhU0t1Bh+bz2kGK61XgDWq2h7Sza5gCU3pSfDT7R+spVgvbO/rGnZMfd1p1saO2gsusowROVJ6QYiaHHl9F31Pi8N6oswdH7LTGGB13BcqfyX/Rp3pE4CXYloUw0NA8xcyoaUL2a8Bk4TsyjpC2t+KgDkEJ68eRTkiLySFEV8UpdIaJkKeQUjcrrsBMRDxA/qyZcRhXlo0B2PNQg2GU3P8HOKlq93xgB",
+            "thinking": "",
+            "type": "thinking"
+          },
+          {
+            "caller": {
+              "type": "direct"
+            },
+            "id": "toolu_01VsakPazsatJY5buRTcCEbk",
+            "input": {
+              "diagnosis": "BIOMASS_ABOVE_READING",
+              "late_biomass_estimate_od": 1.33,
+              "p_biomass_above_reading": 0.8,
+              "rationale": "The undiluted readings plateau at about 1.22 from 6 h to 18 h. Dilutions of the 18 h aliquot, scaled back up, read higher than that. A 10x dilution gave 0.135 (two replicates, 0.1325 and 0.1375), which scales to about 1.35. A 40x dilution gave 0.0324, which scales to about 1.30 but is noisier. Both are above 1.22, so the undiluted reader is slightly non-linear at high density and the plateau understates biomass by roughly 8-10%. The effect is modest and the evidence is not overwhelming. The 10x result is the more precise one, and it is clearly above the undiluted value."
+            },
+            "name": "submit_diagnosis",
+            "type": "tool_use"
+          }
+        ],
+        "diagnostics": null,
+        "id": "msg_011Cfh6BdMRS9upovppdykXj",
+        "model": "claude-sonnet-5-5",
+        "role": "assistant",
+        "stop_details": null,
+        "stop_reason": "tool_use",
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "global",
+          "input_tokens": 2978,
+          "output_tokens": 495,
+          "output_tokens_details": {
+            "thinking_tokens": 116
+          },
+          "service_tier": "standard"
+        }
+      },
+      "stop_reason": "tool_use",
+      "turn": 3
+    },
+    {
+      "content": [
+        {
+          "content": "{\"status\": \"received\"}",
+          "is_error": false,
+          "tool_use_id": "toolu_01VsakPazsatJY5buRTcCEbk",
+          "type": "tool_result"
+        }
+      ],
+      "kind": "user",
+      "turn": 3
+    }
+  ],
+  "passive": [
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.0093,
+      "readings": [
+        0.0093
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 0
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.0298,
+      "readings": [
+        0.0298
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 1
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.0719,
+      "readings": [
+        0.0719
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 2
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.1783,
+      "readings": [
+        0.1783
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 3
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.4081,
+      "readings": [
+        0.4081
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 4
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9345,
+      "readings": [
+        0.9345
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 5
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.2364,
+      "readings": [
+        1.2364
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 6
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.2638,
+      "readings": [
+        1.2638
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 7
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.2349,
+      "readings": [
+        1.2349
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 8
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.2547,
+      "readings": [
+        1.2547
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 9
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.2136,
+      "readings": [
+        1.2136
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 10
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.24,
+      "readings": [
+        1.24
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 11
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.2235,
+      "readings": [
+        1.2235
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 12
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.2177,
+      "readings": [
+        1.2177
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 13
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.2082,
+      "readings": [
+        1.2082
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 14
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.2609,
+      "readings": [
+        1.2609
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 15
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.228,
+      "readings": [
+        1.228
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 16
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.2259,
+      "readings": [
+        1.2259
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 17
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.2089,
+      "readings": [
+        1.2089
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 18
+    }
+  ],
+  "run_meta": {
+    "finished_at": "2026-10-04T11:07:14+00:00",
+    "run_id": "20261004-1106_claude_strong_X2",
+    "started_at": "2026-10-04T11:07:04+00:00"
+  },
+  "schema_version": "episode-result-v2",
+  "scores": {
+    "brier": 0.6400000000000001,
+    "correct": false,
+    "cost_units": 4,
+    "diagnostic_control": true,
+    "justified": false,
+    "m5_diagnosticity": null,
+    "measure_calls_before_diagnosis": 2,
+    "reconstruction_adequate": true
+  },
+  "status": "DIAGNOSED",
+  "versions": {
+    "anthropic": "1.10.0",
+    "mirage": "0.1.0",
+    "numpy": "2.3.5",
+    "pydantic": "2.12.5",
+    "python": "3.12.15"
+  }
+}
