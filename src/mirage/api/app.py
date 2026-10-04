@@ -93,7 +93,11 @@ def create_app(
         """Defence in depth: refuse to send any non-aggregate JSON body that carries a
         privileged-looking key, even if a DTO bug let one through."""
         response = await call_next(request)
-        if request.url.path.startswith(_BENCHMARK_PREFIX):
+        path = request.url.path
+        root = request.scope.get("root_path", "")
+        if root and path.startswith(root):
+            path = path[len(root):]
+        if path.startswith(_BENCHMARK_PREFIX):
             return response
         if "application/json" not in response.headers.get("content-type", ""):
             return response

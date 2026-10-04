@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from scripts.serve_api import build_app, parse_args
@@ -35,3 +37,15 @@ def test_web_app_serves_frontend_and_injects_benchmark_token(tmp_path):
         ).status_code
         == 200
     )
+
+
+def test_mounted_api_serves_growth_grid(tmp_path):
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+    (dist_dir / "index.html").write_text("<main>MIRAGE</main>")
+    results = Path(__file__).resolve().parents[1] / "experiments" / "results"
+    args = parse_args(["--records", str(tmp_path / "records"), "--growth-results", str(results)])
+    client = TestClient(create_web_app(build_app(args, "t"), dist_dir, "t"))
+    grid = client.get("/api/benchmarks/growth/grid?matrix=strong")
+    assert grid.status_code == 200, grid.text
+    assert grid.json()["columns"]
