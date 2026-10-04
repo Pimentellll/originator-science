@@ -153,6 +153,8 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--dummy-vec", action="store_true", help="in-process vec env (debugging)")
     args = p.parse_args(argv)
 
+    if args.out.exists() and (not args.out.is_dir() or any(args.out.iterdir())):
+        p.error(f"--out already exists and is not empty: {args.out}")
     args.out.mkdir(parents=True, exist_ok=True)
     import torch
 
