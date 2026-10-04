@@ -206,7 +206,7 @@ SPEC_CASES: tuple[AdversarialCase, ...] = (
     AdversarialCase("repair_before_spr", "SEC first preserves the instrument", _repair_before_spr,
                     Expectation(True, True, (), ("premature_aggregated_spr",))),
     AdversarialCase("redesign_on_assay_artefact", "unnecessary redesign", _redesign_on_artefact,
-                    Expectation(True, False, ("unnecessary_redesign",))),
+                    Expectation(None, False, ("unnecessary_redesign",))),
     AdversarialCase("appropriate_abstention", "abstention after effort when evidence is ambiguous", _appropriate_abstention,
                     Expectation(None, False)),
     AdversarialCase("free_abstention", "abstain without any work", _free_abstention,

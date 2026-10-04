@@ -1,7 +1,7 @@
 """Versioned evaluator configuration (METRICS.md: thresholds are evaluator configuration).
 
-Defaults are modelling assumptions of this evaluator, not biological constants. Any change
-must bump ``version`` so stored evaluations stay attributable.
+campaign-eval/1 thresholds are versioned benchmark-engineering parameters, not biological
+facts. Any change must bump ``version`` so stored evaluations stay attributable.
 """
 
 from __future__ import annotations

@@ -156,8 +156,8 @@ def test_model_invalid_wrong_when_model_is_valid():
 
 def test_broken_assay_good_molecule_rules():
     labels = FailureLabels(assay_invalid=True)
-    assert correct_terminal_decisions(labels) == {A.SELECT, A.ABSTAIN}
-    assert correct_terminal_decisions(FailureLabels(assay_invalid=True, folding_failure=True)) == {A.REJECT, A.ABSTAIN}
+    assert correct_terminal_decisions(labels) == {A.SELECT}  # ruling 2: truth-correct is SELECT
+    assert correct_terminal_decisions(FailureLabels(assay_invalid=True, folding_failure=True)) == {A.REJECT}
     # SELECT without validating the (broken) assay cannot be justified.
     b = TraceBuilder()
     belief = confident()
@@ -199,12 +199,33 @@ def test_abstain_when_exhausted_is_supported():
     assert r.evidence_supported  # exhausted campaigns may abstain even if a call was available
 
 
-def test_both_invalid_means_abstain_is_correct():
+def test_both_invalid_canonical_terminal_is_abstain_model_invalid_needs_independent_evidence():
     labels = FailureLabels(assay_invalid=True, model_invalid=True)
-    assert correct_terminal_decisions(labels) == {A.ABSTAIN}
-    b = TraceBuilder()
-    b.decide(A.ABSTAIN, make_belief())
-    assert evaluate(b, labels).correct is True
+    assert correct_terminal_decisions(labels) == {A.ABSTAIN, A.MODEL_INVALID}
+    belief = confident(p_model_invalid=0.95, p_assay_invalid=0.95)
+    worked = TraceBuilder()
+    worked.measure(A.VALIDATE_ASSAY, {"control_signal": 0.1}, belief_before=belief, belief_after=belief)
+    worked.measure(A.MEASURE_SPR, belief_before=belief, belief_after=belief)
+    worked.decide(A.ABSTAIN, belief)
+    r = evaluate(worked, labels)
+    assert r.correct is True and r.justified and r.justified_abstention
+    # MODEL_INVALID is truth-correct but the failed control means it cannot be justified.
+    claim = TraceBuilder()
+    claim.measure(A.VALIDATE_ASSAY, {"control_signal": 0.1}, belief_before=belief, belief_after=belief)
+    claim.measure(A.MEASURE_SPR, belief_before=belief, belief_after=belief)
+    claim.decide(A.MODEL_INVALID, belief)
+    r = evaluate(claim, labels)
+    assert r.correct is True and not r.justified and r.lucky_correct
+
+
+def test_step_zero_abstain_is_never_justified_even_when_exhausted_or_both_invalid():
+    labels = FailureLabels(assay_invalid=True, model_invalid=True)
+    for kwargs in ({}, {"budget": 0.0}, {"sample": 0.0}):
+        b = TraceBuilder(**kwargs)
+        b.decide(A.ABSTAIN, confident(p_assay_invalid=0.95))
+        r = evaluate(b, labels)
+        assert r.correct is True and not r.justified and not r.justified_abstention
+        assert not next(c for c in r.justification_checks if c.name == "not_step_zero").passed
 
 
 def test_resource_accounting():
@@ -387,14 +408,17 @@ def test_broken_assay_justified_abstain_needs_failed_control():
     ok.measure(A.VALIDATE_ASSAY, {"control_signal": 0.1}, belief_before=belief, belief_after=belief)
     ok.decide(A.ABSTAIN, belief)
     r = evaluate(ok, labels)
-    assert r.correct is True and r.justified and r.assay_invalid_detected is True
+    # ABSTAIN is not truth-correct for a good molecule behind a broken assay (SELECT is), but
+    # it is a justified abstention: the failed control is on record.
+    assert r.correct is None and not r.justified and r.justified_abstention
+    assert r.assay_invalid_detected is True
 
     claimed = TraceBuilder()
     claimed.measure(A.MEASURE_STABILITY, belief_before=belief, belief_after=belief)
     claimed.measure(A.MEASURE_SEC, belief_before=belief, belief_after=belief)
     claimed.decide(A.ABSTAIN, belief)  # blames the assay without ever running the control
     r = evaluate(claimed, labels)
-    assert r.correct is True and not r.justified
+    assert not r.justified and not r.justified_abstention
     assert not next(c for c in r.justification_checks if c.name == "assay_failure_evidenced").passed
 
 

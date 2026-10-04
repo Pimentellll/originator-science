@@ -182,7 +182,7 @@ def supports_model_invalid(ledger: Ledger, cand: str, belief: dict | None) -> li
 
 
 def supports_abstain(
-    ledger: Ledger, cand: str, belief: dict | None, *, exhausted: bool
+    ledger: Ledger, cand: str, belief: dict | None, *, exhausted: bool, step: int
 ) -> list[Check]:
     """Abstention is justified when it follows real work and no committal decision is
     evidence-supported (or the campaign is exhausted). If the belief blames the assay, the
@@ -195,6 +195,7 @@ def supports_abstain(
     }
     already = [name for name, checks in committal.items() if all(c.passed for c in checks)]
     checks = [
+        Check("not_step_zero", step > 0, "abstaining before any action is never justified"),
         Check(
             "no_committal_decision_supported",
             not already or exhausted,
