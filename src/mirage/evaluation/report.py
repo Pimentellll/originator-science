@@ -14,9 +14,15 @@ from mirage.evaluation.metrics import EpisodeResult
 
 AGENT_SLOTS: tuple[tuple[str, str, str], ...] = (
     ("claude", "C1 Claude", "claude"),
+    ("claude_c2", "C2 Claude Sonnet 5.5", "claude"),
     ("good_scientist", "B1 GoodScientist", "GoodScientist"),
     ("passive_bayes", "B2 PassiveBayes", "PassiveBayes"),
 )
+
+CLAUDE_MODELS = {
+    "claude": "claude-opus-5-5",
+    "claude_c2": "claude-sonnet-5-5",
+}
 
 _METRIC_ATTRIBUTES = (("M1", "correct"), ("M2", "diagnostic_control"), ("M3", "justified"))
 _TABLE_COLUMNS = (
@@ -40,6 +46,16 @@ def load_run(run_dir: Path, expected_agent: str) -> tuple[list[EpisodeResult], d
             )
     manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
     return records, manifest
+
+
+def _active_slots(
+    runs: dict[str, tuple[list[EpisodeResult], dict] | None],
+) -> tuple[tuple[str, str, str], ...]:
+    return tuple(
+        slot
+        for slot in AGENT_SLOTS
+        if slot[0] != "claude_c2" or runs.get("claude_c2") is not None
+    )
 
 
 def _row(
@@ -90,10 +106,11 @@ def _append_table(
     runs: dict[str, tuple[list[EpisodeResult], dict] | None],
     aggregates: dict[str, dict[str, Any] | None],
     block_name: str,
+    slots: tuple[tuple[str, str, str], ...],
 ) -> None:
     lines.append("| " + " | ".join(_TABLE_COLUMNS) + " |")
     lines.append("| " + " | ".join("---" for _ in _TABLE_COLUMNS) + " |")
-    for key, label, _ in AGENT_SLOTS:
+    for key, label, _ in slots:
         run = runs.get(key)
         aggregate = aggregates.get(key)
         group_name, condition_name = block_name.split(".", maxsplit=1)
@@ -108,6 +125,7 @@ def _append_table(
 def render_markdown(
     runs: dict[str, tuple[list[EpisodeResult], dict] | None],
 ) -> str:
+    slots = _active_slots(runs)
     aggregates = {
         key: metrics.aggregate(run[0]) if run is not None else None
         for key, _, _ in AGENT_SLOTS
@@ -123,7 +141,7 @@ def render_markdown(
         "| Agent | run_id | matrix | episodes | scenario_sha256 |",
         "| --- | --- | --- | --- | --- |",
     ]
-    for key, label, _ in AGENT_SLOTS:
+    for key, label, _ in slots:
         run = runs.get(key)
         if run is None:
             cells = [label, *(["not run"] * 4)]
@@ -150,7 +168,7 @@ def render_markdown(
     )
     for block_name, title in _condition_blocks():
         lines.extend([f"### {title}", ""])
-        _append_table(lines, runs, aggregates, f"primary.{block_name}")
+        _append_table(lines, runs, aggregates, f"primary.{block_name}", slots)
 
     failures_present = any(
         aggregate is not None
@@ -164,7 +182,9 @@ def render_markdown(
     if failures_present:
         for block_name, title in _condition_blocks():
             lines.extend([f"### {title}", ""])
-            _append_table(lines, runs, aggregates, f"intention_to_treat.{block_name}")
+            _append_table(
+                lines, runs, aggregates, f"intention_to_treat.{block_name}", slots
+            )
     else:
         lines.append(
             "No API_FAILURE or REFUSED episodes, so intention-to-treat equals primary."
@@ -179,7 +199,7 @@ def render_markdown(
             "| --- | --- | --- | --- | --- | --- |",
         ]
     )
-    for key, label, _ in AGENT_SLOTS:
+    for key, label, _ in slots:
         run = runs.get(key)
         aggregate = aggregates.get(key)
         if run is None or aggregate is None:
@@ -209,6 +229,7 @@ def write_figure(
     import matplotlib.pyplot as plt
 
     path.parent.mkdir(parents=True, exist_ok=True)
+    slots = _active_slots(runs)
     aggregates = {
         key: metrics.aggregate(run[0]) if run is not None else None
         for key, _, _ in AGENT_SLOTS
@@ -223,7 +244,7 @@ def write_figure(
 
     for axis, (block_name, title) in zip(axes, blocks):
         labeled: set[str] = set()
-        for slot_index, (key, label, _) in enumerate(AGENT_SLOTS):
+        for slot_index, (key, label, _) in enumerate(slots):
             run = runs.get(key)
             aggregate = aggregates.get(key)
             block = aggregate["primary"][block_name] if aggregate is not None else None
@@ -251,9 +272,9 @@ def write_figure(
                 )
                 labeled.add(metric_name)
         axis.set_title(title)
-        axis.set_xticks(range(len(AGENT_SLOTS)), [slot[1] for slot in AGENT_SLOTS])
+        axis.set_xticks(range(len(slots)), [slot[1] for slot in slots])
         axis.tick_params(axis="x", labelrotation=15, labelsize=8)
-        axis.set_xlim(-0.5, len(AGENT_SLOTS) - 0.5)
+        axis.set_xlim(-0.5, len(slots) - 0.5)
         axis.set_ylim(0, 1)
         handles, labels = axis.get_legend_handles_labels()
         if handles:
@@ -277,7 +298,16 @@ def build_report(
         ):
             runs[key] = None
         else:
-            runs[key] = load_run(run_dir, expected_agent)
+            loaded = load_run(run_dir, expected_agent)
+            expected_model = CLAUDE_MODELS.get(key)
+            if expected_model is not None:
+                found_model = loaded[1].get("model")
+                if found_model != expected_model:
+                    raise ValueError(
+                        f"{key}: expected model {expected_model!r}, "
+                        f"found {found_model!r}"
+                    )
+            runs[key] = loaded
 
     out_dir.mkdir(parents=True, exist_ok=True)
     markdown_path = out_dir / "results.md"
@@ -291,11 +321,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="mirage.evaluation.report")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--claude", type=Path)
+    parser.add_argument("--claude-c2", type=Path)
     parser.add_argument("--good-scientist", type=Path)
     parser.add_argument("--passive-bayes", type=Path)
     args = parser.parse_args(argv)
     run_dirs = {
         "claude": args.claude,
+        "claude_c2": args.claude_c2,
         "good_scientist": args.good_scientist,
         "passive_bayes": args.passive_bayes,
     }
