@@ -241,6 +241,12 @@ configured, which `serve_api.py` does not do.
 Offline cockpit with mock data (watermarked DEV / MOCK, not results): `cd frontend && npm run dev:mock`.
 Frontend gates: `npm run typecheck && npm run lint && npm test && npm run build`.
 
+Growth benchmark views (Results, Episode, Lab, Method) in the same app: start the API with
+`MIRAGE_EVAL_TOKEN=<token> PYTHONPATH=src .venv/bin/python scripts/serve_api.py --records .local/mirage-api --growth-results experiments/results`
+and run the frontend with the same `MIRAGE_EVAL_TOKEN`. Recorded runs and the hidden-truth verdict are served only
+under the token-gated `/benchmarks/growth/*` routes; the hands-on Lab uses public `/growth/sandbox/*` routes that
+never return the hidden condition. Offline build with no server: `cd frontend && npm run build:static`.
+
 ### Reproduce the evaluation
 
 | Goal | Command | Notes |
@@ -335,7 +341,8 @@ src/mirage/{lab,assay,biology,agents,demo}, docs/mirage-bio/   legacy MIRAGE-Bio
 The repository began as **MIRAGE-Bio**, a controlled OD600-style growth-plateau benchmark ("is late biomass what the
 undiluted readings say, or higher?"). It is retained, still tested, and still has a published 30-episode Claude result
 under `experiments/results/`, but it is a **different, earlier environment** with its own documentation. The Binder
-system does not replace or rewrite it. See [docs/mirage-bio/README.md](docs/mirage-bio/README.md).
+system does not replace or rewrite it. See [docs/mirage-bio/README.md](docs/mirage-bio/README.md). The cockpit app
+shows it under Results, Episode, Lab and Method (see §7).
 
 ## 13. Verification snapshot
 

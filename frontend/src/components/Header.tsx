@@ -4,13 +4,67 @@ import type { Route } from '../state/route'
 import { ModePill, ProvenancePill } from './ui'
 import { fmtBudget, fmtSample, fmtT } from '../lib/format'
 
-const TABS: { id: Route; label: string }[] = [
-  { id: 'cockpit', label: 'COCKPIT' },
-  { id: 'compare', label: 'COMPARE POLICIES' },
-  { id: 'benchmark', label: 'BENCHMARK LAB' },
+const GROUPS: { label: string; tabs: { id: Route; label: string }[] }[] = [
+  {
+    label: 'Growth benchmark',
+    tabs: [
+      { id: 'results', label: 'Results' },
+      { id: 'lab', label: 'Lab' },
+      { id: 'method', label: 'Method' },
+    ],
+  },
+  {
+    label: 'Binder campaign',
+    tabs: [
+      { id: 'cockpit', label: 'Cockpit' },
+      { id: 'compare', label: 'Compare policies' },
+      { id: 'benchmark', label: 'Benchmark lab' },
+    ],
+  },
 ]
 
-export function Header({ route, navigate }: { route: Route; navigate: (r: Route) => void }) {
+const BINDER_ROUTES: readonly Route[] = ['cockpit', 'compare', 'benchmark']
+
+export function Header({ route, navigate, growthKind }: { route: Route; navigate: (r: Route) => void; growthKind: 'live' | 'static' }) {
+  const binder = BINDER_ROUTES.includes(route)
+  const current = route === 'episode' ? 'results' : route
+  return (
+    <header className="hdr">
+      <div className="hdr__brand">
+        <span className="hdr__logo">
+          MIRAG<i>E</i>
+        </span>
+        <div className="hdr__tags">
+          <span className="hdr__tag1">
+            <b>Does the agent know when it is wrong?</b> Benchmarks for scientific agents
+          </span>
+        </div>
+      </div>
+      <nav className="hdr__nav" aria-label="Views">
+        {GROUPS.map((g) => (
+          <div className="hdr__group" key={g.label} role="group" aria-label={g.label}>
+            <span className="hdr__glabel">{g.label}</span>
+            {g.tabs.map((t) => (
+              <button key={t.id} className="hdr__tab" aria-current={current === t.id ? 'page' : undefined} onClick={() => navigate(t.id)}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        ))}
+      </nav>
+      {binder ? (
+        <BinderControls />
+      ) : (
+        <>
+          <div className="hdr__spacer" />
+          <span className="hdr__meta mono">{growthKind === 'static' ? 'offline · static export' : 'live · MIRAGE API'}</span>
+        </>
+      )}
+    </header>
+  )
+}
+
+function BinderControls() {
   const s = useSession()
   const f = s.frame
   const scenarioMap = new Map(s.episodes.map((e) => [e.scenario.id, e.scenario]))
@@ -28,26 +82,7 @@ export function Header({ route, navigate }: { route: Route; navigate: (r: Route)
   const sampleUsed = r ? r.sample.total - r.sample.remaining : 0
 
   return (
-    <header className="hdr">
-      <div className="hdr__brand">
-        <span className="hdr__logo">
-          MIRAG<i>E</i>
-        </span>
-        <div className="hdr__tags">
-          <span className="hdr__tag1">
-            <b>Causal rescue planning</b> for failed de novo extracellular receptor-binding miniproteins
-          </span>
-          <span className="hdr__tag2 mono">EGFR-inspired receptor-binding campaign · semi-mechanistic synthetic benchmark</span>
-        </div>
-      </div>
-      <nav className="hdr__nav" aria-label="Views">
-        {TABS.map((t) => (
-          <button key={t.id} className="hdr__tab" aria-current={route === t.id ? 'page' : undefined} onClick={() => navigate(t.id)}>
-            {t.label}
-          </button>
-        ))}
-      </nav>
-
+    <>
       {s.transport.kind !== 'live' && (
       <label className="hdr__field">
         <span className="hdr__label">Scenario</span>
@@ -134,6 +169,6 @@ export function Header({ route, navigate }: { route: Route; navigate: (r: Route)
           </div>
         </div>
       )}
-    </header>
+    </>
   )
 }

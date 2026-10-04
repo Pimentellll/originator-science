@@ -1,0 +1,178 @@
+/* Paper-and-ink theme. Loaded after the cockpit styles: it re-points the shared tokens and
+   replaces the few hard-coded dark values, so the component stylesheets stay unchanged. */
+:root {
+  --bg-0: #e9e3d4;
+  --bg-1: #f6f3ea;
+  --bg-2: #efeadd;
+  --bg-3: #e3dccb;
+  --line: #ddd5c3;
+  --line-2: #cbc2ad;
+  --line-3: #a39b87;
+  --grid: transparent;
+
+  --fg-0: #1d1c1a;
+  --fg-1: #3b3934;
+  --fg-2: #6b665c;
+  --fg-3: #958e80;
+
+  --accent: #2f5d8a;
+  --accent-2: rgba(47, 93, 138, 0.1);
+  --accent-3: rgba(47, 93, 138, 0.38);
+  --support: #3d6b4a;
+  --support-2: rgba(61, 107, 74, 0.1);
+  --contra: #a8432e;
+  --contra-2: rgba(168, 67, 46, 0.09);
+  --unres: #7c776c;
+  --info: #56708e;
+
+  --paper: #f6f3ea;
+  --ink: #1d1c1a;
+  --hilite: #ecd9a8;
+  --serif: 'Source Serif 4', Charter, 'Iowan Old Style', Georgia, serif;
+}
+
+body {
+  -webkit-font-smoothing: auto;
+}
+
+.hdr {
+  background: var(--paper);
+  border-bottom: 1px solid var(--ink);
+}
+.hdr__logo {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 19px;
+  letter-spacing: 0.04em;
+}
+.hdr__logo i {
+  color: var(--fg-0);
+  font-style: italic;
+}
+
+/* Hairline outlines that tinted with the old dark palette */
+.pill--live,
+.pill--replay,
+.pill--ok,
+.pill--bad,
+.tl__item--failure .tl__mk,
+.tl__item--conclusion .tl__mk,
+.lane__stamp--ok,
+.lane__stamp--bad {
+  border-color: currentColor;
+}
+.chip--support,
+.chip--contra {
+  border-color: currentColor;
+}
+.pill--mock,
+.btn--primary,
+.act__kind--redesign,
+.act__kind--conclude,
+.cc__dp {
+  color: var(--paper);
+}
+.btn--primary:hover:not(:disabled) {
+  background: #24496d;
+  border-color: #24496d;
+}
+
+.scrim {
+  background: rgba(29, 28, 26, 0.32);
+  backdrop-filter: none;
+}
+.modal {
+  border-color: var(--ink);
+  box-shadow: 0 10px 30px rgba(29, 28, 26, 0.18);
+}
+
+.gm--active {
+  box-shadow: 0 0 0 1px var(--accent-3);
+  background: var(--accent-2);
+}
+.gsel {
+  background: rgba(246, 243, 234, 0.97);
+}
+.brow__ci,
+.lg--ci {
+  background: rgba(29, 28, 26, 0.16);
+}
+.bgrp {
+  background: transparent;
+}
+.glegend__ring {
+  box-shadow: none;
+}
+.tl__item.is-now .tl__mk {
+  box-shadow: 0 0 0 3px var(--accent-2);
+}
+
+.cmp,
+.lab {
+  background-image: none;
+}
+.cmp__thesis h1,
+.lab__hd h1 {
+  font-family: var(--serif);
+  font-weight: 400;
+}
+.cc.is-decision {
+  background: var(--accent-2);
+}
+.cc.is-damaged {
+  border-color: var(--contra);
+  background: var(--contra-2);
+}
+.lab__banner {
+  background: var(--accent-2);
+}
+.lab__bar > i {
+  background: rgba(29, 28, 26, 0.2);
+}
+.is-mock td.is-best .lab__bar > span {
+  background: repeating-linear-gradient(135deg, var(--accent) 0 4px, var(--accent-3) 4px 8px);
+}
+.lab__wm span {
+  color: rgba(47, 93, 138, 0.07);
+}
+
+/* Header navigation, grouped by benchmark */
+.hdr__group {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+}
+.hdr__glabel {
+  align-self: center;
+  padding: 0 10px 0 14px;
+  font-family: var(--sans);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  white-space: nowrap;
+}
+.hdr__tab {
+  font-family: var(--sans);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.hdr__tab[aria-current='page'] {
+  background: transparent;
+}
+.hdr__tab[aria-current='page']::after {
+  background: var(--ink);
+}
+.hdr__meta {
+  display: flex;
+  gap: 18px;
+  font-family: var(--sans);
+  font-size: 11.5px;
+  color: var(--fg-2);
+  white-space: nowrap;
+}
+.hdr__meta b {
+  color: var(--fg-1);
+  font-weight: 600;
+}

@@ -9,6 +9,7 @@ from __future__ import annotations
 import hmac
 import json
 from collections.abc import Sequence
+from pathlib import Path
 
 from fastapi import FastAPI, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,6 +25,7 @@ from mirage.api.dto import (
     ResetRequest,
     StepDTO,
 )
+from mirage.api.growth import create_growth_router
 from mirage.api.service import EpisodeService, Forbidden, NotFound, ServiceError
 from mirage.evaluation.campaign.aggregate import BenchmarkSummary, EvaluationStore
 from mirage.provenance import find_privileged_fields
@@ -40,12 +42,19 @@ def create_app(
     evaluation_store: EvaluationStore | None = None,
     aggregate_token: str | None = None,
     cors_origins: Sequence[str] = (),
+    growth_results_root: Path | None = None,
 ) -> FastAPI:
     """Build the API. Aggregate benchmark results are served only when both an evaluation
     store and an access token are configured and the caller presents that token."""
     app = FastAPI(title="MIRAGE public API", version=API_VERSION)
     if cors_origins:
         app.add_middleware(CORSMiddleware, allow_origins=list(cors_origins), allow_methods=["GET", "POST"], allow_headers=["*"])
+    if growth_results_root is not None:
+        app.include_router(
+            create_growth_router(
+                growth_results_root, aggregate_token=aggregate_token
+            )
+        )
 
     @app.exception_handler(ServiceError)
     async def _service_error(_: Request, exc: ServiceError) -> JSONResponse:
