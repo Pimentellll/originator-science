@@ -1,170 +1,112 @@
-# MIRAGE — Epistemic Stress Testing for Autonomous Scientists
+# MIRAGE: what it is and is not
 
 | Field | Value |
 |---|---|
-| Status | Project framing (3 October 2026). Conceptual, not an implementation plan. |
-| Scope | What MIRAGE is and is not. The only implemented environment is [MIRAGE-Bio](mirage-bio/ANALYSIS.md), and that is not yet built. |
-| Related | [BENCHMARK_METHODOLOGY](BENCHMARK_METHODOLOGY.md) · [DIFFERENTIATION](DIFFERENTIATION.md) · [docs index](README.md) |
-
----
+| Scope | Project framing for the integrated Binder system. Checked against `d182a2c`. |
+| Related | [Root README](../README.md) · [DIFFERENTIATION](DIFFERENTIATION.md) · [BENCHMARK_METHODOLOGY](BENCHMARK_METHODOLOGY.md) |
 
 ## 1. What MIRAGE is
 
-MIRAGE is a controlled evaluation system for testing whether autonomous scientific
-agents recognise when current observations are insufficient to support a
-scientific conclusion, and whether they select experiments that resolve the
-underlying ambiguity.
+MIRAGE is an **autonomous causal experimental-planning system for diagnosing and rescuing failed de novo miniprotein
+binder campaigns**. More precisely it is a **synthetic, semi-mechanistic benchmark and decision architecture** for
+testing whether autonomous scientific agents can:
 
-**Invariant.** An agent does not receive credit merely for reaching the correct
-conclusion. MIRAGE evaluates whether the agent acquired evidence that actually
-justified that conclusion.
+1. diagnose a failed de novo binder campaign;
+2. choose informative experiments under resource constraints; and
+3. make evidence-justified conclusions.
 
-The benchmark does not ask whether an AI scientist knows the answer. It places the
-scientist in a situation where the answer is deliberately unknowable from current
-evidence, and asks whether it knows what experiment would make the answer knowable.
+**Domain:** failed soluble de novo extracellular receptor-binding miniproteins.
+**Showcase:** an EGFR-inspired extracellular receptor-binding campaign. "EGFR-inspired" is narrative only.
 
-## 2. The problem
+## 2. The invariant: CORRECT ≠ JUSTIFIED
 
-Autonomous research systems can generate hypotheses, call scientific tools and
-produce conclusions. Whether they reach a correct answer is not the hard question.
-The hard question is whether they know:
-
-- when the current evidence is insufficient;
-- which alternative explanations remain;
-- what evidence would distinguish them;
-- whether the experiment they ran was actually diagnostic;
-- what strength of conclusion the evidence supports.
-
-A correct answer reached without discriminating evidence is a lucky or prior-driven
-guess, and it will not transfer to situations where the prior is wrong. MIRAGE
-separates the two.
-
-## 3. The MIRAGE scientific loop
+An agent does not receive credit merely for reaching the correct terminal decision. A correct decision reached
+without the evidence that supports it (a lucky `REJECT`, a free `ABSTAIN`, a `SELECT` that skipped the assay-integrity
+control) is **correct but unjustified**, and MIRAGE reports it as such.
 
 ```text
-Initial observation
-        ↓
-Multiple plausible explanations remain
-        ↓
-Agent recognises / fails to recognise ambiguity
-        ↓
-Agent chooses an experiment
-        ↓
-Experimental environment executes it
-        ↓
-New evidence
-        ↓
-Agent updates or fails to update
-        ↓
-Evidence-bounded conclusion
-        ↓
-Deterministic MIRAGE evaluation
+correct    terminal decision matches the privileged ground truth
+justified  correct AND the public evidence the agent collected supports the decision
 ```
 
-**Central question.** When current evidence cannot identify the cause of an
-observation, does the autonomous scientist choose an experiment that makes the
-competing explanations distinguishable?
+The evaluator computes `justified` from the public trace and the agent's own recorded beliefs, plus truth labels that
+only it may read. There is no LLM judge, and training reward is never an input (ADR 0006).
 
-This is more precise than "can the agent do science?" and more substantive than
-"can the agent detect false positives?"
+## 3. The failure hierarchy
 
-Conceptual architecture. This describes roles, not code: there is no generic adapter
-layer in the implementation.
+A failed campaign has a **locus**. The belief engine reports posterior mass on each, and the evaluator scores whether
+the agent located the failure correctly.
+
+```mermaid
+flowchart TB
+  F["Failed binder campaign<br/>(no downstream function)"]
+  F --> M["MOLECULE"]
+  F --> X["EXPERIMENT"]
+  F --> B["BIOLOGICAL MODEL"]
+  M --> m1["folding"]
+  M --> m2["aggregation"]
+  M --> m3["affinity"]
+  M --> m4["kinetics"]
+  M --> m5["epitope"]
+  M --> m6["developability"]
+  X --> x1["assay invalidity"]
+  B --> b1["model invalidity"]
+```
+
+| Locus | Failure mechanisms (the eight belief marginals) |
+|---|---|
+| MOLECULE | `p_folding_failure` · `p_aggregation_failure` · `p_affinity_failure` · `p_kinetic_failure` · `p_epitope_failure` · `p_developability_failure` |
+| EXPERIMENT | `p_assay_invalid` |
+| BIOLOGICAL MODEL | `p_model_invalid` |
+
+The mechanisms are **not mutually exclusive**. Compound failures (for example aggregation plus a kinetic defect) are
+valid by construction, and the marginals do not sum to one.
+
+## 4. Primary failures versus secondary consequences
+
+A named scenario has **primary failures**, which define what the world is about, and **secondary consequences**,
+downstream effects that are metadata and are not counted as additional molecular failures. Under `SEMANTICS_V2`
+(A5) the privileged truth labels must equal the primary mechanisms exactly; see
+[BINDER_ENVIRONMENT](scientific-spec/BINDER_ENVIRONMENT.md).
+
+## 5. The scientific loop
 
 ```text
-Scientific Agent
-      │  experiment specification
-      ▼
-Experimental Environment      (hidden world + measurement process)
-      │  evidence
-      ▼
-Scientific update             (agent-side)
-      │  conclusion + full action log
-      ▼
-MIRAGE Evaluator              (knows the hidden world; deterministic; no LLM)
+failed campaign (public initial state)
+   -> competing causal explanations remain
+   -> the agent chooses an experiment, a redesign, or a terminal decision
+   -> the environment executes it under a budget (private truth + seeded noise)
+   -> a structured public observation updates the belief
+   -> ... repeat while resources and expected information justify it ...
+   -> terminal decision: SELECT / REJECT / MODEL_INVALID / ABSTAIN
+   -> privileged evaluation: correct? justified?
 ```
 
-## 4. Evaluation philosophy
+## 6. What is implemented
 
-| Concept | Meaning in MIRAGE |
-|---|---|
-| **Observational ambiguity** | The initial observations are about equally probable under two or more distinct hidden worlds. A model-aware classifier cannot reliably tell them apart from the initial data. |
-| **Competing causal worlds** | Hidden generative processes with different causal explanations of the same observation (e.g. "biology stopped" vs "the instrument stopped responding"). They are fully specified and known to the evaluator. |
-| **Active disambiguation** | The agent acquires new evidence by choosing an intervention or measurement. Passive re-observation does not count. |
-| **Diagnostic experiment** | An experiment whose outcome distribution differs substantially between the competing worlds. Diagnosticity is a property of the experiment and the worlds, judged by the evaluator, not by the agent's narrative. |
-| **Evidence-bounded conclusion** | A conclusion whose strength does not exceed what the acquired evidence supports. |
-| **Deterministic ground truth** | The hidden world is fixed by a frozen, hashed configuration and a seed. Scoring is a pure function of the hidden world and the action log. |
+The Binder environment, particle belief, policies, evaluator, provenance, API and cockpit are implemented
+([status table](START_HERE.md#status-at-the-freeze)). Evaluation so far consists of **Baseline V1** only; it did not
+show the information-gain policy beating the fixed pipeline ([BASELINE_V1](evaluation/BASELINE_V1.md)).
 
-## 5. Experimental environments
+## 7. What MIRAGE is not
 
-An environment supplies hidden worlds, an observation process and an action space.
-Conceptually it could be backed by any of the following. Only the first is used, and
-only in MIRAGE-Bio.
+- Not validated EGFR prediction, and not a quantitative model of any receptor.
+- Not therapeutic discovery or a clinically useful binder predictor.
+- Not a "digital twin" of any biology; not a wet-lab replacement or substitute.
+- Not real molecular sequence design (no sequences or structures exist anywhere in the system).
+- Not a generic autonomous researcher, LLM orchestration framework or workflow engine.
+- Not synonymous with PPO. PPO is one candidate planner among several, and has not been evaluated.
+- Not a source of biological discoveries. All parameters are modelling assumptions.
 
-| Backing | Examples | Status |
-|---|---|---|
-| Simulation-backed | Deterministic Python, numerical or GPU simulation of a scientific process plus its measurement | **MIRAGE-Bio v0.1 uses only this**, as a controlled computational environment |
-| Model-backed | Protein or structure models, scientific ML surrogates | Conceptual only |
-| Dataset-backed | Existing measurements, perturbation datasets, held-out data queried as "experiments" | Conceptual only |
-| Physical laboratory | Instrumented wet-lab execution | Future possibility only. Out of scope. |
+## 8. Relationship to MIRAGE-Bio v0.1
 
-## 6. Evidence maturity (project philosophy, not MVP scoring)
+The repository began with MIRAGE-Bio, a growth-plateau / OD600 benchmark built on the same "score the evidence, not
+the answer" principle. It remains implemented, tested and documented in [mirage-bio/](mirage-bio/README.md) as the
+first environment. The Binder system is a second, richer environment (multi-step, resource-constrained,
+compound-failure) rather than a rewrite of the first.
 
-| Level | Evidential status |
-|---|---|
-| E0 | Hypothesis or idea |
-| E1 | Computational support |
-| E2 | Independent in-silico replication |
-| E3 | Direct experimental evidence |
-| E4 | Independent experimental replication |
+## 9. Evidence maturity (philosophy only)
 
-A MIRAGE-compatible scientific agent should not represent a claim as having stronger
-evidential status than the experiments supporting it. This ladder is a guiding
-principle and a possible future evaluation axis. It is **not** a requirement or
-metric of MIRAGE-Bio v0.1.
-
-## 7. First environment — MIRAGE-Bio
-
-MIRAGE-Bio is a virtual microbiology laboratory. An agent sees an OD600-like growth
-curve that rises and flattens. In the hidden world `BIOLOGICAL_PLATEAU` the culture
-truly stops growing inside the instrument's useful range. In `MEASUREMENT_ARTIFACT`
-it keeps growing to 3–5× beyond the instrument's saturation scale, and the nonlinear
-reader hides the growth. The two worlds are constructed so that their passive curves
-belong to the same parametric family. With the instrument's saturation scale unknown,
-the design-time analytic passive ceiling is ≈ 0.58.
-
-The agent can request diluted remeasurements of retained aliquots on a budget of six
-readings, then answers `BIOMASS_AS_READ` if late biomass is at the level the
-undiluted readings indicate, or `BIOMASS_ABOVE_READING` if it is higher. A late,
-adequately diluted measurement separates the worlds. A deterministic evaluator scores accuracy,
-whether a diagnostic control (an experiment that distinguishes the worlds) was
-obtained, justified accuracy and cost.
-
-Requirements: [mirage-bio/ANALYSIS.md](mirage-bio/ANALYSIS.md).
-Scientific validation: [mirage-bio/GATE0_SPEC.md](mirage-bio/GATE0_SPEC.md).
-
-## 8. What MIRAGE is not
-
-- Not a generic autonomous researcher or "AI scientist".
-- Not an LLM orchestration or agent framework.
-- Not a wet-lab robotics platform.
-- Not a false-positive checker.
-- Not a hypothesis generator.
-- Not a universal science platform or general workflow engine.
-- Not a source of biological (or other scientific) discoveries. Its worlds are
-  controlled constructions.
-
-## 9. Future research directions (not development tasks)
-
-Possible future environments that share the construction "observationally similar
-worlds plus a diagnostic action":
-
-- other assay artefacts;
-- numerical artefacts (discretisation, convergence, precision);
-- scoring-function artefacts (proxy metrics diverging from the target property);
-- confounded datasets;
-- multi-assay disagreement;
-- incomplete hypothesis classes (the true world is outside the agent's initial list).
-
-None of these is planned work. The binding rule is: **do not expand the
-implementation until MIRAGE-Bio works end to end.**
+A MIRAGE-compatible agent should not represent a claim as having stronger evidential status than the experiments
+behind it (hypothesis → computational support → replication → direct experiment → independent replication). This
+ladder is a guiding principle, not a metric of the current benchmark.

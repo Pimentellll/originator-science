@@ -1,5 +1,7 @@
 # MIRAGE-Bio — Experiment Plan
 
+> **LEGACY: MIRAGE-Bio v0.1 (growth / OD600 benchmark).** This document is the historical record of the first, separate environment. Status lines, "not started" notes and plans below date from 3-4 October 2026 and were **not** updated; the growth benchmark has since been implemented and run (see [mirage-bio/README.md](README.md)). It does not describe the Binder rescue system. Current status: [START_HERE](../START_HERE.md).
+
 | Field | Value |
 |---|---|
 | Status | Pre-registered for MVP (3 October 2026). No experiments have been run. |
@@ -211,7 +213,7 @@ The same table is repeated per condition.
 - Calling `PassiveBayes` (or any implemented classifier) optimal.
 - Claiming a U-shaped dilution optimum for discrimination that Gate 0 does not show.
 - Calling MIRAGE or MIRAGE-Bio the "first" of anything
-  ([DIFFERENTIATION §7](../DIFFERENTIATION.md#7-novelty-boundary)).
+  ([DIFFERENTIATION §7](../DIFFERENTIATION.md#4-what-is-not-claimed)).
 
 ## 11. Run procedure (checklist)
 
