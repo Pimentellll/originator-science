@@ -9,8 +9,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from enum import Enum
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+FiniteFloat = Annotated[float, Field(allow_inf_nan=False)]
+PublicNote = Annotated[str, Field(min_length=1, max_length=256)]
 
 
 class _PublicModel(BaseModel):
@@ -20,7 +25,7 @@ class _PublicModel(BaseModel):
 
 
 class ActionType(str, Enum):
-    """Canonical actions shared by the binder MVP and future environments."""
+    """Canonical actions shared by the Binder BioPOMDP and future environments."""
 
     MEASURE_STABILITY = "MEASURE_STABILITY"
     MEASURE_SEC = "MEASURE_SEC"
@@ -58,21 +63,25 @@ class Candidate(_PublicModel):
 class ResourceState(_PublicModel):
     """Public laboratory resources and instrument condition."""
 
-    budget_remaining: float = Field(ge=0)
-    sample_remaining: float = Field(ge=0)
-    simulated_time: float = Field(ge=0)
-    spr_instrument_health: float = Field(ge=0, le=1)
+    budget_remaining: FiniteFloat = Field(ge=0)
+    sample_remaining: FiniteFloat = Field(ge=0)
+    simulated_time: FiniteFloat = Field(ge=0)
+    spr_instrument_health: FiniteFloat = Field(ge=0, le=1)
 
 
 class ScientificObservation(_PublicModel):
-    """A single visible assay result, never a direct copy of latent state."""
+    """A public, structured assay result.
+
+    Measurements are named assay outputs, not copies of private latent state.
+    The typed map supports multi-output assays such as SPR without generic
+    metadata or a scalar encoding convention.
+    """
 
     action_type: ActionType
     candidate_id: str = Field(min_length=1, max_length=128)
-    value: float | None = None
-    uncertainty: float | None = Field(default=None, ge=0)
-    unit: str | None = Field(default=None, max_length=64)
-    quality: str | None = Field(default=None, max_length=128)
+    measurements: dict[str, FiniteFloat] = Field(min_length=1)
+    quality: str = Field(min_length=1, max_length=128)
+    notes: tuple[PublicNote, ...] = ()
 
 
 class AgentState(_PublicModel):
@@ -122,4 +131,9 @@ class ScientificEnvironment(ABC):
 
     @abstractmethod
     def score(self) -> float:
-        """Return the environment score available after termination."""
+        """Return environment-local utility, never privileged benchmark evaluation.
+
+        Implementations may use this for training or local episode utility. The
+        independent scientific evaluator alone may access privileged truth and
+        determine justified benchmark success.
+        """
