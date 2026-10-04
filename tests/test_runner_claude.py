@@ -117,10 +117,13 @@ def api_connection_error() -> anthropic.APIConnectionError:
     return anthropic.APIConnectionError(request=httpx.Request("POST", "https://x"))
 
 
-def diagnosed_responses():
+def diagnosed_responses(model: str = MODEL):
     return [
-        msg(tool("measure_od", {"time_h": 18, "dilution_factor": 10, "replicates": 3}, 1)),
-        msg(tool("submit_diagnosis", DIAG, 2)),
+        msg(
+            tool("measure_od", {"time_h": 18, "dilution_factor": 10, "replicates": 3}, 1),
+            model=model,
+        ),
+        msg(tool("submit_diagnosis", DIAG, 2), model=model),
     ]
 
 

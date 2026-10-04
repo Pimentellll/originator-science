@@ -38,6 +38,8 @@ agents recognise when current observations are insufficient to support a scienti
 conclusion, and whether they select experiments that resolve the underlying
 ambiguity. An agent gets no credit merely for reaching the correct conclusion.
 MIRAGE evaluates whether the agent acquired evidence that actually justified it.
+In short, it is a benchmark that catches science agents getting the right answer for the
+wrong reason, a form of reward hacking that accuracy-only evals reward.
 Built for the Originator track at the London AI x Science Hackathon.
 
 ## The idea
@@ -157,6 +159,21 @@ uv pip install --python .venv/bin/python -e ".[dev]"
 .venv/bin/python -m mirage.demo.replay .local/runs/<run dir>/episodes/<episode>.json --pace 0
 ```
 
+### Web console
+
+A local, offline console over the committed results and the virtual lab. It has a
+leaderboard, a 30-episode outcome grid, episode replays with the evaluator audit, and a
+sandbox where you run the dilution experiment yourself and are scored by the same
+deterministic evaluator. It makes no model calls, and sandbox episodes use
+development seeds only.
+
+```bash
+.venv/bin/python -m mirage.ui.server --port 8765   # then open http://127.0.0.1:8765
+```
+
+The frontend is plain HTML, CSS and ES modules in `src/mirage/ui/static/`, with no build
+step and no CDN. The API is the Python standard library `http.server`.
+
 ## Documentation
 
 Start with the [documentation index](docs/README.md).
@@ -178,7 +195,7 @@ Start with the [documentation index](docs/README.md).
 ```text
 docs/                    MIRAGE docs (current); docs/mirage-bio/ for the first environment
 experiments/reference/   Design-time numerical reference (current; not Gate 0)
-src/mirage/              Simulator, assay, virtual lab, agents, evaluation, replay
+src/mirage/              Simulator, assay, virtual lab, agents, evaluation, replay, web console (ui/)
 scripts/                 Gate 0 validation and plots
 experiments/             Frozen configs, episode matrices, candidate Gate 0 results
 tests/                   Automated tests (pytest)
