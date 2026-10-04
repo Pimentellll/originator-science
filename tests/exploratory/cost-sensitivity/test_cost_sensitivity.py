@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import socket
 import sys
@@ -12,22 +13,37 @@ import httpx2 as httpx
 import pytest
 from anthropic.types import Message
 
+import mirage.agents.claude as claude_module
+from mirage.agents.claude import ClaudeAgent
+from mirage.biology.conditions import Condition
+from mirage.config import load_prior, sample_episode
+from mirage.evaluation import runner
+from mirage.evaluation.metrics import EpisodeResult, audit_measurements, score_episode
+from mirage.lab.environment import LabEnvironment
+from mirage.lab.tools import SYSTEM_PROMPT, TOOL_DEFINITIONS, prompt_sha256, render_observation
+
 ROOT = Path(__file__).resolve().parents[3]
 EXP = ROOT / "experiments" / "exploratory" / "cost-sensitivity"
-sys.path.insert(0, str(EXP))
 
-import analyze  # noqa: E402
-import driver  # noqa: E402
-import priced  # noqa: E402
 
-import mirage.agents.claude as claude_module  # noqa: E402
-from mirage.agents.claude import ClaudeAgent  # noqa: E402
-from mirage.biology.conditions import Condition  # noqa: E402
-from mirage.config import load_prior, sample_episode  # noqa: E402
-from mirage.evaluation import runner  # noqa: E402
-from mirage.evaluation.metrics import EpisodeResult, audit_measurements, score_episode  # noqa: E402
-from mirage.lab.environment import LabEnvironment  # noqa: E402
-from mirage.lab.tools import SYSTEM_PROMPT, TOOL_DEFINITIONS, prompt_sha256, render_observation  # noqa: E402
+def _load_module(name: str):
+    module_name = f"exp_cost_sensitivity_{name}"
+    module = sys.modules.get(module_name)
+    if module is not None:
+        return module
+    path = EXP / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+driver = _load_module("driver")
+priced = _load_module("priced")
+analyze = _load_module("analyze")
 
 PRIOR = load_prior(runner.SCENARIO)
 DSET = runner.frozen_dset(PRIOR, runner.GATE0_SUMMARY)

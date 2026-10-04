@@ -10,18 +10,31 @@ as a reproducibility reference) and writes ``analysis.json``, ``table.md`` and
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import statistics
 import sys
 from pathlib import Path
 from typing import Any
 
-HERE = Path(__file__).resolve().parent
-if str(HERE) not in sys.path:
-    sys.path.insert(0, str(HERE))
-
 from mirage.evaluation import runner  # noqa: E402
 from mirage.evaluation.metrics import PRIMARY_STATUSES, EpisodeResult, wilson  # noqa: E402
+
+HERE = Path(__file__).resolve().parent
+
+
+def _load_sibling(name: str) -> Any:
+    module_name = f"exp_cost_sensitivity_{name}"
+    if module_name in sys.modules:
+        return sys.modules[module_name]
+    path = HERE / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load cost-sensitivity sibling {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
 
 PRICES = (1, 3, 6)
 C2_FROZEN = runner.ROOT / "experiments" / "results" / "20261004-0049_claude_strong"
@@ -248,9 +261,8 @@ def write_figure(a: dict[str, Any], path: Path) -> None:
 
 
 def main() -> int:
-    from driver import RUNS, run_id_for
-
-    runs = {p: RUNS / run_id_for(p) for p in PRICES}
+    driver = _load_sibling("driver")
+    runs = {p: driver.RUNS / driver.run_id_for(p) for p in PRICES}
     a = analyse(runs, C2_FROZEN)
     (HERE / "analysis.json").write_text(json.dumps(a, indent=2, sort_keys=True) + "\n")
     (HERE / "table.md").write_text(render_table(a))

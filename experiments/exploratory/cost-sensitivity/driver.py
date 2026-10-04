@@ -18,16 +18,13 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import sys
 import time
 from pathlib import Path
 from typing import Any, Callable
-
-HERE = Path(__file__).resolve().parent
-if str(HERE) not in sys.path:
-    sys.path.insert(0, str(HERE))
 
 from mirage.biology.conditions import Condition  # noqa: E402
 from mirage.config import EpisodeConfig, canonical_sha256, load_prior, sample_episode  # noqa: E402
@@ -40,7 +37,28 @@ from mirage.evaluation.metrics import (  # noqa: E402
     score_episode,
 )
 from mirage.lab.tools import BUDGET_UNITS  # noqa: E402
-from priced import PRICES, PricedClaudeAgent, PricedLabEnvironment  # noqa: E402
+
+HERE = Path(__file__).resolve().parent
+
+
+def _load_sibling(name: str) -> Any:
+    module_name = f"exp_cost_sensitivity_{name}"
+    if module_name in sys.modules:
+        return sys.modules[module_name]
+    path = HERE / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load cost-sensitivity sibling {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_priced = _load_sibling("priced")
+PRICES = _priced.PRICES
+PricedClaudeAgent = _priced.PricedClaudeAgent
+PricedLabEnvironment = _priced.PricedLabEnvironment
 
 MODEL = "claude-sonnet-5-5"
 # USD per million tokens, public Anthropic pricing page (Claude Sonnet 5.5), fetched at
