@@ -12,27 +12,34 @@ Harness additions (flagged, because H0 does not ship them):
     H0's own CampaignEvaluator + _BinderOracle, only once the episode is terminal. H0 has no such endpoint. It must live
     under /benchmarks because the public leak guard forbids the keys `correct` / `justified` on every other route.
 """
-import os, sys, tempfile
+import collections
+import hmac
+import os
+import sys
+import tempfile
+from pathlib import Path
+
 ROOT = os.environ["MIRAGE_BACKEND_ROOT"]
 sys.path[:0] = [ROOT + "/src"]
 
 import uvicorn
-from fastapi import HTTPException
+from fastapi import Header, HTTPException
+
 from mirage.api.app import create_app
-from mirage.belief import ParticleBelief
+from mirage.belief import ParticleBelief  # noqa: F401
+from mirage.evaluation.campaign import CampaignEvaluator
 from mirage.integration import make_receptor_binder_service
 from mirage.integration.controller import BinderBeliefSession, _BinderOracle
 from mirage.integration.rescue_policy import ReceptorRescuePlannerPolicy
-from mirage.evaluation.campaign import CampaignEvaluator
 from mirage.policies import GreedyEIGPolicy
 from mirage.provenance import PublicRecordStore
 
+TOKEN = os.environ["MIRAGE_EVAL_TOKEN"]  # required; any local value
 STORE = os.environ.get("MIRAGE_STORE", tempfile.mkdtemp(prefix="mirage-h0-"))
 service = make_receptor_binder_service(PublicRecordStore(STORE), code_version="integration@4747deb")
 
 # GreedyEIG needs a handle on ITS episode's belief. EpisodeService builds the policy, then the belief,
 # in sequence per request; bind each policy to the next belief created (a per-episode box, not a global).
-import collections
 PENDING = collections.deque()
 _orig_belief = service._belief_factory
 def _belief(seed, state):
@@ -48,14 +55,15 @@ def _greedy():
 service._policies["rescue_planner"] = ReceptorRescuePlannerPolicy
 service._policies["greedy_eig"] = _greedy
 
-app = create_app(service, cors_origins=["http://localhost:5173", "http://localhost:4173"])
+app = create_app(
+    service,
+    cors_origins=["http://localhost:5173", "http://localhost:4173"],
+    growth_results_root=Path(ROOT) / "experiments" / "results",
+    aggregate_token=TOKEN,
+)
 
 SAFE = ("decision", "correct", "justified", "lucky_correct", "supported_but_wrong", "unnecessary_redesigns",
         "spr_health_lost", "premature_aggregated_spr", "compound_recognized", "assay_invalid_detected", "model_invalid_detected")
-
-import hmac
-from fastapi import Header
-TOKEN = os.environ["MIRAGE_EVAL_TOKEN"]  # required; any local value
 
 @app.get("/benchmarks/episodes/{episode_id}")
 def evaluation(episode_id: str, x_mirage_eval_token: str | None = Header(default=None)):
