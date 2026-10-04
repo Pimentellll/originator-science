@@ -20,15 +20,16 @@ import { notRunReport } from './project'
  *   GET  /episodes/{id}                                       -> PublicState
  *   GET  /benchmarks, /benchmarks/{id}                        -> aggregate results (token-gated; NOT RUN if absent)
  *   GET  /benchmarks/episodes/{id}                            -> per-episode correct-vs-justified verdict
- *                                                                (PROVISIONAL, not in H0; token-gated; only when `evaluation`)
+ *                                                                (token-gated; only when `evaluation`)
  *
- * The API has no scenario catalogue, no policy catalogue and no comparison endpoint, so:
+ * The API exposes a `/policies` catalogue, but this client still uses `LiveConfig.policies` and
+ * does not fetch the catalogue. Comparisons are assembled client-side:
  *  - scenarios are seeds from `LiveConfig.seeds` (a seed fully determines the world),
  *  - `LiveConfig.policies` lists the policy keys this server is known to register. A policy
  *    comparison plays exactly those on the SAME seed through the ordinary reset / recommend /
  *    act endpoints: real public traces on identical seeded worlds. Every other canonical
- *    policy (Lookahead, PPO, ...) is NOT RUN. Availability is configured, never probed, so a
- *    missing policy costs no failed request.
+ *    policy (Lookahead, PPO, ...) is NOT RUN. The client does not fetch `/policies`; a configured
+ *    policy that answers 422 is reported as NOT RUN while other comparison lanes continue.
  *  - aggregate results are requested only when `LiveConfig.benchmarks` is true (the endpoint is
  *    token-gated and answers 404 when disabled).
  */
@@ -44,7 +45,7 @@ export interface LiveConfig {
   evaluation: boolean
 }
 
-export const DEFAULT_LIVE_CONFIG: LiveConfig = { base: '/api', seeds: [9], policies: ['rescue_planner', 'fixed_pipeline', 'random'], benchmarks: false, evaluation: false }
+export const DEFAULT_LIVE_CONFIG: LiveConfig = { base: '/api', seeds: [9], policies: ['rescue_planner', 'greedy_eig', 'fixed_pipeline', 'random'], benchmarks: false, evaluation: false }
 
 /** Safety valve while auto-playing a comparison episode. */
 const MAX_COMPARE_STEPS = 40

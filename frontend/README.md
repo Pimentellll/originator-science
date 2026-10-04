@@ -31,26 +31,24 @@ npm run typecheck && npm run lint && npm test && npm run build
 | aggregate results (opt-in) | `GET /benchmarks`, `GET /benchmarks/{id}` (token-gated; `VITE_MIRAGE_BENCHMARKS=1`) |
 | per-episode verdict (opt-in, **provisional**) | `GET /benchmarks/episodes/{id}` (token-gated; `VITE_MIRAGE_EVALUATION=1`) |
 
-Availability is **configured, never probed**: `VITE_MIRAGE_POLICIES` lists the policies the server registers
-(default `rescue_planner,fixed_pipeline,random`), `VITE_MIRAGE_SEEDS` the seeds (default `9`). Every
-other policy (Lookahead, PPO) is shown as **NOT RUN** without a request. The eval token is attached by the dev
-proxy from `MIRAGE_EVAL_TOKEN`; it is never a `VITE_` variable and never reaches the bundle.
+The client does not fetch `/policies`: `VITE_MIRAGE_POLICIES` lists the policies to run (default
+`rescue_planner,greedy_eig,fixed_pipeline,random`), and `VITE_MIRAGE_SEEDS` lists the seeds (default `9`). Every
+other policy (Lookahead, PPO) is shown as **NOT RUN** without a request. If a configured policy returns 422, that
+lane is also reported as **NOT RUN**; other errors propagate. The eval token is attached by the dev proxy from
+`MIRAGE_EVAL_TOKEN`; it is never a `VITE_` variable and never reaches the bundle.
 
-### What the backend does not give us yet
+### Backend availability and limitations
 
-- **Server entry point.** `scripts/serve_api.py` serves the public API. `make_receptor_binder_service` registers `random`, `fixed_pipeline` and `rescue_planner`; `greedy_eig` is **not** served (the API answers 422 `unknown policy`, which the cockpit reports as NOT RUN, so set `VITE_MIRAGE_POLICIES` to the served list). `dev/h0_harness.py` assembles an app that additionally registers `greedy_eig` and a provisional verdict route for smoke testing.
-- **No per-episode verdict route.** The public leak guard forbids the keys `correct` / `justified` on every
-  route except `/benchmarks*`, so a verdict can only be served there. The harness provides
-  `/benchmarks/episodes/{id}` to exercise the UI; H0 itself has none. Without it the terminal panel says
-  "no evaluator verdict attached".
+- **Server entry point.** `scripts/serve_api.py` serves the public API. The standard service registers `random`,
+  `fixed_pipeline`, `rescue_planner` and `greedy_eig`. `/policies` lists the registered policies; this client
+  continues to use `VITE_MIRAGE_POLICIES` rather than fetching that catalogue.
+- **Per-episode verdict route.** `GET /benchmarks/episodes/{id}` is token-gated and returns the terminal
+  correct-vs-justified verdict when an evaluation store and token are configured.
 - **Recommendation is the action only.** No score, confidence, EIG or cost estimate, so the Next Action panel
   says so instead of showing placeholders.
 - **No FailureLocalisation or JustificationCertificate from the backend.** Both exist in `mirage.belief` but the controller and API do not produce them. The three groups show `group p —` and the threshold
   row shows `NOT AVAILABLE`. Both are consumed automatically if the backend adds `failure_localisation` on the
   belief or a certificate on the state / replay.
-
-For all four live policies with the H0 harness, run the frontend from `frontend/` with
-`VITE_MIRAGE_TRANSPORT=live VITE_MIRAGE_POLICIES=rescue_planner,greedy_eig,fixed_pipeline,random npm run dev`.
 
 ## Growth benchmark
 

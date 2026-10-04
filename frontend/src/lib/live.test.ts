@@ -152,7 +152,7 @@ describe('LiveApiTransport against a fake server serving real captured output', 
     const { handler, calls } = fakeApi()
     const eps = await new LiveApiTransport({ seeds: [9] }, handler).listEpisodes()
     expect(calls[0]).toBe('GET /health')
-    expect(eps.map((e) => e.policy.label)).toEqual(['RESCUE PLANNER', 'FIXED PIPELINE', 'RANDOM'])
+    expect(eps.map((e) => e.policy.label)).toEqual(['RESCUE PLANNER', 'GREEDY EIG', 'FIXED PIPELINE', 'RANDOM'])
   })
 
   it('reset -> recommendation -> executes the recommended action -> terminal, with the verdict when configured', async () => {
@@ -209,12 +209,12 @@ describe('LiveApiTransport against a fake server serving real captured output', 
   })
 
   it('keeps available comparison lanes and reports a configured 422 policy exactly once as NOT RUN', async () => {
-    const api = fakeApi({ policyErrors: { greedy_eig: 422 } })
-    const policies = ['rescue_planner', 'greedy_eig', 'fixed_pipeline', 'random']
+    const api = fakeApi({ policyErrors: { lookahead: 422 } })
+    const policies = ['rescue_planner', 'lookahead', 'fixed_pipeline', 'random']
     const cmp = (await new LiveApiTransport({ policies }, api.handler).getPolicyComparison('seed-9'))!
     expect(cmp.tracks).toHaveLength(3)
     expect(cmp.tracks.map((track) => track.policy.name).sort()).toEqual(['fixed_pipeline', 'random', 'rescue_planner'])
-    const skipped = cmp.not_run.filter((entry) => entry.policy.name === 'greedy_eig')
+    const skipped = cmp.not_run.filter((entry) => entry.policy.name === 'lookahead')
     expect(skipped).toHaveLength(1)
     expect(skipped[0].reason).toBe('Not served by this server (POST /episodes answered 422 unknown policy).')
   })

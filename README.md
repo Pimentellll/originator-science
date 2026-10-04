@@ -232,14 +232,10 @@ PYTHONPATH=src .venv/bin/python scripts/serve_api.py --records .local/mirage-api
 cd frontend && npm ci && VITE_MIRAGE_TRANSPORT=live npm run dev      # http://localhost:5173/?transport=live
 ```
 
-The API registers `random`, `fixed_pipeline` and `rescue_planner`. `greedy_eig` is **not** served (`POST /episodes`
-returns 422 `unknown policy`; the cockpit reports it as NOT RUN, and `VITE_MIRAGE_POLICIES` should list only served
-policies). `--scenario SINGLE_FAILURE|COMPOUND_FAILURE|ASSAY_FAILURE|MODEL_FAILURE|MIXED` selects the backend world;
-it is never sent to the browser. Aggregate `/benchmarks*` routes return 404 unless an evaluation store and token are
-configured, which `serve_api.py` does not do.
-
-For four live comparison policies with `frontend/dev/h0_harness.py`, run the frontend from `frontend/` with
-`VITE_MIRAGE_TRANSPORT=live VITE_MIRAGE_POLICIES=rescue_planner,greedy_eig,fixed_pipeline,random npm run dev`.
+The API registers `random`, `fixed_pipeline`, `rescue_planner` and `greedy_eig`; the live transport defaults to all
+four and can be configured via `VITE_MIRAGE_POLICIES`. The `--scenario` option selects the backend world; it is never
+sent to the browser. Aggregate `/benchmarks*` routes return 404 unless an evaluation store and token are configured,
+which `serve_api.py` does not do.
 
 Offline cockpit with mock data (watermarked DEV / MOCK, not results): `cd frontend && npm run dev:mock`.
 Frontend gates: `npm run typecheck && npm run lint && npm test && npm run build`.
@@ -362,14 +358,15 @@ step or CDN; the API uses Python's standard-library `http.server`.
 
 ## 13. Verification snapshot
 
-At this review-fix validation (`PYTHONPATH=src`):
+After merging current `main` (`PYTHONPATH=src`, Python 3.11.17):
 
-| Suite | Python 3.11.17 | Python 3.12.15 |
+| Suite | Python 3.11.17 | Python 3.12 |
 |---|---|---|
-| Python, excluding `tests/rl` | 1159 passed, 3 skipped, 1 xfailed, 4 failed | 1159 passed, 3 skipped, 1 xfailed, 4 failed |
-| Python `tests/rl` (Gym/PPO environment) | 40 passed | 40 passed |
+| Python, excluding `tests/rl` | 1194 passed, 4 skipped, 1 xfailed, 4 failed | Not rerun after merge |
+| Python `tests/rl` (Gym/PPO environment) | 40 passed | Not rerun after merge |
 
-The same four non-RL tests failed on both Python versions: `test_tempered_posterior_matches_exact_reference_at_512_particles`
+The same four non-RL tests failed in the Python 3.11 run; they were also seen in the pre-merge Python 3.12 run:
+`test_tempered_posterior_matches_exact_reference_at_512_particles`
 for `invalid_biological_model-50000-greedy_eig|1` and `broken_assay-50000-greedy_eig|1`, plus
 `test_committed_lock_matches_the_files_on_disk` and `test_lock_detects_any_change_to_spec_scoring_or_doc`.
 Frontend validation: typecheck and lint passed; Vitest reported 72 passed and 4 skipped.
