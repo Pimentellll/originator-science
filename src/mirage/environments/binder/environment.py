@@ -38,7 +38,7 @@ class BinderBioPOMDP(ScientificEnvironment):
     """A deterministic-by-seed environment with private causal state."""
 
     def __init__(self, world_mode: BinderWorldMode = BinderWorldMode.MIXED) -> None:
-        self.world_mode = BinderWorldMode(world_mode)
+        self._world_mode = BinderWorldMode(world_mode)
         self._predictive = BinderPredictiveModel()
         self._rng = np.random.default_rng()
         self._hidden_by_candidate: dict[str, BinderHypothesis] = {}
@@ -58,7 +58,7 @@ class BinderBioPOMDP(ScientificEnvironment):
     def reset(self, seed: int | None = None) -> AgentState:
         self._rng = np.random.default_rng(seed)
         root = Candidate(candidate_id="binder-000", generation=0)
-        self._hidden_by_candidate = {root.candidate_id: sample_world(self.world_mode, self._rng)}
+        self._hidden_by_candidate = {root.candidate_id: sample_world(self._world_mode, self._rng)}
         self._candidates, self._active_id = [root], root.candidate_id
         self._resources = ResourceState(budget_remaining=12.0, sample_remaining=8.0, simulated_time=0.0, spr_instrument_health=1.0)
         self._observations, self._terminal, self._decision = [], False, None
