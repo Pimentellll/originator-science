@@ -102,7 +102,7 @@ class BinderPredictiveModel:
         h = hypothesis
         stability, monomer, kd, koff = h.stability, h.monomer_fraction, h.log_kd, h.log_koff
         if action.action_type == ActionType.REDESIGN_STABILITY:
-            stability = min(1.0, stability + rng.normal(0.24, 0.07)); monomer = min(1.0, max(0.0, monomer + rng.normal(-0.02, 0.04)))
+            stability = min(1.0, stability + rng.normal(0.24, 0.07)); monomer = min(1.0, max(0.0, monomer + rng.normal(0.06, 0.04)))
         elif action.action_type == ActionType.REDESIGN_SOLUBILITY:
             monomer = min(1.0, monomer + rng.normal(0.25, 0.07)); stability = min(1.0, max(0.0, stability + rng.normal(-0.02, 0.04)))
         else:
