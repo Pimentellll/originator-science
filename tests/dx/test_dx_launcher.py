@@ -20,8 +20,10 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import mirage_env as E  # noqa: E402
+import mirage_cli as C  # noqa: E402
 import run_tests as RT  # noqa: E402
 import supervisor as S  # noqa: E402
+from benchmark_command import development_benchmark_argv  # noqa: E402
 from mirage.environments.binder import BinderWorldMode  # noqa: E402
 
 MIRAGE = ROOT / "mirage"
@@ -91,6 +93,80 @@ def test_demo_defaults_are_semantics_v2_rescue_planner_seed_9():
     ns = S.parse([])
     assert (ns.version, ns.policy, ns.seed, ns.scenario) == ("SEMANTICS_V2", "rescue_planner", 9, "COMPOUND_FAILURE")
     assert S.parse(["--scenario-version", "baseline_v1"]).version == "BASELINE_V1"  # V1 stays selectable
+
+
+def test_development_benchmark_starts_when_summaries_are_missing(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(E, "LOCAL", tmp_path)
+    captured = {}
+    process = object()
+
+    def popen(argv, **kwargs):
+        captured.update(argv=argv, kwargs=kwargs)
+        return process
+
+    monkeypatch.setattr(S.subprocess, "Popen", popen)
+    assert S.start_development_benchmark(False) is process
+    assert captured["argv"] == development_benchmark_argv()
+    assert captured["kwargs"]["cwd"] == E.ROOT
+    assert captured["kwargs"]["env"] == E.project_env()
+    assert "generating the development-split benchmark in the background (~30 s)" in capsys.readouterr().out
+
+
+def test_development_benchmark_is_skipped_when_a_summary_exists(tmp_path, monkeypatch):
+    monkeypatch.setattr(E, "LOCAL", tmp_path)
+    summaries = tmp_path / "benchmark-dev" / "binder_campaign" / "privileged" / "summaries"
+    summaries.mkdir(parents=True)
+    (summaries / "binder-campaign-dev.json").write_text("{}")
+    monkeypatch.setattr(S.subprocess, "Popen", lambda *_args, **_kwargs: pytest.fail("benchmark must not start"))
+
+    assert S.start_development_benchmark(False) is None
+
+
+def test_no_benchmark_flag_skips_background_generation(tmp_path, monkeypatch):
+    monkeypatch.setattr(E, "LOCAL", tmp_path)
+    args = S.parse(["--no-benchmark"])
+    monkeypatch.setattr(S.subprocess, "Popen", lambda *_args, **_kwargs: pytest.fail("benchmark must not start"))
+
+    assert args.no_benchmark
+    assert S.start_development_benchmark(args.no_benchmark) is None
+
+
+def test_benchmark_dev_cli_and_supervisor_use_the_same_argv(tmp_path, monkeypatch):
+    python = tmp_path / ".venv" / "bin" / "python"
+    python.parent.mkdir(parents=True)
+    python.touch()
+    monkeypatch.setattr(E, "ROOT", tmp_path)
+    monkeypatch.setattr(E, "LOCAL", tmp_path / ".local")
+    monkeypatch.setattr(E, "venv_python", lambda: python)
+    cli_call = {}
+    monkeypatch.setattr(C, "_stream", lambda argv, *, cwd, env: cli_call.update(argv=argv, cwd=cwd, env=env) or 0)
+    assert C.cmd_benchmark_dev([]) == 0
+
+    supervisor_call = {}
+    process = object()
+    monkeypatch.setattr(
+        S.subprocess,
+        "Popen",
+        lambda argv, **kwargs: supervisor_call.update(argv=argv, kwargs=kwargs) or process,
+    )
+    assert S.start_development_benchmark(False) is process
+
+    expected = [
+        str(python),
+        "scripts/run_binder_benchmark.py",
+        "--split",
+        "development",
+        "--per-archetype",
+        "2",
+        "--out",
+        str(tmp_path / ".local" / "benchmark-dev"),
+        "--benchmark-id",
+        "binder-campaign-dev",
+    ]
+    assert development_benchmark_argv() == expected
+    assert cli_call["argv"] == supervisor_call["argv"] == expected
+    assert cli_call["cwd"] == supervisor_call["kwargs"]["cwd"] == tmp_path
+    assert cli_call["env"] == supervisor_call["kwargs"]["env"]
 
 
 def test_cockpit_url_is_the_documented_default_and_carries_only_non_defaults():
@@ -180,7 +256,7 @@ def _ready():
 @pytest.mark.skipif(not _ready(), reason="needs ./mirage setup (venv + frontend deps + node), and no ./mirage demo already running")
 def test_demo_no_browser_serves_both_and_shuts_down_cleanly_on_sigint(tmp_path):
     api_port, web_port = E.find_free_port(18100), E.find_free_port(18200)
-    proc = subprocess.Popen([str(MIRAGE), "demo", "--no-browser", "--port", str(api_port), "--frontend-port", str(web_port), "--seed", "9"],
+    proc = subprocess.Popen([str(MIRAGE), "demo", "--no-browser", "--no-benchmark", "--port", str(api_port), "--frontend-port", str(web_port), "--seed", "9"],
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, cwd=tmp_path)
     lines = []
     try:

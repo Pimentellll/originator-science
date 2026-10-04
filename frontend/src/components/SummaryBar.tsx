@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useSession } from '../state/sessionContext'
 import { ModePill, ProvenancePill } from './ui'
 import { fmtBudget, fmtSample } from '../lib/format'
-import { actionShort } from '../lib/actions'
+import { actionShort, canonicalPolicyKey, policyInfo } from '../lib/actions'
 
 /** One labelled cell of the summary bar. */
 function Cell({ label, hint, children, warn }: { label: string; hint?: string; children: React.ReactNode; warn?: boolean }) {
@@ -31,6 +31,12 @@ export function SummaryBar() {
   const scenarios = Array.from(scenarioMap.values())
   const forScenario = s.episodes.filter((e) => e.scenario.id === s.scenarioId)
   const policies = Array.from(new Map((forScenario.length ? forScenario : s.episodes).map((e) => [e.policy.name, e.policy])).values())
+  const requestedPolicy = s.launch.policy
+  const requestedPolicyUnavailable =
+    requestedPolicy !== null && s.policyName !== null && !policies.some((p) => canonicalPolicyKey(p.name) === canonicalPolicyKey(requestedPolicy))
+  const selectedPolicyLabel = s.policyName
+    ? policyInfo(s.policyName).label.toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase())
+    : 'Rescue Planner'
 
   const seedValue = seedText ?? String(f?.seed ?? s.launch.seed)
   const seedNum = /^\d+$/.test(seedValue) ? Number(seedValue) : null
@@ -148,6 +154,17 @@ export function SummaryBar() {
       {f && <ProvenancePill provenance={f.provenance} />}
       {s.launch.control === 'manual' && <span className="pill pill--warn" title="You pick each action; MIRAGE only recommends.">MANUAL SCIENTIST</span>}
       {!f && s.transport.kind === 'mock' && <span className="pill pill--mock">DEV / MOCK</span>}
+      {requestedPolicyUnavailable && (
+        <div className="sum__notice" role="status">
+          Policy "{requestedPolicy}" isn&apos;t offered by this server; showing {selectedPolicyLabel}.
+        </div>
+      )}
+      {s.phase === 'error' && s.error && (
+        <div className="sum__notice" role="alert">
+          {s.error}
+          {policies.length > 1 && ' Choose another policy from the Policy menu above.'}
+        </div>
+      )}
     </div>
   )
 }
