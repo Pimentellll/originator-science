@@ -9,7 +9,7 @@ describe('parseHash', () => {
     })
   })
 
-  it('defaults unknown routes to results', () => {
+  it('defaults unknown routes to the overview', () => {
     expect(parseHash('#/unknown/RUN/EP')).toEqual({ route: 'overview', params: [] })
   })
 
@@ -24,7 +24,7 @@ describe('parseHash', () => {
     expect(parseHash('#/episode/RUN/')).toEqual({ route: 'episode', params: ['RUN'] })
   })
 
-  it('defaults an empty hash to results', () => {
+  it('defaults an empty hash to the overview', () => {
     expect(parseHash('')).toEqual({ route: 'overview', params: [] })
     expect(parseHash('#/')).toEqual({ route: 'overview', params: [] })
   })
