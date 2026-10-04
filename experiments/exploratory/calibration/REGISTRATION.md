@@ -147,3 +147,23 @@ explains the miss that C1 (Opus) and C2 (Sonnet) share on s500028-BP?
 - All outputs go in `experiments/exploratory/calibration/`. Tests for the new driver logic go
   in `tests/exploratory/calibration/`. No change to `src/`.
 - Deviations from this registration will be added below in a dated **Deviations** section.
+
+## Deviations
+
+**2026-10-04 (after the analysis was run; nothing above was edited).**
+
+1. Input hashes are written to `inputs.json` as registered. They are also copied into
+   `results.json` under `inputs_sha256`.
+2. Added, as descriptive and unregistered: for each s500028 dilution reading, the z-score
+   against the noise-free reading of the true culture, z = (y − f(K/d)) / (σ_abs + σ_rel·f(K/d)),
+   and the share of each agent's mean Brier that comes from s500028. Neither feeds a decision rule.
+3. No episodes were run, so this directory contains no new `usage.jsonl`, run records or
+   `summarize` outputs. The committed per-run `summary.json` / `results.md` in
+   `experiments/results/<run>/` are the per-run summaries; they are cited by path and hashed,
+   not regenerated (regenerating them would re-derive frozen results).
+4. The exact (one bin per distinct forecast) Murphy sensitivity turns out to be degenerate:
+   almost every forecast value is attained by episodes of a single condition, so REL = Brier and
+   RES = UNC for every agent. It is reported in `results.json` but carries no information.
+5. Where the registration says "bootstrap within the condition" (§5), the within-condition
+   intervals are taken from the same stratified resamples as everything else (each condition is
+   one stratum), so no separate resampling was done.
