@@ -297,7 +297,7 @@ function Inner() {
         maxZoom={1.6}
         onNodeClick={(_, n) => select(selection === n.id ? null : n.id)}
         onPaneClick={() => select(null)}
-        colorMode="dark"
+        colorMode="light"
       >
         <Background variant={BackgroundVariant.Lines} gap={32} lineWidth={1} color="rgba(236,233,226,0.045)" />
         <Fit trigger={`${frame.step}:${built.rows}`} />

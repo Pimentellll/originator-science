@@ -160,8 +160,8 @@ export function episodeReadingsCsv(episode: GrowthEpisode): string {
     if (event.tool !== 'measure_od' || !event.ok || event.result === null) continue
     const readings = event.result.readings
     if (!Array.isArray(readings)) continue
-    const time_h = event.arguments.time_h
-    const dilution_factor = event.arguments.dilution_factor
+    const time_h = event.result.time_h ?? event.arguments.time_h
+    const dilution_factor = event.result.dilution_factor ?? event.arguments.dilution_factor ?? 1
     const mean_reading = event.result.mean_reading
     const back_corrected =
       typeof mean_reading === 'number' && typeof dilution_factor === 'number'
