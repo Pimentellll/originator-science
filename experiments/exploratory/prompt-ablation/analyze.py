@@ -187,7 +187,7 @@ def prompt_diffs() -> str:
     v2 = variants.PROMPT_V2
     parts = []
     for v in (variants.PROMPT_V2_NOCEILING, variants.PROMPT_V2_MINIMAL):
-        parts += [f"#### {v.version} vs prompt-v2", "", f"System prompt:", "", "```text",
+        parts += [f"#### {v.version} vs prompt-v2", "", "System prompt:", "", "```text",
                   word_diff(v2.system, v.system), "```", ""]
         changed = []
         for t_old, t_new in zip(v2.tools, v.tools):
