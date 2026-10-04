@@ -55,10 +55,10 @@ export function Header({ route, navigate, growthKind }: { route: Route; navigate
       {binder ? (
         <BinderControls />
       ) : (
-        <>
+        <div className="hdr__ctl hdr__ctl--meta">
           <div className="hdr__spacer" />
           <span className="hdr__meta mono">{growthKind === 'static' ? 'offline · static export' : 'live · MIRAGE API'}</span>
-        </>
+        </div>
       )}
     </header>
   )
@@ -82,7 +82,7 @@ function BinderControls() {
   const sampleUsed = r ? r.sample.total - r.sample.remaining : 0
 
   return (
-    <>
+    <div className="hdr__ctl">
       {s.transport.kind !== 'live' && (
       <label className="hdr__field">
         <span className="hdr__label">Scenario</span>
@@ -169,6 +169,6 @@ function BinderControls() {
           </div>
         </div>
       )}
-    </>
+    </div>
   )
 }
