@@ -4,6 +4,7 @@ import type { EpisodeSession, ScientificTransport } from '../lib/transport'
 import { SessionContext } from './sessionContext'
 import type { SessionApi } from './sessionContext'
 import type { ManualChoice, Phase } from './sessionContext'
+import { appendManualChoice } from './manual'
 import { launchFromSearch } from './launch'
 import { projectEpisode } from '../lib/project'
 import type { Catalogue, EpisodeSummary, LaunchConfig, PolicyComparison } from '../lib/types'
@@ -147,7 +148,7 @@ export function SessionProvider({ transport, children }: { transport: Scientific
         .then((s) => {
           setSession(s)
           setCursor(frames.length)
-          setManualLog((l) => [...l, { step: frames.length, chosen: action, recommended }])
+          setManualLog((l) => appendManualChoice(l, frames.length, action, recommended))
           setPhase('ready')
         })
         .catch(fail)
@@ -212,7 +213,10 @@ export function SessionProvider({ transport, children }: { transport: Scientific
         setPolicyName((p) => episodes.find((e) => e.scenario.id === id)?.policy.name ?? p)
         setScenarioId(id)
       },
-      selectPolicy: (name) => setPolicyName(name),
+      selectPolicy: (name) => {
+        setPolicyName(name)
+        setLaunch((l) => ({ ...l, policy: name }))
+      },
       run,
       seek: (i) => {
         setPlaying(false)

@@ -42,6 +42,7 @@ export function BenchmarkLab() {
   if (report === undefined) return <LoadState what="benchmark" />
 
   const isMock = report.status === 'mock'
+  const isDevelopment = report.status === 'real' && report.seed_set?.startsWith('binder-campaign-dev ·') === true
   const ran = new Set(
     report.policies
       .filter((p) => Object.values(report.cells).some((f) => Object.values(f[p.name] ?? {}).some((c) => c.status === 'ok')))
@@ -59,6 +60,7 @@ export function BenchmarkLab() {
         </div>
         <div className="lab__prov">
           <ProvenancePill provenance={report.provenance} />
+          {isDevelopment && <span className="pill pill--warn">DEVELOPMENT SPLIT · NOT HELD-OUT</span>}
           {report.seed_set && <span className="mono faint">{report.seed_set}</span>}
         </div>
       </div>
@@ -71,10 +73,9 @@ export function BenchmarkLab() {
       )}
 
       {report.status === 'not_run' ? (
-        <div className="lab__none">
+        <div className="lab__none" role="status">
           <b>NOT RUN</b>
-          <span>No benchmark results exist yet.</span>
-          <span className="faint">{report.provenance.label}</span>
+          <span>{report.provenance.label}</span>
         </div>
       ) : (
         <>

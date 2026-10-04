@@ -39,7 +39,7 @@ const EVALS: Record<string, ApiEpisodeEvaluation> = {
 
 const json = (body: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }))
 
-function fakeApi(opts: { benchmarks?: 'off' | 'summary'; evaluation?: boolean } = {}) {
+function fakeApi(opts: { benchmarks?: 'off' | 'empty' | 'summary'; evaluation?: boolean } = {}) {
   const eps = new Map<string, { policy: string; i: number }>()
   const calls: string[] = []
   let n = 0
@@ -82,7 +82,11 @@ function fakeApi(opts: { benchmarks?: 'off' | 'summary'; evaluation?: boolean } 
       }
       return json({ ...stateFx, episode_id: m[1] })
     }
-    if (path === '/benchmarks') return opts.benchmarks === 'summary' ? json(['schema-fixture']) : json({ detail: 'aggregate results are not enabled' }, 404)
+    if (path === '/benchmarks') {
+      if (opts.benchmarks === 'summary') return json(['schema-fixture'])
+      if (opts.benchmarks === 'empty') return json([])
+      return json({ detail: 'aggregate results are not enabled' }, 404)
+    }
     if (path === '/benchmarks/schema-fixture') return json(summaryFx)
     return json({ detail: 'not found' }, 404)
   }) as unknown as typeof fetch
@@ -207,11 +211,16 @@ describe('LiveApiTransport against a fake server serving real captured output', 
 
   it('benchmarks: not configured => NOT RUN with no request; 404 => NOT RUN; a real summary => real report', async () => {
     const quiet = fakeApi()
-    expect((await new LiveApiTransport({}, quiet.handler).getBenchmark()).status).toBe('not_run')
+    const notConfigured = await new LiveApiTransport({}, quiet.handler).getBenchmark()
+    expect(notConfigured.status).toBe('not_run')
+    expect(notConfigured.provenance.label).toContain('./mirage benchmark-dev')
     expect(quiet.calls).toEqual([])
     const off = await new LiveApiTransport({ benchmarks: true }, fakeApi().handler).getBenchmark()
     expect(off.status).toBe('not_run')
-    expect(off.provenance.label).toMatch(/not enabled|not authorised/)
+    expect(off.provenance.label).toContain('./mirage demo')
+    const empty = await new LiveApiTransport({ benchmarks: true }, fakeApi({ benchmarks: 'empty' }).handler).getBenchmark()
+    expect(empty.status).toBe('not_run')
+    expect(empty.provenance.label).toContain('./mirage benchmark-dev')
     const rep = await new LiveApiTransport({ benchmarks: true }, fakeApi({ benchmarks: 'summary' }).handler).getBenchmark()
     expect(rep.status).toBe('real')
     expect(rep.policies.map((p) => p.label)).toEqual(['RANDOM', 'FIXED PIPELINE', 'GREEDY EIG', 'RESCUE PLANNER', 'LOOKAHEAD', 'PPO'])

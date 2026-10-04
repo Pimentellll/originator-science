@@ -17,6 +17,7 @@ from mirage.api.app import create_app
 from mirage.api.meta import code_version
 from mirage.environments.binder import BinderWorldMode
 from mirage.environments.binder.scenarios import BinderScenarioVersion
+from mirage.evaluation.campaign.aggregate import EvaluationStore
 from mirage.integration import make_receptor_binder_service
 from mirage.integration.catalogue import receptor_binder_catalogue, resolve_world
 from mirage.provenance import PublicRecordStore
@@ -29,6 +30,7 @@ parser.add_argument("--scenario", default=BinderWorldMode.COMPOUND_FAILURE.value
 parser.add_argument("--scenario-version", choices=tuple(v.value for v in BinderScenarioVersion), default=BinderScenarioVersion.SEMANTICS_V2.value)
 parser.add_argument("--cors-origin", action="append", default=None, help="repeatable; defaults to the Vite dev origins")
 parser.add_argument("--growth-results", type=Path, default=Path("experiments/results"), help="MIRAGE-Bio growth results root (gated by the eval token)")
+parser.add_argument("--benchmark-store", type=Path, default=None, help="Binder aggregate evaluation store (gated by the eval token)")
 parser.add_argument("--log-level", default="info")
 args = parser.parse_args()
 
@@ -37,5 +39,13 @@ version = BinderScenarioVersion(args.scenario_version)
 service = make_receptor_binder_service(PublicRecordStore(args.records), scenario=world, code_version=code_version(), scenario_version=version)
 token = os.environ.get("MIRAGE_EVAL_TOKEN") or None
 origins = tuple(args.cors_origin or ("http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:4173"))
-app = create_app(service, aggregate_token=token, growth_results_root=args.growth_results, cors_origins=origins, catalogue=receptor_binder_catalogue(service, world, version))
+evaluation_store = EvaluationStore(args.benchmark_store) if args.benchmark_store is not None else None
+app = create_app(
+    service,
+    evaluation_store=evaluation_store,
+    aggregate_token=token,
+    growth_results_root=args.growth_results,
+    cors_origins=origins,
+    catalogue=receptor_binder_catalogue(service, world, version),
+)
 uvicorn.run(app, host=args.host, port=args.port, log_level=args.log_level)

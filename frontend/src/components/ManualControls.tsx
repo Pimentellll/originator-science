@@ -59,7 +59,7 @@ export function ManualControls() {
             <b className="man__recname">{actionLabel(ra.action_type)}</b>
             <span className="man__recwhy">{ra.rationale ?? 'The policy gave no public rationale for this step.'}</span>
             <span className="man__recdisc">{ra.discriminates.map((m) => <span key={m} className="chip">{MECH_LABEL[m]}</span>)}</span>
-            <button className="btn" onClick={s.run} disabled={busy}>
+            <button className="btn" onClick={() => choose(ra.action_type)} disabled={busy}>
               USE MIRAGE'S CHOICE
             </button>
             <span className="dim man__fine">From the same public state you see. Not truth, and not a score.</span>

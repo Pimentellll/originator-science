@@ -245,6 +245,7 @@ def main(argv: list[str], *, dev: bool = False) -> int:
         "api", "API",
         [str(E.venv_python()), "scripts/serve_api.py", "--host", "127.0.0.1", "--port", str(api_port),
          "--records", str(E.RECORDS), "--scenario", args.scenario, "--scenario-version", args.version,
+         "--benchmark-store", str(E.LOCAL / "benchmark-dev" / "binder_campaign" / "privileged"),
          "--cors-origin", f"http://localhost:{web_port}", "--cors-origin", f"http://127.0.0.1:{web_port}",
          "--log-level", "info"],
         E.ROOT, E.project_env({"MIRAGE_EVAL_TOKEN": token}), api_port, "cyan")
@@ -253,7 +254,7 @@ def main(argv: list[str], *, dev: bool = False) -> int:
         [str(E.vite_bin()), "--host", "127.0.0.1", "--port", str(web_port), "--strictPort"],
         E.FRONTEND,
         E.project_env({"MIRAGE_API_PROXY": f"http://127.0.0.1:{api_port}", "MIRAGE_EVAL_TOKEN": token,
-                       "VITE_MIRAGE_EVALUATION": "1", "FORCE_COLOR": "0"}),
+                       "VITE_MIRAGE_EVALUATION": "1", "VITE_MIRAGE_BENCHMARKS": "1", "FORCE_COLOR": "0"}),
         web_port, "yellow")
     services = [api, web]
 
