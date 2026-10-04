@@ -22,7 +22,7 @@ Every statement in these documents was checked against the implementation freeze
 | Policies: Random, FixedPipeline, GreedyEIG, ReceptorRescuePlanner, Lookahead | IMPLEMENTED |
 | Privileged evaluator (correct vs justified), harness, aggregates, adversarial suite | IMPLEMENTED |
 | Provenance, JSONL store, model-free replay, leakage scanner | IMPLEMENTED |
-| Public FastAPI layer (DTO boundary) | IMPLEMENTED; serves `random`, `fixed_pipeline`, `rescue_planner` |
+| Public FastAPI layer (DTO boundary) | IMPLEMENTED; serves `random`, `fixed_pipeline`, `rescue_planner`, `greedy_eig` (greedy_eig wired after the freeze; Lookahead and PPO are listed by `GET /policies` as NOT AVAILABLE) |
 | Scientific Cockpit (E1, live transport) | IMPLEMENTED |
 | Gym wrapper, reward, MaskablePPO training, `PPOPolicy` adapter | IMPLEMENTED; **no valid checkpoint, PPO NOT RUN** |
 | Baseline V1 (Random / FixedPipeline / GreedyEIG, 250 worlds) | DONE, frozen, immutable |

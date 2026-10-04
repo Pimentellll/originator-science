@@ -15,7 +15,7 @@ Then check your setup and the code:
 
 ```bash
 ./mirage doctor          # environment diagnosis with exact fixes; exit 0 = ready
-./mirage test --quick    # about 10 seconds: contracts, trust boundary, API, E2E over a real socket, frontend checks
+./mirage test --quick    # about 15 seconds: contracts, trust boundary, API, E2E over a real socket, frontend checks
 ```
 
 **Platforms:** Ubuntu 24.04 and WSL2 Ubuntu (primary), other Linux, macOS (secondary). Native Windows is not supported:
@@ -386,6 +386,10 @@ At the documentation freeze, with the project virtualenvs (`PYTHONPATH=src`):
 | Python, excluding `tests/rl` | 1128 passed, 3 skipped, 1 xfailed, **4 failed**: 2 belief-convergence-gate tests (unmet B4A gate) and 2 V2 lock checks (A5 touched a locked file) |
 | Python `tests/rl` (Gym/PPO environment) | 36 passed |
 | Frontend | typecheck, lint and production build clean; 54 tests passed, 4 skipped (the real-backend suite needs a running server) |
+
+After the launcher, guided demo and system routes (`./mirage test`, full): every software group passes (core 78, binder 33, belief 61, policies 59,
+trust boundary 70, evaluator 130, API 47, RL 36, launcher 24, provenance + legacy 675 with 3 skipped, frontend 91 with 4 skipped, E2E smoke 9).
+The same **2 scientific validation gates are NOT PASSED** (B4A convergence 13/15, V2 preregistration lock 0/2); they are unchanged by this work and exit code 2 reports them.
 
 ## 14. Collaboration and secrets
 

@@ -105,7 +105,7 @@ printed, never in a URL, and never in the browser bundle.
 ## Tests
 
 ```bash
-./mirage test --quick        # ~10 s: contracts, trust boundary, API, E2E over a real socket, typecheck + frontend unit tests
+./mirage test --quick        # ~15 s: contracts, trust boundary, API, E2E over a real socket, typecheck + frontend unit tests
 ./mirage test                # every software group, then the scientific validation gates (a few minutes)
 ./mirage test --scientific   # only the validation gates and benchmark invariants
 ./mirage test --list         # what each group covers
@@ -132,3 +132,11 @@ software failure, `2` software clear but a validation gate is not passed. Two ga
 
 `./mirage demo --docker` uses `compose.yaml`. It is a fallback for machines where Node or Python cannot be installed; native
 is the primary path. See the note in [DEMO_GUIDE](DEMO_GUIDE.md#docker-fallback) about its verification status.
+
+## Verification status of this launcher
+
+What was exercised end to end: `./mirage setup`, `doctor`, `test --quick`, `test` (full), `smoke`, `benchmark-dev`, `demo --no-browser` with a
+SIGINT shutdown, `dev` prefixed logs, `stop`, and `clean-runtime`, including from a fresh `git worktree` with no `.venv`, no
+`node_modules`, no `.local`, a brand-new `HOME` (so no uv and no package caches) and a `PATH` without `~/.local/bin`; all on WSL2 Ubuntu
+24.04. Not exercised: macOS, a non-WSL Linux desktop, a machine without Node (the failure message is tested, the install is manual),
+and `--docker`.
