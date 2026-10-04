@@ -39,6 +39,7 @@ from mirage.evaluation.campaign.harness import (
     BenchmarkRun,
     PolicySpec,
     SeedSplit,
+    WorldSource,
     run_benchmark,
 )
 from mirage.evaluation.campaign.privileged_binder import BinderWorldSource, LabelRules
@@ -162,6 +163,7 @@ def run_binder_benchmark(
     code_version: str,
     extra_policies: Mapping[str, PolicySpec] | None = None,
     include_baselines: bool = True,
+    source: WorldSource | None = None,
     expected_fingerprints: Mapping[str, str] | None = None,
     expected_world_digests: Mapping[str, str] | None = None,
     record_store: PublicRecordStore | None = None,
@@ -174,7 +176,7 @@ def run_binder_benchmark(
     policies = {**(policy_specs(config, model) if include_baselines else {}), **(extra_policies or {})}
     return run_benchmark(
         benchmark_id=benchmark_id,
-        source=BinderWorldSource(config.rules),
+        source=source or BinderWorldSource(config.rules),
         archetypes=archetypes,
         seeds=seeds,
         split=split_name,
