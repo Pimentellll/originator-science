@@ -1,11 +1,16 @@
 # Documentation index
 
-Start at [START_HERE.md](START_HERE.md). The Binder system is documented under `architecture/`, `scientific-spec/`,
+To run the project, start with the [root README quick start](../README.md#quick-start), then
+[DEVELOPER_SETUP.md](DEVELOPER_SETUP.md), [DEMO_GUIDE.md](DEMO_GUIDE.md) and [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+To understand it, start at [START_HERE.md](START_HERE.md). The Binder system is documented under `architecture/`, `scientific-spec/`,
 `evaluation/`, `validation/`, `implementation/` and `adr/`. The earlier growth benchmark is documented under
 `mirage-bio/` and is retained for history.
 
 ```text
 docs/
+├── DEVELOPER_SETUP.md     ./mirage commands, bootstrap, tests, launcher layout
+├── DEMO_GUIDE.md          guided demo, manual scientist, what each cockpit panel means
+├── TROUBLESHOOTING.md     exact fixes for every setup failure seen so far
 ├── START_HERE.md          status table and reading order
 ├── MIRAGE.md              framing: correct != justified, failure hierarchy, scope
 ├── DIFFERENTIATION.md     what is and is not claimed

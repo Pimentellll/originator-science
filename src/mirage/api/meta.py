@@ -53,6 +53,7 @@ class ScenarioInfoDTO(_Meta):
     title: str
     summary: str
     cli_name: str
+    is_default: bool = False
 
 
 class CheckDTO(_Meta):

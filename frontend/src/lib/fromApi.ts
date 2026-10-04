@@ -36,7 +36,15 @@ function belief(b: ApiBelief | null | undefined, where: string): BeliefSummary {
  * could just as easily put a world name in it. Only known profile names are ever surfaced.
  */
 const KNOWN_PROFILES = new Set(['RECEPTOR_BINDER_RESCUE'])
-const campaignOf = (environmentId: string) => (KNOWN_PROFILES.has(environmentId) ? environmentId : undefined)
+const KNOWN_SEMANTICS = new Set(['SEMANTICS_V2', 'BASELINE_V1'])
+/** `PROFILE` or `PROFILE/SEMANTICS`. Anything else (a world name, a typo) is dropped, never shown. */
+export function parseEnvironment(environmentId: string): { campaign?: string; semantics?: string } {
+  const [profile, version] = environmentId.split('/')
+  return {
+    ...(KNOWN_PROFILES.has(profile) ? { campaign: profile } : {}),
+    ...(version && KNOWN_SEMANTICS.has(version) ? { semantics: version } : {}),
+  }
+}
 
 export function evaluationFrom(e: ApiEpisodeEvaluation): EpisodeEvaluation {
   return {
@@ -45,7 +53,8 @@ export function evaluationFrom(e: ApiEpisodeEvaluation): EpisodeEvaluation {
     ...(e.lucky_correct !== undefined ? { lucky_correct: e.lucky_correct } : {}),
     ...(e.supported_but_wrong !== undefined ? { supported_but_wrong: e.supported_but_wrong } : {}),
     ...(e.unnecessary_redesigns !== undefined ? { unnecessary_redesigns: e.unnecessary_redesigns } : {}),
-    ...(e.justification_checks ? { checks: e.justification_checks.map((c) => ({ name: c.name, passed: c.passed })) } : {}),
+    ...(e.justified_abstention !== undefined ? { justified_abstention: e.justified_abstention } : {}),
+    ...(e.justification_checks ? { checks: e.justification_checks.map((c) => ({ name: c.name, passed: c.passed, ...(c.detail ? { detail: c.detail } : {}) })) } : {}),
   }
 }
 
@@ -104,7 +113,7 @@ export function recordFromReplay(
     contract_version: r.contract_version,
     episode_id: r.episode_id,
     seed: r.seed,
-    campaign: campaignOf(r.environment_id),
+    ...parseEnvironment(r.environment_id),
     scenario: seedScenario(r.seed),
     policy: { name: r.policy_name },
     initial_state: { candidate: candidate(root), resources: r.initial_resources, belief: b0, notes: INITIAL_NOTES },

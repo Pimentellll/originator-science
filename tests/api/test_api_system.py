@@ -119,3 +119,8 @@ def test_verdict_does_not_leak_through_public_routes(client):
         body = client.get(path)
         assert body.status_code == 200
         assert '"correct"' not in body.text and '"justified"' not in body.text
+
+
+def test_scenarios_flag_exactly_the_server_default(client):
+    defaults = [s["id"] for s in client.get("/scenarios").json() if s["is_default"]]
+    assert defaults == ["aggregation_kinetic_defect"]

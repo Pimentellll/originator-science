@@ -143,8 +143,10 @@ export interface EpisodeEvaluation {
   lucky_correct?: boolean
   supported_but_wrong?: boolean
   unnecessary_redesigns?: number
-  /** Named evidence checks behind `justified`. */
-  checks?: { name: string; passed: boolean }[]
+  /** True when the decision was an abstention the evidence supports. */
+  justified_abstention?: boolean
+  /** Named evidence checks behind `justified`. `detail` is the evaluator's public-data reading. */
+  checks?: { name: string; passed: boolean; detail?: string }[]
 }
 
 export interface PolicyMeta {
@@ -178,6 +180,8 @@ export interface EpisodeRecord {
   seed: number
   /** Public scientific profile, e.g. RECEPTOR_BINDER_RESCUE. Never the world class. */
   campaign?: string
+  /** Scenario-semantics version recorded with the episode (SEMANTICS_V2, BASELINE_V1). Never the world class. */
+  semantics?: string
   /** Neutral public title. NOT the world class (a generation control, never shown). */
   scenario: { id: string; title: string; summary?: string }
   policy: PolicyMeta
