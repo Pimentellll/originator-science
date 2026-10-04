@@ -1,5 +1,6 @@
 """F0/F2: the gym wrapper wraps the real environment and exposes only public information."""
 
+from dataclasses import replace
 import json
 
 import numpy as np
@@ -9,6 +10,7 @@ gym = pytest.importorskip("gymnasium")
 
 from mirage.core import ActionType, ScientificAction
 from mirage.environments.binder import BinderBioPOMDP, BinderWorldMode
+from mirage.environments.binder.scenarios import BinderScenarioVersion
 from mirage.rl.binder_env import RandomizedBinderPOMDP
 from mirage.rl.gym_env import BinderCampaignEnv
 from mirage.rl.observation import ACTION_ORDER, FEATURE_NAMES, MAX_STEPS, N_ACTIONS, OBS_DIM, action_mask, build_observation
@@ -152,6 +154,41 @@ def test_observation_depends_only_on_public_inputs():
     assert np.array_equal(a, b)
     assert np.array_equal(action_mask(env._state, env._available), env.action_masks())
     assert MAX_STEPS == 40
+
+
+def test_live_observation_is_invariant_to_hidden_state_changes():
+    env = BinderCampaignEnv(seeds=[11])
+    env.reset(options={"episode_seed": 11})
+    obs = env._obs().copy()
+    hidden_mode = next(mode for mode in BinderWorldMode if mode != env.config.world_mode)
+    hidden_version = (
+        BinderScenarioVersion.SEMANTICS_V2
+        if env.env._scenario_version == BinderScenarioVersion.BASELINE_V1
+        else BinderScenarioVersion.BASELINE_V1
+    )
+
+    env.config = replace(env.config, world_mode=hidden_mode, redesign_effect_scale=0.71)
+    env.env.config = replace(env.env.config, world_mode=hidden_mode, redesign_effect_scale=0.71)
+    env.env._world_mode = hidden_mode
+    env.env._scenario_version = hidden_version
+    env.env._rng = np.random.default_rng(12)
+    env.env._decision = ActionType.MODEL_INVALID
+    env.env._hidden_by_candidate = {
+        candidate_id: replace(
+            hypothesis,
+            stability=1.0 - hypothesis.stability,
+            monomer_fraction=1.0 - hypothesis.monomer_fraction,
+            log_kd=hypothesis.log_kd - 1.0,
+            log_koff=hypothesis.log_koff - 1.0,
+            functional_epitope=not hypothesis.functional_epitope,
+            developability_liability=1.0 - hypothesis.developability_liability,
+            assay_valid=not hypothesis.assay_valid,
+            model_valid=not hypothesis.model_valid,
+        )
+        for candidate_id, hypothesis in env.env._hidden_by_candidate.items()
+    }
+
+    assert np.array_equal(obs, env._obs())
 
 
 def test_step_cap_forces_a_decision():
