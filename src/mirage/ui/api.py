@@ -390,7 +390,7 @@ class Sandbox:
             response_value = session.env.call("measure_od", body)
         return response_value.model_dump(mode="json")
 
-    def diagnose(self, session_id: str, body: dict[str, Any]) -> dict[str, Any]:
+    def submit(self, session_id: str, body: dict[str, Any]) -> dict[str, Any]:
         session = self._get_session(session_id)
         with session.lock:
             if session.env.finished:
@@ -398,21 +398,42 @@ class Sandbox:
             response_value = session.env.call("submit_diagnosis", body)
             if not response_value.ok:
                 return response_value.model_dump(mode="json")
-            cfg = session.config
-            audit = audit_measurements(cfg, session.env.events, self._dset)
-            scores = score_episode(cfg, session.env.events, session.env.diagnosis, audit)
             return {
-                "episode": cfg.model_dump(mode="json"),
                 "events": [event.model_dump(mode="json") for event in session.env.events],
                 "diagnosis": session.env.diagnosis.model_dump(mode="json"),
                 "status": session.env.status,
                 "passive": [
                     measurement.model_dump(mode="json") for measurement in session.env.passive
                 ],
+            }
+
+    def verdict(self, session_id: str) -> dict[str, Any]:
+        session = self._get_session(session_id)
+        with session.lock:
+            if session.env.status != "DIAGNOSED":
+                raise APIError(409, "diagnose the sandbox session first")
+            cfg = session.config
+            audit = audit_measurements(cfg, session.env.events, self._dset)
+            scores = score_episode(cfg, session.env.events, session.env.diagnosis, audit)
+            return {
+                "episode": cfg.model_dump(mode="json"),
                 "audit": [item.model_dump(mode="json") for item in audit],
                 "scores": scores.model_dump(mode="json"),
                 "reveal": _reveal(cfg),
             }
+
+    def diagnose(self, session_id: str, body: dict[str, Any]) -> dict[str, Any]:
+        public = self.submit(session_id, body)
+        if public.get("ok") is False:
+            return public
+        verdict = self.verdict(session_id)
+        return {
+            "episode": verdict["episode"],
+            **public,
+            "audit": verdict["audit"],
+            "scores": verdict["scores"],
+            "reveal": verdict["reveal"],
+        }
 
     def autoplay(self, session_id: str, body: dict[str, Any]) -> dict[str, Any]:
         session = self._get_session(session_id)
