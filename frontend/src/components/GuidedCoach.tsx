@@ -12,7 +12,8 @@ import { actionLabel } from '../lib/actions'
 export function GuidedCoach({ onFocus }: { onFocus: (f: Focus | null) => void }) {
   const s = useSession()
   const beats = useMemo(() => buildBeats(s.frames), [s.frames])
-  const [idx, setIdx] = useState(0)
+  // Mounting mid-campaign (e.g. switching layout) resumes at the current step instead of rewinding.
+  const [idx, setIdx] = useState(() => beats.reduce((at, b, i) => (b.cursor <= s.cursor ? i : at), 0))
   const pending = useRef<number | null>(null)
 
   // A run just appended beats: jump to the first new one.
