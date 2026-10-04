@@ -27,6 +27,9 @@ class _Request(BaseModel):
 class ResetRequest(_Request):
     seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
     policy_name: str | None = Field(default=None, min_length=1, max_length=128)
+    # Orchestration metadata chosen by the human running the demo; never policy input.
+    scenario: str | None = Field(default=None, min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_]+$")
+    scenario_version: str | None = Field(default=None, min_length=1, max_length=64, pattern=r"^[A-Za-z0-9_]+$")
 
 
 class ActionRequest(_Request):

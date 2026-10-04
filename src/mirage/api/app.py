@@ -26,14 +26,35 @@ from mirage.api.dto import (
     StepDTO,
 )
 from mirage.api.growth import create_growth_router
+from mirage.api.meta import (
+    CheckDTO,
+    DiagnosticsDTO,
+    PolicyInfoDTO,
+    ScenarioInfoDTO,
+    SystemCatalogue,
+    VersionDTO,
+    git_info,
+    version_info,
+)
 from mirage.api.service import EpisodeService, Forbidden, NotFound, ServiceError
 from mirage.evaluation.campaign.aggregate import BenchmarkSummary, EvaluationStore
 from mirage.provenance import find_privileged_fields
+from mirage.provenance.recorder import CONTRACT_VERSION
 from mirage.provenance.store import safe_id
 
 API_VERSION = "mirage.api/1"
 TOKEN_HEADER = "X-Mirage-Eval-Token"
 _BENCHMARK_PREFIX = "/benchmarks"
+
+# The per-episode verdict is served under /benchmarks (the leak guard is not applied there, and
+# it forbids the keys `correct`/`justified` everywhere else), so it is filtered by allow-list.
+_VERDICT_FIELDS = (
+    "evaluator_version", "decision", "correct", "justified", "evidence_supported", "lucky_correct",
+    "supported_but_wrong", "justified_abstention", "abstention_quality", "unnecessary_redesigns",
+    "correct_redesigns", "rescued", "spr_health_lost", "premature_aggregated_spr", "spr_damage_avoided",
+    "budget_spent", "sample_used", "action_count", "measurement_count", "redesign_count",
+    "terminal_posterior_entropy", "decision_confidence",
+)
 
 
 def create_app(
@@ -43,10 +64,17 @@ def create_app(
     aggregate_token: str | None = None,
     cors_origins: Sequence[str] = (),
     growth_results_root: Path | None = None,
+    catalogue: SystemCatalogue | None = None,
 ) -> FastAPI:
     """Build the API. Aggregate benchmark results are served only when both an evaluation
     store and an access token are configured and the caller presents that token."""
     app = FastAPI(title="MIRAGE public API", version=API_VERSION)
+    catalogue = catalogue or SystemCatalogue(
+        policies=tuple(
+            PolicyInfoDTO(name=n, display_name=n, kind="unspecified", available=True, description="")
+            for n in service.policy_names
+        )
+    )
     if cors_origins:
         app.add_middleware(CORSMiddleware, allow_origins=list(cors_origins), allow_methods=["GET", "POST"], allow_headers=["*"])
     if growth_results_root is not None:
@@ -82,10 +110,51 @@ def create_app(
     def health() -> HealthDTO:
         return HealthDTO(status="ok", version=API_VERSION)
 
+    @app.get("/version", response_model=VersionDTO)
+    def version() -> VersionDTO:
+        return version_info(
+            api_version=API_VERSION,
+            contract_version=CONTRACT_VERSION,
+            semantics_default=catalogue.semantics_default,
+            semantics_available=catalogue.semantics_available,
+        )
+
+    @app.get("/policies", response_model=tuple[PolicyInfoDTO, ...])
+    def policies() -> tuple[PolicyInfoDTO, ...]:
+        return catalogue.policies
+
+    @app.get("/scenarios", response_model=tuple[ScenarioInfoDTO, ...])
+    def scenarios() -> tuple[ScenarioInfoDTO, ...]:
+        """Human-facing demo catalogue (orchestration metadata, never policy input)."""
+        return catalogue.scenarios
+
+    @app.get("/diagnostics", response_model=DiagnosticsDTO)
+    def diagnostics(refresh: bool = False) -> DiagnosticsDTO:
+        checks = [
+            CheckDTO(name="api", status="pass", detail="serving requests"),
+            CheckDTO(
+                name="policies",
+                status="pass" if any(p.available for p in catalogue.policies) else "fail",
+                detail=f"{sum(p.available for p in catalogue.policies)} available",
+            ),
+        ]
+        if catalogue.selfcheck is not None:
+            checks.extend(catalogue.selfcheck.get(refresh=refresh))
+        else:
+            checks.append(CheckDTO(name="selfcheck", status="skip", detail="no self-check configured"))
+        sha, _, _ = git_info()
+        return DiagnosticsDTO(
+            status="ok" if all(c.status != "fail" for c in checks) else "degraded",
+            checks=tuple(checks),
+            git_sha=sha,
+            scenario_semantics_default=catalogue.semantics_default,
+            note="System self-checks only. No simulator or evaluator state is read or exposed here.",
+        )
+
     @app.post("/episodes", response_model=PublicStateDTO, status_code=201)
     def reset_episode(body: ResetRequest | None = None) -> PublicStateDTO:
         body = body or ResetRequest()
-        return service.create(body.seed, body.policy_name)
+        return service.create(body.seed, body.policy_name, body.scenario, body.scenario_version)
 
     @app.get("/episodes/{episode_id}", response_model=PublicStateDTO)
     def read_state(episode_id: str) -> PublicStateDTO:
@@ -118,6 +187,22 @@ def create_app(
         _authorised(x_mirage_eval_token)
         assert evaluation_store is not None
         return evaluation_store.list_summaries()
+
+    @app.get("/benchmarks/episodes/{episode_id}")
+    def read_episode_verdict(episode_id: str, x_mirage_eval_token: str | None = Header(default=None)):
+        """Token-gated, terminal-only correct-vs-justified verdict for one episode."""
+        if not aggregate_token:
+            raise NotFound("evaluation is not enabled")
+        if x_mirage_eval_token is None or not hmac.compare_digest(x_mirage_eval_token.encode(), aggregate_token.encode()):
+            raise Forbidden("not authorised")
+        raw = service.verdict(_checked(episode_id))
+        out = {k: raw[k] for k in _VERDICT_FIELDS if k in raw}
+        out["episode_id"] = episode_id
+        out["justification_checks"] = [
+            {"name": c["name"], "passed": c["passed"], "detail": c.get("detail", "")}
+            for c in raw.get("justification_checks", ())
+        ]
+        return out
 
     @app.get("/benchmarks/{benchmark_id}", response_model=BenchmarkSummary)
     def read_benchmark(benchmark_id: str, x_mirage_eval_token: str | None = Header(default=None)):
