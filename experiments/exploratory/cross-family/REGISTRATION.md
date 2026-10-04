@@ -156,3 +156,9 @@ C1, C2 and the frozen baselines on the same matrix:
 ## Deviations
 
 None at registration time. Dated entries are appended below; the text above is not edited.
+
+### 2026-10-04: Y2 (Kimi K3) not run
+
+The Kimi K3 API was rate limited during the session, and no usable `MOONSHOT_API_KEY` was
+supplied before the scored Y1 run finished. No Kimi call was made. Y2 is recorded as not run and
+was not replaced by another model. Y1 ran exactly as registered.
