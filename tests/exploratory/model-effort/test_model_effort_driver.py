@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import importlib
+import importlib.util
 import json
 import socket
 import sys
@@ -13,8 +13,22 @@ from anthropic.types import Message
 
 ROOT = Path(__file__).resolve().parents[3]
 DRIVER_DIR = ROOT / "experiments" / "exploratory" / "model-effort"
-sys.path.insert(0, str(DRIVER_DIR))
-driver = importlib.import_module("driver")
+
+
+def _load_module(name: str, path: Path):
+    module = sys.modules.get(name)
+    if module is not None:
+        return module
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+driver = _load_module("exp_model_effort_driver", DRIVER_DIR / "driver.py")
 
 
 @pytest.fixture(autouse=True)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import importlib
+import importlib.util
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -10,8 +10,16 @@ from types import SimpleNamespace
 import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(ROOT / "experiments" / "exploratory" / "model-effort"))
-analyze = importlib.import_module("analyze")
+ANALYZE_PATH = ROOT / "experiments" / "exploratory" / "model-effort" / "analyze.py"
+ANALYZE_MODULE = "exp_model_effort_analyze"
+analyze = sys.modules.get(ANALYZE_MODULE)
+if analyze is None:
+    spec = importlib.util.spec_from_file_location(ANALYZE_MODULE, ANALYZE_PATH)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load {ANALYZE_PATH}")
+    analyze = importlib.util.module_from_spec(spec)
+    sys.modules[ANALYZE_MODULE] = analyze
+    spec.loader.exec_module(analyze)
 
 
 def _ep(status="DIAGNOSED", correct=True, control=True):
