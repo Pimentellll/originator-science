@@ -39,6 +39,8 @@ class UpdateInfo:
     log_evidence: float  # log of the predictive probability of the evidence under the belief
     rejuvenated: bool = False  # MCMC moves applied after resampling
     move_acceptance: float | None = None  # mean Metropolis acceptance over the moves
+    stages: int = 1  # tempering stages used (1 = a single reweight)
+    max_weight: float = 0.0  # largest normalised weight after reweighting, before any resampling
 
 
 def binary_entropy(p: np.ndarray) -> np.ndarray:
@@ -71,6 +73,7 @@ class ParticleBelief:
         prior: Prior | None = None,
         rejuvenation_sweeps: int = 2,
         move_scale: float = 0.6,
+        tempering: bool = True,
     ) -> None:
         particles = np.array(particles, dtype=float)
         if particles.ndim != 2 or particles.shape[1] != schema.dim or particles.shape[0] < 1:
@@ -95,6 +98,7 @@ class ParticleBelief:
         self._evidence_complete = True
         self.rejuvenation_sweeps = rejuvenation_sweeps
         self.move_scale = move_scale
+        self.tempering = tempering
         if log_weights is None:
             self._log_w = np.full(n, -np.log(n))
         else:
@@ -173,10 +177,11 @@ class ParticleBelief:
             raise DegenerateBeliefError("evidence has zero likelihood under every particle")
         self._log_w = joint - log_evidence
         ess_weighted = self.effective_sample_size
+        wmax = float(np.exp(self._log_w.max()))
         do_resample = (ess_weighted < self.ess_threshold * self.n) if resample is None else resample
         if do_resample:
             self.resample()
-        return UpdateInfo(ess_before, ess_weighted, self.effective_sample_size, do_resample, log_evidence)
+        return UpdateInfo(ess_before, ess_weighted, self.effective_sample_size, do_resample, log_evidence, max_weight=float(np.exp(self._log_w.max()) if not do_resample else wmax))
 
     def observe(
         self,
@@ -191,12 +196,83 @@ class ParticleBelief:
         After a resample, MCMC moves (resample-move) restore particle diversity
         when the prior density and full evidence history are available.
         """
-        info = self._reweight(model.log_likelihood(observation, self.particles, action), resample)
+        ll = model.log_likelihood(observation, self.particles, action)
+        if self.tempering and resample is None and self.can_rejuvenate:
+            info = self._tempered_update(model, action, observation, ll)
+            self._evidence.append((model, action, observation))
+            return info
+        info = self._reweight(ll, resample)
         self._evidence.append((model, action, observation))
         if info.resampled and self.can_rejuvenate:
             acceptance = self._rejuvenate()
             info = replace(info, rejuvenated=True, move_acceptance=acceptance)
         return info
+
+    def _tempered_update(
+        self,
+        model: ParticlePredictiveModel,
+        action: ScientificAction,
+        observation: ScientificObservation,
+        ll: np.ndarray,
+    ) -> UpdateInfo:
+        """Adaptive-tempering SMC step: introduce p(y | z, a) as p^tau, tau: 0 -> 1.
+
+        Each increment is the largest that keeps ESS >= ess_threshold * n, so the weights
+        never collapse onto a few ancestors; after every increment that triggers (or ends
+        in) low ESS the particles are resampled and moved by MCMC that leaves
+        prior * history * p^tau invariant. Plain one-shot reweighting followed by resampling
+        is the special case of a single stage and degenerates when the likelihood is sharp
+        relative to the belief (a handful of ancestors then fix the mixture over mechanisms).
+        """
+        n = self.n
+        if not np.isfinite(np.max(ll)):
+            raise DegenerateBeliefError("evidence has zero likelihood under every particle")
+        ess_before = self.effective_sample_size
+        floor = self.ess_threshold * n
+        tau, log_z, stages, resampled, accept_sum, accept_n = 0.0, 0.0, 0, False, 0.0, 0
+        max_weight = 0.0
+        while tau < 1.0:
+            stages += 1
+            # safety valve: after 200 stages take whatever is left in one step
+            delta = (1.0 - tau) if stages >= 200 else self._next_exponent(ll, 1.0 - tau, floor)
+            base = logsumexp(self._log_w)
+            joint = self._log_w + np.where(np.isfinite(ll), delta * ll, -np.inf)
+            log_z += logsumexp(joint) - base
+            self._log_w = joint - logsumexp(joint)
+            tau = 1.0 if tau + delta >= 1.0 - 1e-12 else tau + delta
+            max_weight = max(max_weight, float(np.exp(self._log_w.max())))
+            if self.effective_sample_size < floor or (tau < 1.0):
+                self.resample()
+                resampled = True
+                accept_sum += self._rejuvenate(extra=(model, action, observation, tau))
+                accept_n += 1
+                ll = model.log_likelihood(observation, self._particles, action)
+
+        return UpdateInfo(
+            ess_before, self.effective_sample_size, self.effective_sample_size, resampled, float(log_z),
+            rejuvenated=accept_n > 0, move_acceptance=(accept_sum / accept_n) if accept_n else None,
+            stages=stages, max_weight=max_weight,
+        )
+
+    def _next_exponent(self, ll: np.ndarray, remaining: float, floor: float) -> float:
+        """Largest delta in (0, remaining] whose reweighting keeps ESS >= floor (bisection)."""
+        finite = np.where(np.isfinite(ll), ll, -np.inf)
+
+        def ess(delta: float) -> float:
+            lw = self._log_w + np.where(np.isfinite(finite), delta * finite, -np.inf)
+            w = np.exp(lw - np.max(lw))
+            return float(w.sum() ** 2 / np.sum(w**2))
+
+        if ess(remaining) >= floor:
+            return remaining
+        lo, hi = 0.0, remaining
+        for _ in range(50):
+            mid = 0.5 * (lo + hi)
+            if ess(mid) >= floor:
+                lo = mid
+            else:
+                hi = mid
+        return max(lo, 1e-9)
 
     @property
     def evidence(self) -> tuple[tuple[ScientificAction, ScientificObservation], ...]:
@@ -212,23 +288,27 @@ class ParticleBelief:
     def can_rejuvenate(self) -> bool:
         return self._prior is not None and self._evidence_complete and self.rejuvenation_sweeps > 0
 
-    def _log_target(self, z: np.ndarray) -> np.ndarray:
-        """log prior(z) + sum_t log p(y_t | z, a_t), up to a constant."""
+    def _log_target(self, z: np.ndarray, extra=None) -> np.ndarray:
+        """log prior(z) + sum_t log p(y_t | z, a_t) (+ tau * log p(y_new | z, a_new)), up to a constant."""
         lp = np.asarray(self._prior.log_prob(z), dtype=float)
         ok = np.isfinite(lp)
         if ok.any():
             zz = z[ok]
             lp[ok] += sum(m.log_likelihood(y, zz, a) for m, a, y in self._evidence)
+            if extra is not None:
+                m, a, y, tau = extra
+                new = m.log_likelihood(y, zz, a)
+                lp[ok] += np.where(np.isfinite(new), tau * new, -np.inf)
         return lp
 
-    def _rejuvenate(self) -> float:
+    def _rejuvenate(self, extra=None) -> float:
         """Metropolis-within-Gibbs sweeps over each factor (symmetric proposals), run
         on every particle at once. Each sweep leaves prior * likelihood-history
         invariant, so it adds diversity without biasing the posterior."""
         z = self._particles.copy()
         scale = np.maximum(z.std(axis=0), 1e-3 * (np.abs(z.mean(axis=0)) + 1.0))
         binary = {self.schema.index(f) for f in self.schema.binary_factors}
-        cur = self._log_target(z)
+        cur = self._log_target(z, extra)
         accepted = total = 0
         for _ in range(self.rejuvenation_sweeps):
             for c in range(self.schema.dim):
@@ -238,7 +318,7 @@ class ParticleBelief:
                     prop[flip, c] = 1.0 - prop[flip, c]
                 else:
                     prop[:, c] += self.move_scale * scale[c] * self._rng.normal(size=self.n)
-                new = self._log_target(prop)
+                new = self._log_target(prop, extra)
                 with np.errstate(invalid="ignore"):
                     accept = np.log(self._rng.random(self.n)) < new - cur
                 accept &= np.isfinite(new)
