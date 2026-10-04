@@ -3,9 +3,11 @@ import type { ReactNode } from 'react'
 import type { EpisodeSession, ScientificTransport } from '../lib/transport'
 import { SessionContext } from './sessionContext'
 import type { SessionApi } from './sessionContext'
-import type { Phase } from './sessionContext'
+import type { ManualChoice, Phase } from './sessionContext'
+import { launchFromSearch } from './launch'
 import { projectEpisode } from '../lib/project'
-import type { EpisodeSummary, PolicyComparison } from '../lib/types'
+import type { Catalogue, EpisodeSummary, LaunchConfig, PolicyComparison } from '../lib/types'
+import type { ActionType } from '../lib/wire'
 
 /** Short pause so RUN reads as an experiment being executed, not a page flip. */
 const RUN_LATENCY_MS = 520
@@ -13,6 +15,10 @@ const PLAY_INTERVAL_MS = 1700
 
 export function SessionProvider({ transport, children }: { transport: ScientificTransport; children: ReactNode }) {
   const [episodes, setEpisodes] = useState<EpisodeSummary[]>([])
+  const [launch, setLaunch] = useState<LaunchConfig>(() => launchFromSearch(typeof location === 'undefined' ? '' : location.search))
+  const [catalogue, setCatalogue] = useState<Catalogue | null>(null)
+  const [catalogueState, setCatalogueState] = useState<'loading' | 'ready' | 'unavailable'>('loading')
+  const [manualLog, setManualLog] = useState<ManualChoice[]>([])
   const [scenarioId, setScenarioId] = useState<string | null>(null)
   const [policyName, setPolicyName] = useState<string | null>(null)
   const [session, setSession] = useState<EpisodeSession | null>(null)
@@ -35,26 +41,47 @@ export function SessionProvider({ transport, children }: { transport: Scientific
 
   useEffect(() => {
     let alive = true
+    if (!transport.catalogue) return
+    transport
+      .catalogue()
+      .then((c) => {
+        if (!alive) return
+        setCatalogue(c)
+        setCatalogueState('ready')
+      })
+      .catch(() => alive && setCatalogueState('unavailable'))
+    return () => {
+      alive = false
+    }
+  }, [transport])
+
+  useEffect(() => {
+    let alive = true
     transport
       .listEpisodes()
       .then((eps) => {
         if (!alive) return
         if (eps.length === 0) throw new Error('Backend returned no episodes')
         setEpisodes(eps)
-        setScenarioId(eps[0].scenario.id)
-        setPolicyName(eps[0].policy.name)
+        // A seed from the URL / launcher wins over the catalogue's first entry.
+        const pick = eps.find((e) => e.seed === launch.seed && (!launch.policy || e.policy.name === launch.policy)) ?? eps.find((e) => e.seed === launch.seed) ?? eps[0]
+        setScenarioId(pick.scenario.id)
+        setPolicyName(pick.policy.name)
       })
       .catch((e) => alive && fail(e))
     return () => {
       alive = false
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the URL choice is read once, at load
   }, [transport, fail])
+
+  const options = useMemo(() => ({ scenario: launch.scenario, semantics: launch.semantics }), [launch.scenario, launch.semantics])
 
   useEffect(() => {
     if (!scenarioId) return
     const token = ++openToken.current
     transport
-      .openEpisode(scenarioId, policyName ?? undefined)
+      .openEpisode(scenarioId, policyName ?? undefined, options)
       .then((s) => {
         if (token !== openToken.current) return
         setSession(s)
@@ -62,22 +89,23 @@ export function SessionProvider({ transport, children }: { transport: Scientific
         setSelection(null)
         setPlaying(false)
         setError(null)
+        setManualLog([])
         setPhase('ready')
       })
       .catch((e) => token === openToken.current && fail(e))
-  }, [transport, scenarioId, policyName, restart, fail])
+  }, [transport, scenarioId, policyName, restart, options, fail])
 
   useEffect(() => {
     if (!scenarioId) return
     let alive = true
     transport
-      .getPolicyComparison(scenarioId)
+      .getPolicyComparison(scenarioId, options)
       .then((c) => alive && setCmpState({ id: scenarioId, value: c }))
       .catch((e) => alive && setCmpState({ id: scenarioId, value: null, error: e instanceof Error ? e.message : String(e) }))
     return () => {
       alive = false
     }
-  }, [transport, scenarioId])
+  }, [transport, scenarioId, options])
 
   const cmpHere = cmpState && cmpState.id === scenarioId ? cmpState : null
   const comparison = cmpHere ? cmpHere.value : undefined
@@ -109,6 +137,29 @@ export function SessionProvider({ transport, children }: { transport: Scientific
     }
   }, [session, phase, cursor, frames.length, transport, fail])
 
+  const act = useCallback(
+    (action: ActionType) => {
+      if (!session || phase !== 'ready' || !transport.act || cursor < frames.length - 1) return
+      const recommended = frames[frames.length - 1]?.recommendation?.action_type ?? null
+      setPhase('running')
+      transport
+        .act(session.session_id, action)
+        .then((s) => {
+          setSession(s)
+          setCursor(frames.length)
+          setManualLog((l) => [...l, { step: frames.length, chosen: action, recommended }])
+          setPhase('ready')
+        })
+        .catch(fail)
+    },
+    [session, phase, transport, cursor, frames, fail],
+  )
+
+  const scenarioEntry = useMemo(() => {
+    const list = catalogue?.scenarios ?? []
+    return list.find((x) => x.id === launch.scenario || x.cli_name === launch.scenario) ?? (launch.scenario === null ? (list.find((x) => x.is_default) ?? null) : null)
+  }, [catalogue, launch.scenario])
+
   // Autoplay stops by itself when nothing can run; no state write needed.
   const isPlaying = playing && canRun
   useEffect(() => {
@@ -136,7 +187,23 @@ export function SessionProvider({ transport, children }: { transport: Scientific
       canRun,
       comparison,
       comparisonError,
+      launch,
+      catalogue,
+      catalogueState: transport.catalogue ? catalogueState : 'unavailable',
+      scenarioEntry,
+      manualLog,
+      launchCampaign: (cfg) => {
+        const next = { ...launch, ...cfg }
+        setLaunch(next)
+        setScenarioId(`seed-${next.seed}`)
+        if (next.policy) setPolicyName(next.policy)
+        else setPolicyName((p) => p ?? episodes[0]?.policy.name ?? null)
+        setRestart((n) => n + 1)
+      },
+      act,
+      endGuided: () => setLaunch((l) => ({ ...l, guided: false })),
       startCampaign: (seed) => {
+        setLaunch((l) => ({ ...l, seed }))
         setScenarioId(`seed-${seed}`)
         setPolicyName((p) => p ?? episodes[0]?.policy.name ?? null)
         setRestart((n) => n + 1)
@@ -162,7 +229,7 @@ export function SessionProvider({ transport, children }: { transport: Scientific
       },
       select: setSelection,
     }),
-    [transport, episodes, scenarioId, policyName, session, frames, cursor, selection, phase, error, isPlaying, atEnd, canRun, comparison, comparisonError, run],
+    [transport, episodes, scenarioId, policyName, session, frames, cursor, selection, phase, error, isPlaying, atEnd, canRun, comparison, comparisonError, run, launch, catalogue, catalogueState, scenarioEntry, manualLog, act],
   )
 
   return <SessionContext.Provider value={api}>{children}</SessionContext.Provider>

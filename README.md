@@ -1,5 +1,42 @@
 # MIRAGE
 
+## Quick start
+
+```bash
+git clone https://github.com/Pimentellll/originator-science.git
+cd originator-science
+./mirage demo
+```
+
+That installs what is missing (first run: a few minutes), starts the API and the cockpit, waits until both are healthy and
+opens your browser at `http://localhost:5173/?transport=live`. Click **START GUIDED DEMO**. `Ctrl+C` stops everything.
+
+Then check your setup and the code:
+
+```bash
+./mirage doctor          # environment diagnosis with exact fixes; exit 0 = ready
+./mirage test --quick    # about 10 seconds: contracts, trust boundary, API, E2E over a real socket, frontend checks
+```
+
+**Platforms:** Ubuntu 24.04 and WSL2 Ubuntu (primary), other Linux, macOS (secondary). Native Windows is not supported:
+use WSL2 (`wsl --install -d Ubuntu-24.04`) and run everything in the Ubuntu terminal.
+**You need:** `git`, any `python3`, and Node 20.19+ / 22.12+ ([how](docs/TROUBLESHOOTING.md#node-is-missing-or-too-old)). `./mirage` installs
+`uv`, the virtualenv and every dependency; it never uses `sudo` and never touches global Python packages.
+
+Manual fallback (no `./mirage`):
+
+```bash
+python3 -m venv .venv && .venv/bin/python -m pip install -e ".[dev,rl]"
+(cd frontend && npm ci)
+PYTHONPATH=src .venv/bin/python scripts/serve_api.py &              # API on :8000
+(cd frontend && MIRAGE_API_PROXY=http://127.0.0.1:8000 npm run dev) # http://localhost:5173/?transport=live
+```
+
+Guides: [developer setup](docs/DEVELOPER_SETUP.md) · [demo guide](docs/DEMO_GUIDE.md) · [troubleshooting](docs/TROUBLESHOOTING.md).
+The science and the architecture follow below; you do not need them to run the project.
+
+---
+
 **An autonomous causal experimental-planning system for diagnosing and rescuing failed de novo
 miniprotein binder campaigns.**
 
@@ -211,35 +248,31 @@ set equals its primary mechanisms in 300/300 worlds. `tests/binder/test_scenario
 
 ## 7. Run it
 
-Requires Python ≥ 3.11 and a current Node for the frontend. Python dependencies are pinned in `pyproject.toml`;
-Gym/PPO needs the `rl` extra.
-
-```bash
-uv venv --python 3.11 .venv
-uv pip install --python .venv/bin/python -e ".[dev]"          # use ".[dev,rl]" for Gym / PPO
-.venv/bin/python -m pytest -q
-```
+The one-command path is the [Quick start](#quick-start). Everything it runs, by hand:
 
 ```bash
 # 1. deterministic integrated campaign (controller -> provenance -> evaluation -> replay), no server
-PYTHONPATH=src .venv/bin/python scripts/h0_smoke.py
+./mirage smoke       # or: PYTHONPATH=src .venv/bin/python scripts/h0_smoke.py
 # prints: MEASURE_SEC -> REDESIGN_SOLUBILITY -> MEASURE_SPR -> REJECT
 #         events=4 replay_frames=4
 #         scenario=COMPOUND_FAILURE regime=path_dependent justified=True
 
-# 2. public API (terminal 1) and cockpit (terminal 2)
-PYTHONPATH=src .venv/bin/python scripts/serve_api.py --records .local/mirage-api
-cd frontend && npm ci && VITE_MIRAGE_TRANSPORT=live npm run dev      # http://localhost:5173/?transport=live
+# 2. public API and cockpit
+./mirage demo                                   # both, with a browser
+./mirage dev                                    # both, [API]/[WEB] logs, hot reload
+./mirage demo --scenario ASSAY_FAILURE --scenario-version BASELINE_V1 --seed 4 --policy greedy_eig
 ```
 
-The API registers `random`, `fixed_pipeline` and `rescue_planner`. `greedy_eig` is **not** served (`POST /episodes`
-returns 422 `unknown policy`; the cockpit reports it as NOT RUN, and `VITE_MIRAGE_POLICIES` should list only served
-policies). `--scenario SINGLE_FAILURE|COMPOUND_FAILURE|ASSAY_FAILURE|MODEL_FAILURE|MIXED` selects the backend world;
-it is never sent to the browser. Aggregate `/benchmarks*` routes return 404 unless an evaluation store and token are
-configured, which `serve_api.py` does not do.
+The API serves `random`, `fixed_pipeline`, `rescue_planner` and `greedy_eig`; `GET /policies` lists them and marks Lookahead and
+PPO **NOT AVAILABLE** (they are not wired into the live API). New live demonstrations use `SEMANTICS_V2`; **Baseline V1 stays
+selectable** (`--scenario-version BASELINE_V1`) and its frozen results are untouched. The scenario is orchestration metadata for
+the person running the demo: it is never sent to a policy and never appears in the public record (only the semantics version,
+the seed, the policy and the git SHA do). `GET /version` and `GET /diagnostics` (and the cockpit's **System check** tab) make a
+screenshot reproducible. The per-episode correct-vs-justified verdict is served only after the decision, behind a per-run token
+that `./mirage` hands to the API and the Vite proxy through the environment.
 
 Offline cockpit with mock data (watermarked DEV / MOCK, not results): `cd frontend && npm run dev:mock`.
-Frontend gates: `npm run typecheck && npm run lint && npm test && npm run build`.
+Frontend gates: `cd frontend && npm run typecheck && npm run lint && npm test && npm run build`, or `./mirage test`.
 
 Growth benchmark views (Results, Episode, Lab, Method) in the same app: start the API with
 `MIRAGE_EVAL_TOKEN=<token> PYTHONPATH=src .venv/bin/python scripts/serve_api.py --records .local/mirage-api --growth-results experiments/results`

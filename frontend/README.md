@@ -8,8 +8,11 @@ same-seed policy comparison, and the benchmark lab. It never receives simulator 
 > EGFR-inspired receptor-binding campaign. Semi-mechanistic synthetic benchmark: not a digital twin of any
 > biology, not a validated simulator, and not a therapeutic discovery tool.
 
+Run the whole stack with `./mirage demo` from the repository root (it starts the API, points this app's proxy at it and opens
+the browser). Run only the frontend by hand:
+
 ```bash
-npm install
+npm ci
 npm run dev            # LIVE is the default transport (needs the API; see below)
 npm run dev:mock       # DEV / MOCK data, no backend
 npm run typecheck && npm run lint && npm test && npm run build
@@ -29,20 +32,20 @@ npm run typecheck && npm run lint && npm test && npm run build
 | scrub / stored replay | the replay record (also `openStored(episodeId)`) |
 | same-seed comparison | one `reset -> recommend -> act -> replay` loop per configured policy, on the same seed |
 | aggregate results (opt-in) | `GET /benchmarks`, `GET /benchmarks/{id}` (token-gated; `VITE_MIRAGE_BENCHMARKS=1`) |
-| per-episode verdict (opt-in, **provisional**) | `GET /benchmarks/episodes/{id}` (token-gated; `VITE_MIRAGE_EVALUATION=1`) |
+| per-episode verdict (opt-in; `./mirage demo` enables it) | `GET /benchmarks/episodes/{id}` (token-gated; `VITE_MIRAGE_EVALUATION=1`) |
 
-Availability is **configured, never probed**: `VITE_MIRAGE_POLICIES` lists the policies the server registers
-(default `rescue_planner,greedy_eig,fixed_pipeline,random`), `VITE_MIRAGE_SEEDS` the seeds (default `9`). Every
-other policy (Lookahead, PPO) is shown as **NOT RUN** without a request. The eval token is attached by the dev
+Policy availability comes from `GET /policies` (only entries flagged `available`); `VITE_MIRAGE_POLICIES` (default
+`rescue_planner,greedy_eig,fixed_pipeline,random`) is the fallback for servers without that route, `VITE_MIRAGE_SEEDS` the
+seeds (default `9`). Every other policy (Lookahead, PPO) is shown as **NOT RUN** / **NOT AVAILABLE** without a request. The eval token is attached by the dev
 proxy from `MIRAGE_EVAL_TOKEN`; it is never a `VITE_` variable and never reaches the bundle.
 
 ### What the backend does not give us yet
 
-- **Server entry point.** `scripts/serve_api.py` serves the public API. `make_receptor_binder_service` registers `random`, `fixed_pipeline` and `rescue_planner`; `greedy_eig` is **not** served (the API answers 422 `unknown policy`, which the cockpit reports as NOT RUN, so set `VITE_MIRAGE_POLICIES` to the served list). `dev/h0_harness.py` assembles an app that additionally registers `greedy_eig` and a provisional verdict route for smoke testing.
-- **No per-episode verdict route.** The public leak guard forbids the keys `correct` / `justified` on every
-  route except `/benchmarks*`, so a verdict can only be served there. The harness provides
-  `/benchmarks/episodes/{id}` to exercise the UI; H0 itself has none. Without it the terminal panel says
-  "no evaluator verdict attached".
+- **Server entry point.** `scripts/serve_api.py` (normally started by `./mirage demo`) serves the public API. `make_receptor_binder_service` registers `random`, `fixed_pipeline`, `rescue_planner` and `greedy_eig`. `GET /policies` is the source of truth for what is offered (Lookahead and PPO are listed as NOT AVAILABLE); `VITE_MIRAGE_POLICIES` is only a fallback for servers without that route. `GET /scenarios`, `/version` and `/diagnostics` feed the launcher and the System check tab.
+- **Per-episode verdict route.** The public leak guard forbids the keys `correct` / `justified` on every
+  route except `/benchmarks*`, so the verdict is served at the token-gated `/benchmarks/episodes/{id}`, only after the
+  episode is terminal, filtered by an allow-list. `./mirage demo` enables it with a throwaway per-run token (API and Vite proxy
+  only); without it the terminal panel says "no evaluator verdict attached".
 - **Recommendation is the action only.** No score, confidence, EIG or cost estimate, so the Next Action panel
   says so instead of showing placeholders.
 - **No FailureLocalisation or JustificationCertificate from the backend.** Both exist in `mirage.belief` but the controller and API do not produce them. The three groups show `group p —` and the threshold
@@ -117,3 +120,16 @@ dev/            h0_harness.py (backend assembly for smoke) · smoke.mjs (browser
 ```
 
 Designed for 16:9 desktop (>= 1440 px). There is no 3D viewer: the public contract carries lineage metadata only.
+
+## Demo experience
+
+| Route (hash) | What it is |
+| --- | --- |
+| `#/launch` | **Start** page, the landing page for `?transport=live`: five scenarios, the policies the API really serves (`GET /policies`), seed, semantics version, AUTO POLICY / MANUAL SCIENTIST, START CAMPAIGN / GUIDED DEMO |
+| `#/cockpit` | The campaign. With `?guided=1` (or GUIDED DEMO) a coach narrates the run; with MANUAL SCIENTIST you pick the actions and see MIRAGE RECOMMENDS |
+| `#/diagnostics` | System check: API, environment, policies, versions and git SHA, semantics, smoke, replay, leak guard (public/system routes only) |
+
+URL parameters read at load: `seed`, `scenario`, `semantics`, `policy`, `control=manual`, `guided=1`. The guided narration
+(`src/lib/guided.ts`) and the five display verdicts (`src/lib/verdict.ts`) are pure functions of the public record and the
+post-decision evaluator verdict, with unit tests. Scenario identity is orchestration metadata: it is masked in guided and manual
+runs until the decision, and never read from the record.

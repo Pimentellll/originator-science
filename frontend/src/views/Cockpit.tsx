@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useSession } from '../state/sessionContext'
 import type { Route } from '../state/route'
 import { CandidatePanel } from '../components/CandidatePanel'
@@ -8,6 +8,9 @@ import { ActionPanel } from '../components/ActionPanel'
 import { JustificationPanel } from '../components/JustificationPanel'
 import { ResourcePanel } from '../components/ResourcePanel'
 import { Timeline } from '../components/Timeline'
+import { GuidedCoach } from '../components/GuidedCoach'
+import { PathStrip } from '../components/PathStrip'
+import type { Focus } from '../lib/guided'
 
 export function LoadState({ what }: { what: string }) {
   const s = useSession()
@@ -18,7 +21,7 @@ export function LoadState({ what }: { what: string }) {
         <pre>{s.error}</pre>
         <span>
           Transport: {s.transport.label}.
-          {s.transport.kind === 'live' && ' Start the MIRAGE API (default http://localhost:8000, proxied at /api), or use development data.'}
+          {s.transport.kind === 'live' && ' Start everything with ./mirage demo (it starts the API and wires the proxy), or open the System check tab.'}
         </span>
         {s.transport.kind !== 'mock' && (
           <button className="btn" onClick={() => (window.location.search = '?transport=mock')}>
@@ -36,6 +39,7 @@ export function LoadState({ what }: { what: string }) {
 
 export function Cockpit({ navigate }: { navigate: (r: Route) => void }) {
   const s = useSession()
+  const [focus, setFocus] = useState<Focus | null>(null)
 
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
@@ -55,16 +59,20 @@ export function Cockpit({ navigate }: { navigate: (r: Route) => void }) {
   if (!s.frame) return <LoadState what="episode" />
 
   return (
-    <div className="cockpit">
-      <div className="leftcol">
-        <CandidatePanel />
-        <JustificationPanel />
+    <div className="cockwrap">
+      <PathStrip focus={focus} />
+      {s.launch.guided && s.transport.kind === 'live' && <GuidedCoach key={s.session?.session_id} onFocus={setFocus} />}
+      <div className="cockpit" data-focus={focus ?? undefined}>
+        <div className="leftcol">
+          <CandidatePanel />
+          <JustificationPanel />
+        </div>
+        <EvidenceGraph />
+        <BeliefPanel />
+        <ActionPanel navigate={navigate} />
+        <ResourcePanel />
+        <Timeline />
       </div>
-      <EvidenceGraph />
-      <BeliefPanel />
-      <ActionPanel navigate={navigate} />
-      <ResourcePanel />
-      <Timeline />
     </div>
   )
 }

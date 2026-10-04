@@ -301,3 +301,24 @@ export function justification(frame: CockpitState, start: CockpitState): Justifi
 }
 
 const ALL_MEASUREMENTS: ActionType[] = ACTION_TYPES.filter((a) => actionKind(a) === 'measurement')
+
+export interface Validity {
+  assay: { tested: boolean; p: number; settled: boolean }
+  model: { tested: boolean; p: number; settled: boolean }
+}
+
+/**
+ * Whether the two non-molecular explanations have been separated from the molecular ones, from the
+ * PUBLIC measurement log and belief only: was a control / orthogonal assay run on any candidate, and
+ * is the posterior for it settled (outside the open band).
+ */
+export function validity(frame: CockpitState): Validity {
+  const ran = (a: ActionType) => frame.events.some((e) => e.action_type === a && e.observation !== null)
+  const settled = (p: number) => p <= RULED_OUT_P || p >= SETTLED_HIGH
+  const pa = frame.belief.p.assay_invalid
+  const pm = frame.belief.p.model_invalid
+  return {
+    assay: { tested: ran('VALIDATE_ASSAY'), p: pa, settled: settled(pa) },
+    model: { tested: ran('ORTHOGONAL_FUNCTION'), p: pm, settled: settled(pm) },
+  }
+}

@@ -1,6 +1,7 @@
 import { useSession } from '../state/sessionContext'
 import { Panel } from './ui'
-import { justification } from '../lib/derive'
+import { justification, validity } from '../lib/derive'
+import { VerdictBanner } from './Verdict'
 import { actionLabel, actionShort } from '../lib/actions'
 import { fmtP, MECH_LABEL } from '../lib/format'
 import { MECHANISM_GROUPS } from '../lib/types'
@@ -17,6 +18,9 @@ export function JustificationPanel() {
   const j = justification(frame, frames[0])
   const cert = j.certificate
   const dH = j.entropy.now - j.entropy.start
+  const v = validity(frame)
+  const ev = frame.terminal?.evaluation ?? null
+  const checks = ev?.checks ?? []
 
   return (
     <Panel
@@ -25,6 +29,11 @@ export function JustificationPanel() {
       className="just"
       aside={cert ? <span className={`pill ${cert.threshold_met ? 'pill--ok' : 'pill--bad'}`}>{cert.threshold_met ? 'THRESHOLD MET' : 'NOT MET'}</span> : <span className="pill">NO CERTIFICATE</span>}
     >
+      {frame.terminal ? (
+        <VerdictBanner evaluation={ev} decision={frame.terminal.decision} compact />
+      ) : (
+        <p className="just__pending">No decision yet. The verdict (correct? justified?) is scored by the evaluator only after MIRAGE decides.</p>
+      )}
       <dl className="just__list">
         <div>
           <dt>Leading explanation</dt>
@@ -81,6 +90,54 @@ export function JustificationPanel() {
           </dd>
         </div>
         <div>
+          <dt>Assay resolved?</dt>
+          <dd>
+            {v.assay.tested && v.assay.settled ? (
+              <>
+                <b>Yes</b> <span className="faint">· control run, p(assay invalid) <span className="mono">{fmtP(v.assay.p)}</span></span>
+              </>
+            ) : v.assay.tested ? (
+              <>
+                <b>Tested, still open</b> <span className="faint">· p <span className="mono">{fmtP(v.assay.p)}</span></span>
+              </>
+            ) : (
+              <>
+                <b>Not tested</b> <span className="faint">· no assay-validity control run yet (p <span className="mono">{fmtP(v.assay.p)}</span>)</span>
+              </>
+            )}
+          </dd>
+        </div>
+        <div>
+          <dt>Model separable?</dt>
+          <dd>
+            {v.model.settled ? (
+              <>
+                <b>Yes</b> <span className="faint">· p(model invalid) settled at <span className="mono">{fmtP(v.model.p)}</span></span>
+              </>
+            ) : (
+              <>
+                <b>Not yet</b> <span className="faint">· p(model invalid) <span className="mono">{fmtP(v.model.p)}</span> {v.model.tested ? 'after an orthogonal assay' : 'and no orthogonal assay run'}</span>
+              </>
+            )}
+          </dd>
+        </div>
+        {checks.length > 0 && (
+          <>
+            <div>
+              <dt>Supporting evidence</dt>
+              <dd className="just__chips">
+                {checks.filter((c) => c.passed).length === 0 ? <span className="dim">None of the evaluator's checks passed.</span> : checks.filter((c) => c.passed).map((c) => <span key={c.name} className="chip chip--support" title={c.detail}>✓ {c.name.replace(/_/g, ' ')}</span>)}
+              </dd>
+            </div>
+            <div>
+              <dt>Missing evidence</dt>
+              <dd className="just__chips">
+                {checks.filter((c) => !c.passed).length === 0 ? <span className="dim">Every check passed.</span> : checks.filter((c) => !c.passed).map((c) => <span key={c.name} className="chip chip--contra" title={c.detail}>✗ {c.name.replace(/_/g, ' ')}</span>)}
+              </dd>
+            </div>
+          </>
+        )}
+        <div>
           <dt>Terminal evidence threshold</dt>
           <dd>
             {cert ? (
@@ -88,6 +145,11 @@ export function JustificationPanel() {
                 <b>{cert.threshold_met ? 'Met' : 'Not met'}</b>
                 {cert.threshold !== undefined && <span className="mono faint"> · threshold {cert.threshold}</span>}
                 {cert.rationale && <span className="dim"> · {cert.rationale}</span>}
+              </span>
+            ) : checks.length > 0 ? (
+              <span>
+                <b>{checks.filter((c) => c.passed).length} of {checks.length}</b> evaluator checks passed
+                <span className="faint"> · evaluator read-out, not a JustificationCertificate</span>
               </span>
             ) : (
               <span className="just__na mono">NOT AVAILABLE · no JustificationCertificate</span>
