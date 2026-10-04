@@ -38,25 +38,64 @@ _openai_agent = _load_sibling("openai_agent", "openai_agent.py")
 OpenAIAPIError = _openai_agent.OpenAIAPIError
 OpenAIResponsesAgent = _openai_agent.OpenAIResponsesAgent
 OpenAIResponsesClient = _openai_agent.OpenAIResponsesClient
+_kimi_agent = _load_sibling("kimi_agent", "kimi_agent.py")
+KimiAPIError = _kimi_agent.KimiAPIError
+KimiChatAgent = _kimi_agent.KimiChatAgent
+KimiChatClient = _kimi_agent.KimiChatClient
 
 Y1 = ("gpt-6-luna", "high")
-CONFIGS = {"Y1": Y1}
+Y2 = ("k3", "high")
+CONFIGS = {"Y1": Y1, "Y2": Y2}
 PRICES_PER_MTOK = {
     "gpt-6-luna": {
         "input": 0.10,
         "cached_input": 0.01,
         "output": 0.50,
-    }
+    },
+    # Kimi K3 list price (platform.kimi.ai/docs/pricing/chat-k3, read 2026-10-03). Y2 runs on
+    # Kimi Code membership credits, so these give a list-price equivalent, not a charge.
+    "k3": {
+        "input": 3.00,
+        "cached_input": 0.30,
+        "output": 15.00,
+    },
 }
 SPEND_CAP_USD = 2.00
 STRONG_MATRIX = ROOT / "experiments" / "configs" / "eval_matrix_v1.json"
 DEV_MATRIX = EXPERIMENT_DIR / "dev_matrix.json"
 DEFAULT_LEDGER = EXPERIMENT_DIR / "spend_ledger.jsonl"
+KIMI_LEDGER = EXPERIMENT_DIR / "spend_ledger_kimi.jsonl"
 STRONG_OUT_ROOT = EXPERIMENT_DIR / "runs"
 DEV_OUT_ROOT = ROOT / ".local" / "runs" / "cross-family"
 REPORT_SLOTS = (("claude", "Y1 GPT-6 Luna high", "openai_responses"),)
 CLAUDE_MODELS = {"claude": "gpt-6-luna"}
 MAX_OUTPUT_TOKENS = 16_000
+# Per-provider settings. Y2's cap is a list-price-equivalent guard (see the 2026-10-03 deviation).
+PROVIDERS: dict[str, dict[str, Any]] = {
+    "Y1": {
+        "agent": OpenAIResponsesAgent,
+        "client": OpenAIResponsesClient,
+        "env": "OPENAI_API_KEY",
+        "tag": "openai_responses",
+        "api": "openai-responses",
+        "ledger": DEFAULT_LEDGER,
+        "cap": SPEND_CAP_USD,
+        "slots": REPORT_SLOTS,
+        "models": CLAUDE_MODELS,
+    },
+    "Y2": {
+        "agent": KimiChatAgent,
+        "client": KimiChatClient,
+        "env": "MOONSHOT_API_KEY",
+        "tag": "kimi_chat",
+        "api": "kimi-code-chat-completions",
+        "endpoint": _kimi_agent.API_URL,
+        "ledger": KIMI_LEDGER,
+        "cap": 10.00,
+        "slots": (("claude", "Y2 Kimi K3 high", "kimi_chat"),),
+        "models": {"claude": "k3"},
+    },
+}
 
 
 class SpendCapReached(Exception):
@@ -70,13 +109,23 @@ def _field(value: Any, name: str, default: Any = None) -> Any:
 
 
 def _usage_counts(usage: Any) -> dict[str, int]:
-    input_tokens = int(_field(usage, "input_tokens", 0) or 0)
-    details = _field(usage, "input_tokens_details", {}) or {}
-    cached_tokens = int(_field(details, "cached_tokens", 0) or 0)
+    """Token counts from a Responses API or a Chat Completions usage object."""
+    if _field(usage, "prompt_tokens") is not None:
+        input_tokens = int(_field(usage, "prompt_tokens", 0) or 0)
+        details = _field(usage, "prompt_tokens_details", {}) or {}
+        cached_tokens = int(
+            _field(usage, "cached_tokens") or _field(details, "cached_tokens", 0) or 0
+        )
+        output_tokens = int(_field(usage, "completion_tokens", 0) or 0)
+    else:
+        input_tokens = int(_field(usage, "input_tokens", 0) or 0)
+        details = _field(usage, "input_tokens_details", {}) or {}
+        cached_tokens = int(_field(details, "cached_tokens", 0) or 0)
+        output_tokens = int(_field(usage, "output_tokens", 0) or 0)
     return {
         "input_tokens": input_tokens,
         "cached_input_tokens": min(input_tokens, cached_tokens),
-        "output_tokens": int(_field(usage, "output_tokens", 0) or 0),
+        "output_tokens": output_tokens,
     }
 
 
@@ -188,7 +237,7 @@ def run_config(
     *,
     resume_run_id: str | None = None,
     client: Any | None = None,
-    ledger_path: Path = DEFAULT_LEDGER,
+    ledger_path: Path | None = None,
     out_root: Path | None = None,
 ) -> Path:
     if config_id not in CONFIGS:
@@ -197,14 +246,15 @@ def run_config(
         raise ValueError("matrix must be 'dev' or 'strong'")
 
     model, effort = CONFIGS[config_id]
-    ledger_path = Path(ledger_path)
+    provider = PROVIDERS[config_id]
+    ledger_path = Path(ledger_path) if ledger_path is not None else provider["ledger"]
     if client is None:
-        if not os.environ.get("OPENAI_API_KEY"):
-            raise ValueError("OPENAI_API_KEY is not set; refusing to start a paid run")
-        client = OpenAIResponsesClient()
+        if not os.environ.get(provider["env"], "").strip():
+            raise ValueError(f"{provider['env']} is not set; refusing to start a paid run")
+        client = provider["client"]()
 
     run_id = resume_run_id or (
-        f"{datetime.now(UTC):%Y%m%d-%H%M}_openai_responses_{matrix_name}_{config_id}"
+        f"{datetime.now(UTC):%Y%m%d-%H%M}_{provider['tag']}_{matrix_name}_{config_id}"
     )
     out_root = Path(out_root) if out_root is not None else (
         STRONG_OUT_ROOT if matrix_name == "strong" else DEV_OUT_ROOT
@@ -217,9 +267,10 @@ def run_config(
         run_id=run_id,
         config=config_id,
         matrix=matrix_name,
+        cap=provider["cap"],
     )
     matrix_path = STRONG_MATRIX if matrix_name == "strong" else DEV_MATRIX
-    created_agents: list[OpenAIResponsesAgent] = []
+    created_agents: list[Any] = []
 
     def make_openai_agent(
         name: str,
@@ -228,10 +279,10 @@ def run_config(
         *,
         client: Any | None = None,
         model: str | None = None,
-    ) -> OpenAIResponsesAgent:
+    ) -> Any:
         if name != "claude":
             raise ValueError(f"unexpected agent {name!r}")
-        agent = OpenAIResponsesAgent(
+        agent = provider["agent"](
             client,
             model=model or CONFIGS[config_id][0],
             effort=effort,
@@ -254,23 +305,27 @@ def run_config(
     # runner.run has no hook for provider-specific API and converted-tool metadata.
     manifest_path = result_dir / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    manifest["api"] = "openai-responses"
+    manifest["api"] = provider["api"]
+    if "endpoint" in provider:
+        manifest["endpoint"] = provider["endpoint"]
     manifest["tools_sha256"] = created_agents[0].tools_sha256
     runner.write_atomic(manifest_path, runner.dumps(manifest))
 
     with (
-        patch.object(report, "AGENT_SLOTS", REPORT_SLOTS),
-        patch.object(report, "CLAUDE_MODELS", CLAUDE_MODELS),
+        patch.object(report, "AGENT_SLOTS", provider["slots"]),
+        patch.object(report, "CLAUDE_MODELS", provider["models"]),
     ):
         report.build_report({"claude": result_dir}, result_dir)
     return result_dir
 
 
 def _print_spend(ledger_path: Path | None = None) -> None:
-    ledger_path = Path(ledger_path) if ledger_path is not None else DEFAULT_LEDGER
+    ledgers = [Path(ledger_path)] if ledger_path is not None else [DEFAULT_LEDGER, KIMI_LEDGER]
     totals: dict[tuple[str, str], float] = {}
-    if ledger_path.exists():
-        for line in ledger_path.read_text(encoding="utf-8").splitlines():
+    for path in ledgers:
+        if not path.exists():
+            continue
+        for line in path.read_text(encoding="utf-8").splitlines():
             if not line.strip():
                 continue
             record = json.loads(line)
@@ -302,6 +357,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     except (
         OpenAIAPIError,
+        KimiAPIError,
         SpendCapReached,
         ValueError,
         FileExistsError,
@@ -310,7 +366,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"cross-family: {err}", file=sys.stderr)
         return 2
     print(run_dir)
-    print(f"Ledger total: ${_ledger_total(DEFAULT_LEDGER):.6f}")
+    print(f"Ledger total: ${_ledger_total(PROVIDERS[args.config]['ledger']):.6f}")
     return 0
 
 
