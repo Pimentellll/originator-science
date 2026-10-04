@@ -5,6 +5,7 @@ import { ModePill, ProvenancePill } from './ui'
 import { fmtBudget, fmtSample, fmtT } from '../lib/format'
 
 const GROUPS: { label: string; tabs: { id: Route; label: string }[] }[] = [
+  { label: 'Start', tabs: [{ id: 'overview', label: 'Overview' }] },
   {
     label: 'Growth benchmark',
     tabs: [

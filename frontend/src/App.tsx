@@ -11,6 +11,7 @@ import { Episode } from './views/growth/Episode'
 import { Lab } from './views/growth/Lab'
 import { Method } from './views/growth/Method'
 import { Results } from './views/growth/Results'
+import { Overview } from './views/growth/Overview'
 
 export default function App() {
   const transport = useMemo(() => createTransport(), [])
@@ -20,6 +21,7 @@ export default function App() {
       <div className="app">
         <Header route={route} navigate={navigate} growthKind={growthClient().kind} />
         <main className="app__main">
+          {route === 'overview' && <Overview navigate={navigate} />}
           {route === 'results' && <Results navigate={navigate} />}
           {route === 'episode' && <Episode params={params} navigate={navigate} />}
           {route === 'lab' && <Lab />}

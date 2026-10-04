@@ -10,7 +10,7 @@ describe('parseHash', () => {
   })
 
   it('defaults unknown routes to results', () => {
-    expect(parseHash('#/unknown/RUN/EP')).toEqual({ route: 'results', params: [] })
+    expect(parseHash('#/unknown/RUN/EP')).toEqual({ route: 'overview', params: [] })
   })
 
   it('decodes encoded IDs without splitting their decoded slashes', () => {
@@ -25,7 +25,7 @@ describe('parseHash', () => {
   })
 
   it('defaults an empty hash to results', () => {
-    expect(parseHash('')).toEqual({ route: 'results', params: [] })
-    expect(parseHash('#/')).toEqual({ route: 'results', params: [] })
+    expect(parseHash('')).toEqual({ route: 'overview', params: [] })
+    expect(parseHash('#/')).toEqual({ route: 'overview', params: [] })
   })
 })

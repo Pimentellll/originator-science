@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
-export type Route = 'results' | 'episode' | 'lab' | 'method' | 'cockpit' | 'compare' | 'benchmark'
-const ROUTES: readonly Route[] = ['results', 'episode', 'lab', 'method', 'cockpit', 'compare', 'benchmark']
+export type Route = 'overview' | 'results' | 'episode' | 'lab' | 'method' | 'cockpit' | 'compare' | 'benchmark'
+const ROUTES: readonly Route[] = ['overview', 'results', 'episode', 'lab', 'method', 'cockpit', 'compare', 'benchmark']
 
 function decodeSegment(segment: string): string {
   try {
@@ -15,7 +15,7 @@ export function parseHash(hash: string): { route: Route; params: string[] } {
   const path = hash.replace(/^#/, '').replace(/^\/+/, '')
   const [candidate, ...segments] = path.split('/').filter(Boolean)
   if (!candidate || !ROUTES.includes(candidate as Route)) {
-    return { route: 'results', params: [] }
+    return { route: 'overview', params: [] }
   }
   return { route: candidate as Route, params: segments.map(decodeSegment) }
 }
