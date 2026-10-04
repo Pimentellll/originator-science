@@ -1,5 +1,7 @@
 import pytest
 
+gym = pytest.importorskip("gymnasium")
+
 from mirage.rl.report import main as report_main
 from mirage.rl.train import main as train_main
 
