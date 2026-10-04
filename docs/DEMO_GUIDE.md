@@ -59,8 +59,8 @@ The **Start** page offers five worlds and the policies the backend really serves
 | Invalid biological model | A good molecule and assay in an invalid biological model |
 | Misleading proxy trap | Attractive proxy readouts conceal functional and developability failure |
 
-Policies: Rescue Planner, Greedy EIG, Fixed Pipeline, Random. **Lookahead** and **PPO** appear as **NOT AVAILABLE** with the
-reason, because they are not wired into the live API; the page never presents them as working. Note that the Rescue Planner is
+Policies: Rescue Planner, Greedy EIG, Fixed Pipeline, Random and Lookahead. **PPO** appears as **NOT AVAILABLE** with the
+reason, because no validated checkpoint is served; the page never presents it as working. Note that the Rescue Planner is
 specialised for the compound-failure world and can be wrong elsewhere; that is a real result, not a bug.
 
 The scenario is **orchestration metadata chosen by whoever runs the demo**. It is not policy input, and the public record and

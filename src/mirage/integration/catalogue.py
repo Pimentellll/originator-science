@@ -29,11 +29,11 @@ _TITLES = {
 _POLICIES = (
     ("rescue_planner", "Rescue Planner", "domain_expert", "Protects later kinetic evidence: runs SEC first and redesigns for solubility when aggregation is severe, then measures SPR and validates the assay when in doubt."),
     ("greedy_eig", "Greedy EIG", "myopic_planner", "Picks the single action with the highest expected information gain per unit cost from the particle belief."),
+    ("lookahead", "Lookahead", "lookahead_planner", "Plans two steps ahead over the belief: weighs the value of the final decision against cost and instrument damage before choosing."),
     ("fixed_pipeline", "Fixed Pipeline", "scripted_baseline", "Runs a fixed assay order regardless of what has been learned."),
     ("random", "Random", "random", "Chooses uniformly among legal non-terminal actions. A floor for comparison."),
 )
 _NOT_WIRED = (
-    ("lookahead", "Lookahead", "lookahead_planner", "Multi-step planner over the belief.", "Implemented for offline benchmarking; not wired into the live API."),
     ("ppo", "PPO", "learned_policy", "Learned masked-PPO policy.", "No validated checkpoint is served; not wired into the live API."),
 )
 

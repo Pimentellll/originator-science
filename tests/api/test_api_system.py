@@ -58,12 +58,29 @@ def test_version_is_safe_and_reports_semantics_default(client):
 
 def test_policy_catalogue_lists_only_wired_policies_as_available(client):
     rows = {p["name"]: p for p in client.get("/policies").json()}
-    for name in ("rescue_planner", "greedy_eig", "fixed_pipeline", "random"):
+    for name in ("rescue_planner", "greedy_eig", "fixed_pipeline", "random", "lookahead"):
         assert rows[name]["available"] is True
         client.post("/episodes", json={"seed": 1, "policy_name": name}).raise_for_status()
-    for name in ("lookahead", "ppo"):
+    for name in ("ppo",):
         assert rows[name]["available"] is False and rows[name]["reason"]
         assert client.post("/episodes", json={"seed": 1, "policy_name": name}).status_code == 422
+
+
+def test_lookahead_reaches_a_terminal_decision_deterministically(client):
+    _, first = play_with_actions(
+        client,
+        policy="lookahead",
+        scenario="aggregation_kinetic_defect",
+        scenario_version="SEMANTICS_V2",
+    )
+    _, second = play_with_actions(
+        client,
+        policy="lookahead",
+        scenario="aggregation_kinetic_defect",
+        scenario_version="SEMANTICS_V2",
+    )
+    assert first == second
+    assert first[-1] in {"SELECT", "REJECT", "MODEL_INVALID", "ABSTAIN"}
 
 
 def test_scenario_selection_is_recorded_as_version_only_never_as_world(client):
