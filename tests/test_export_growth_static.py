@@ -1,12 +1,19 @@
+import importlib.util
 import json
 from pathlib import Path
 
 from mirage.ui import api
-from scripts.export_growth_static import export_growth_static
 
 ROOT = Path(__file__).resolve().parents[1]
 RESULTS = ROOT / "experiments" / "results"
 DEMO_RUN = "20261004-0016_claude_demo"
+EXPORTER_SPEC = importlib.util.spec_from_file_location(
+    "growth_static_exporter", ROOT / "scripts" / "export_growth_static.py"
+)
+assert EXPORTER_SPEC is not None and EXPORTER_SPEC.loader is not None
+EXPORTER = importlib.util.module_from_spec(EXPORTER_SPEC)
+EXPORTER_SPEC.loader.exec_module(EXPORTER)
+export_growth_static = EXPORTER.export_growth_static
 
 
 def test_export_growth_static_writes_all_api_files(tmp_path: Path) -> None:
