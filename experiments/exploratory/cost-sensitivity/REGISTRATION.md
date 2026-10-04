@@ -154,3 +154,12 @@ Secondary, computed by the driver's analysis script from the episode records:
 ## Deviations
 
 None yet. Any later deviation is added here with a date and is never edited into the sections above.
+
+### 2026-10-04: Claude arms not run (no API key)
+
+`ANTHROPIC_API_KEY` was not set in this session, and no saved secret was available. Because of
+that, the Sonnet dev dry run and X-P6, X-P3 and X-P1 were not run, and no paid API calls were made
+($0.00 spent). Only the no-cost scripted positive controls G-P1, G-P3 and G-P6 were run, on the
+strong matrix. The design, price levels, seeds, metrics and decision rules are unchanged. To
+answer the question, the registered Claude arms must be run with the committed driver, in the
+order given in §4.
