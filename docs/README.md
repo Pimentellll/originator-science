@@ -1,5 +1,9 @@
 # Documentation index
 
+For the current MIRAGE architecture, start at [START_HERE.md](START_HERE.md). The original
+growth benchmark remains documented below; Binder BioPOMDP contracts are in architecture/,
+scientific-spec/, evaluation/, and implementation/.
+
 ```text
 MIRAGE                                  the project: epistemic evaluation of autonomous scientists
 │
@@ -13,8 +17,8 @@ MIRAGE                                  the project: epistemic evaluation of aut
 | Item | Status |
 |---|---|
 | MIRAGE-level methodology | Documented |
-| MIRAGE-Bio v0.1 | Specified; pending Gate 0 validation |
-| Implementation | Not started |
+| MIRAGE growth benchmark | IMPLEMENTED |
+| Binder BioPOMDP | IN DEVELOPMENT |
 
 ## MIRAGE-level documents (framing; they create no development tasks)
 
