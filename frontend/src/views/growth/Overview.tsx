@@ -1,6 +1,6 @@
 import { Diamonds, Dots, Line, Plot } from '../../components/figures/Plot'
 import { INK } from '../../components/figures/ink'
-import type { GrowthRun } from '../../lib/growth/types'
+import type { ExploratoryRun, GrowthRun } from '../../lib/growth/types'
 import type { Route } from '../../state/route'
 import { runMeta } from './agents'
 import { useAsync } from './data'
@@ -12,8 +12,10 @@ type Nav = (r: Route, ...p: string[]) => void
 export function Overview({ navigate }: { navigate: Nav }) {
   const data = useAsync('results', load)
   if (data.state !== 'ready') return <DocState async={data} what="benchmark results" />
-  const { details, demo } = data.value
+  const { details, demo, exploratory } = data.value
   const scored = details.filter((d) => d.run.headline)
+  const families = exploratory.filter((r) => r.experiment === 'cross-family' && r.headline)
+  const familyControlMin = families.length ? Math.min(...families.map((r) => r.headline!.M2.k)) : null
   const pb = scored.find((d) => d.run.agent === 'passive_bayes')?.run.headline
   const claude = scored.filter((d) => d.run.agent === 'claude').map((d) => d.run.headline!)
   const claudeMin = claude.length ? Math.min(...claude.map((h) => h.M3.k)) : null
@@ -104,7 +106,12 @@ export function Overview({ navigate }: { navigate: Nav }) {
         <section className="doc__section">
           <p className="kicker ov__num">3 · What we found</p>
           <h2>Being right is not the same as knowing.</h2>
-          <JustifiedBars runs={scored} />
+          <JustifiedBars
+            groups={[
+              { rows: scored.map(frozenRow) },
+              ...(families.length ? [{ label: 'Other model families · exploratory, not part of the frozen evaluation', rows: families.map(exploratoryRow) }] : []),
+            ]}
+          />
           <div className="ov__calls">
             {pb && (
               <p>
@@ -120,6 +127,15 @@ export function Overview({ navigate }: { navigate: Nav }) {
                   Claude Opus and Sonnet: justified {claudeMin}/{n}.
                 </b>{' '}
                 Both ran the dilution control in every episode. Both missed the same borderline plateau culture.
+              </p>
+            )}
+            {familyControlMin !== null && (
+              <p>
+                <b>
+                  {families.map((r) => r.label).join(' and ')}: ran the control {familyControlMin}/{families[0].headline!.M2.n}.
+                </b>{' '}
+                Outside Claude, the habit holds. Their misses are plateau cultures, read as artefacts after a correct dilution.{' '}
+                <button className="ov__link" onClick={() => navigate('results')}>Table 2</button>
               </p>
             )}
           </div>
@@ -160,13 +176,42 @@ function Card({ title, go, tag, children }: { title: string; go: () => void; tag
   )
 }
 
-function JustifiedBars({ runs }: { runs: GrowthRun[] }) {
+type BarRow = { key: string; name: string; j: number; u: number; n: number }
+type BarGroup = { label?: string; rows: BarRow[] }
+
+function frozenRow(d: GrowthRun): BarRow {
+  const h = d.run.headline!
+  return { key: d.run.run_id, name: runMeta(d.run).name, j: h.M3.k, u: h.M1.k - h.M3.k, n: h.M1.n }
+}
+
+function exploratoryRow(r: ExploratoryRun): BarRow {
+  const h = r.headline!
+  return { key: `${r.experiment}/${r.run_id}`, name: r.label, j: h.M3.k, u: h.M1.k - h.M3.k, n: h.M1.n }
+}
+
+function layoutBars(groups: BarGroup[], row: number, head: number) {
+  const laid: { g: BarGroup; top: number; placed: { r: BarRow; at: number }[] }[] = []
+  let y = 0
+  groups.forEach((g, gi) => {
+    const top = y + (g.label && gi ? 10 : 0)
+    y = top + (g.label ? head : 0)
+    const placed = g.rows.map((r, i) => ({ r, at: y + i * row + 8 }))
+    y += g.rows.length * row
+    laid.push({ g, top, placed })
+  })
+  return { laid, H: y + 34 }
+}
+
+function JustifiedBars({ groups }: { groups: BarGroup[] }) {
   const W = 760
   const L = 190
   const R = 150
   const row = 40
-  const H = runs.length * row + 34
+  const head = 34
   const bw = W - L - R
+  const rows = groups.flatMap((g) => g.rows)
+  const N = Math.max(1, ...rows.map((r) => r.n))
+  const { laid, H } = layoutBars(groups, row, head)
   return (
     <figure className="ov__bars">
       <svg className="fig" width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Correct and justified answers per agent">
@@ -175,30 +220,37 @@ function JustifiedBars({ runs }: { runs: GrowthRun[] }) {
             <line x1="0" y1="0" x2="0" y2="5" stroke={INK.red} strokeWidth="2" />
           </pattern>
         </defs>
-        {runs.map((d, i) => {
-          const h = d.run.headline!
-          const m = runMeta(d.run)
-          const y = i * row + 8
-          const sc = bw / h.M1.n
-          const j = h.M3.k
-          const u = h.M1.k - h.M3.k
-          return (
-            <g key={d.run.run_id}>
-              <text x={0} y={y + 17} style={{ fontSize: 13.5, fill: INK.ink }}>
-                {m.name}
-              </text>
-              <rect x={L} y={y} width={bw} height={24} fill="none" stroke={INK.rule} />
-              <rect x={L} y={y} width={j * sc} height={24} fill={INK.ink} />
-              {u > 0 && <rect x={L + j * sc} y={y} width={u * sc} height={24} fill="url(#ov-hatch)" stroke={INK.red} />}
-              <text x={L + bw + 12} y={y + 17} style={{ fontSize: 13, fill: INK.ink }}>
-                <tspan style={{ fontWeight: 600 }}>{j}</tspan> justified
-                {u > 0 && <tspan style={{ fill: INK.red }}> · {u} lucky</tspan>}
-              </text>
-            </g>
-          )
-        })}
-        {[0, 10, 20, 30].map((t) => (
-          <text key={t} x={L + (t / 30) * bw} y={H - 6} textAnchor="middle" style={{ fill: INK.mute }}>
+        {laid.map(({ g, top, placed }) => (
+          <g key={g.label ?? 'frozen'}>
+            {g.label && (
+              <>
+                <line x1={0} x2={W} y1={top + 6} y2={top + 6} stroke={INK.rule} />
+                <text x={0} y={top + 26} style={{ fontSize: 11.5, letterSpacing: '0.06em', textTransform: 'uppercase', fill: INK.mute }}>
+                  {g.label}
+                </text>
+              </>
+            )}
+            {placed.map(({ r, at }) => {
+              const sc = bw / r.n
+              return (
+                <g key={r.key}>
+                  <text x={0} y={at + 17} style={{ fontSize: 13.5, fill: INK.ink }}>
+                    {r.name}
+                  </text>
+                  <rect x={L} y={at} width={bw} height={24} fill="none" stroke={INK.rule} />
+                  <rect x={L} y={at} width={r.j * sc} height={24} fill={INK.ink} />
+                  {r.u > 0 && <rect x={L + r.j * sc} y={at} width={r.u * sc} height={24} fill="url(#ov-hatch)" stroke={INK.red} />}
+                  <text x={L + bw + 12} y={at + 17} style={{ fontSize: 13, fill: INK.ink }}>
+                    <tspan style={{ fontWeight: 600 }}>{r.j}</tspan> justified
+                    {r.u > 0 && <tspan style={{ fill: INK.red }}> · {r.u} lucky</tspan>}
+                  </text>
+                </g>
+              )
+            })}
+          </g>
+        ))}
+        {[0, 1, 2, 3].map((q) => Math.round((q * N) / 3)).map((t) => (
+          <text key={t} x={L + (t / N) * bw} y={H - 6} textAnchor="middle" style={{ fill: INK.mute }}>
             {t}
           </text>
         ))}
@@ -214,7 +266,9 @@ function JustifiedBars({ runs }: { runs: GrowthRun[] }) {
           <i className="sw sw--n" /> wrong
         </span>
       </div>
-      <figcaption>Answers out of 30 held-out episodes per agent.</figcaption>
+      <figcaption>
+        Answers out of {N} held-out episodes per agent. Exploratory rows were registered before their first scored call but designed after the frozen results were known.
+      </figcaption>
     </figure>
   )
 }
