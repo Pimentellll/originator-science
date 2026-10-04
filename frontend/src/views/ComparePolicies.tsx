@@ -53,38 +53,65 @@ function tally(frame: CockpitState): string {
   return [...counts].map(([k, n]) => (n > 1 ? `${k} ×${n}` : k)).join(' · ')
 }
 
-function Card({ ev, decisionPoint, hidden, active }: { ev: EventView | undefined; decisionPoint: boolean; hidden: boolean; active: boolean }) {
-  if (!ev) return <div className="cc cc--empty" />
-  if (hidden) return <div className="cc cc--hidden" aria-hidden />
+/** One-line summary of a step for the lane's stp strip. */
+function chipValue(ev: EventView): string {
+  if (ev.kind === 'failure') return 'start'
+  if (ev.kind === 'redesign') return `→ ${ev.result_candidate_id}`
+  if (ev.kind === 'decision') return ev.candidate_id
+  const m = ev.observation?.measurements[0]
+  return m ? formatMeasurement(m.name, m.value) : ev.candidate_id
+}
+
+function stepTitle(ev: EventView): string {
+  if (ev.kind === 'failure') return ev.notes[0] ?? 'Downstream failure'
+  if (ev.kind === 'redesign') return `${actionLabel(ev.action_type!)}: ${ev.candidate_id} → ${ev.result_candidate_id}`
+  return `${actionLabel(ev.action_type!)} on ${ev.candidate_id}`
+}
+
+function Chip({ ev, decisionPoint, hidden, active, picked, onPick }: { ev: EventView | undefined; decisionPoint: boolean; hidden: boolean; active: boolean; picked: boolean; onPick: () => void }) {
+  if (!ev) return <div className="stp stp--empty" />
+  if (hidden) return <div className="stp stp--hidden" aria-hidden />
+  const damaged = ev.spr_delta < -SPR_DAMAGE
+  const poor = ev.observation ? isPoorQuality(ev.observation.quality) : false
+  return (
+    <button
+      type="button"
+      className={`stp stp--${ev.kind} ${decisionPoint ? 'is-decision' : ''} ${damaged ? 'is-damaged' : ''} ${active ? 'is-active' : ''} ${picked ? 'is-picked' : ''}`}
+      onClick={onPick}
+      aria-pressed={picked}
+      title={stepTitle(ev)}
+    >
+      <span className="stp__a mono">
+        <span className="stp__s">{ev.step === 0 ? '0' : ev.step}</span> {ev.action_type ? actionShort(ev.action_type) : 'FAILURE'}
+      </span>
+      <span className={`stp__v mono ${poor ? 'is-poor' : ''}`}>{chipValue(ev)}</span>
+      {damaged && <span className="stp__dmg mono">SPR ↓</span>}
+    </button>
+  )
+}
+
+/** Full detail of the picked (or current) step, shown under the stp strip. */
+function StepDetail({ ev, decisionPoint }: { ev: EventView; decisionPoint: boolean }) {
   const obs = ev.observation
   const damaged = ev.spr_delta < -SPR_DAMAGE
   return (
-    <div className={`cc cc--${ev.kind} ${decisionPoint ? 'is-decision' : ''} ${damaged ? 'is-damaged' : ''} ${active ? 'is-active' : ''}`}>
-      <div className="cc__top">
-        <span className="cc__step mono">{ev.step === 0 ? '0' : `S${ev.step}`}</span>
-        {ev.action_type ? <span className="cc__act mono">{actionShort(ev.action_type)}</span> : <span className="cc__act mono">FAILURE</span>}
-        {decisionPoint && <span className="cc__dp">DECISION POINT</span>}
-      </div>
-      <div className="cc__title">{ev.kind === 'failure' ? ev.notes[0] : ev.kind === 'redesign' ? `→ ${ev.result_candidate_id}` : ev.kind === 'decision' ? `${actionLabel(ev.action_type!)} ${ev.candidate_id}` : ev.candidate_id}</div>
-      {obs && (
-        <div className="cc__meas mono">
-          {obs.measurements.map((m) => (
-            <span key={m.name}>
-              <span className="faint">{measurementLabel(m.name)}</span> {formatMeasurement(m.name, m.value)}
-            </span>
-          ))}
-          <span className={`cc__q ${isPoorQuality(obs.quality) ? 'is-poor' : ''}`}>{obs.quality}</span>
-        </div>
+    <div className={`sd ${damaged ? 'is-damaged' : ''}`} aria-live="polite">
+      <span className="sd__step mono">{ev.step === 0 ? 'FAILURE' : `STEP ${ev.step}`}</span>
+      <span className="sd__title">{stepTitle(ev)}</span>
+      {decisionPoint && <span className="cc__dp">DECISION POINT</span>}
+      {obs?.measurements.map((m) => (
+        <span key={m.name} className="sd__m mono">
+          <span className="faint">{measurementLabel(m.name)}</span> {formatMeasurement(m.name, m.value)}
+        </span>
+      ))}
+      {obs && <span className={`cc__q ${isPoorQuality(obs.quality) ? 'is-poor' : ''}`}>{obs.quality}</span>}
+      {ev.decision?.eig !== undefined && <span className="cc__eig mono">EIG {ev.decision.eig.toFixed(2)}</span>}
+      {ev.cost.budget > 0 && <span className="faint mono">cost {fmtBudget(ev.cost.budget)}</span>}
+      {damaged && (
+        <span className="cc__dmg mono">
+          SPR health {(ev.resources_before?.spr_health ?? 1).toFixed(2)} → {ev.resources_after.spr_health.toFixed(2)}
+        </span>
       )}
-      <div className="cc__foot mono">
-        {ev.decision?.eig !== undefined && <span className="cc__eig">EIG {ev.decision.eig.toFixed(2)}</span>}
-        {ev.cost.budget > 0 && <span className="faint">cost {fmtBudget(ev.cost.budget)}</span>}
-        {damaged && (
-          <span className="cc__dmg">
-            SPR {(ev.resources_before?.spr_health ?? 1).toFixed(2)} → {ev.resources_after.spr_health.toFixed(2)}
-          </span>
-        )}
-      </div>
     </div>
   )
 }
@@ -112,7 +139,8 @@ function Trace({ title, values, max, upTo, cols, fmt, tone, h }: { title: string
   )
 }
 
-function Lane({ track, cols, cursor, dp, entropyMax, compact }: { track: PolicyTrack; cols: number; cursor: number; dp: number; entropyMax: number; compact: boolean }) {
+function Lane({ track, cols, cursor, dp, entropyMax, showCharts }: { track: PolicyTrack; cols: number; cursor: number; dp: number; entropyMax: number; showCharts: boolean }) {
+  const [picked, setPicked] = useState<number | null>(null)
   const last = track.frames[track.frames.length - 1]
   const upTo = Math.min(cursor, track.frames.length - 1)
   const done = cursor >= track.frames.length - 1
@@ -122,6 +150,8 @@ function Lane({ track, cols, cursor, dp, entropyMax, compact }: { track: PolicyT
   const spr = track.frames.map((f) => f.resources.spr_health)
   const ent = track.frames.map((f) => f.belief.entropy)
   const damagedAt = last.events.find((e) => e.spr_delta < -SPR_DAMAGE)
+  const shown = picked !== null && picked <= upTo ? picked : Math.min(upTo, last.events.length - 1)
+  const shownEvent = last.events[shown]
   return (
     <section className={`lane lane--${track.policy.family}`} aria-label={track.policy.label}>
       <header className="lane__hd">
@@ -137,13 +167,26 @@ function Lane({ track, cols, cursor, dp, entropyMax, compact }: { track: PolicyT
         {done && !damagedAt && <div className="lane__note lane__note--good">SPR instrument preserved</div>}
       </header>
       <div className="lane__body">
-        <div className="lane__cards" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+        <div className="lane__chips" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
           {Array.from({ length: cols }, (_, i) => (
-            <Card key={i} ev={last.events[i]} decisionPoint={i === dp + 1 && dp >= 0} hidden={i > cursor && i < last.events.length} active={i === cursor} />
+            <Chip
+              key={i}
+              ev={last.events[i]}
+              decisionPoint={i === dp + 1 && dp >= 0}
+              hidden={i > cursor && i < last.events.length}
+              active={i === cursor}
+              picked={i === shown}
+              onPick={() => setPicked(i === picked ? null : i)}
+            />
           ))}
         </div>
-        <Trace title="SPR instrument health" values={spr} max={1} upTo={upTo} cols={cols} fmt={(v) => v.toFixed(2)} tone="spr" h={compact ? 34 : 58} />
-        <Trace title="Posterior entropy" values={ent} max={entropyMax} upTo={upTo} cols={cols} fmt={(v) => v.toFixed(2)} tone="entropy" h={compact ? 34 : 58} />
+        {shownEvent && <StepDetail ev={shownEvent} decisionPoint={shown === dp + 1 && dp >= 0} />}
+        {showCharts && (
+          <>
+            <Trace title="SPR instrument health" values={spr} max={1} upTo={upTo} cols={cols} fmt={(v) => v.toFixed(2)} tone="spr" h={40} />
+            <Trace title="Uncertainty (posterior entropy)" values={ent} max={entropyMax} upTo={upTo} cols={cols} fmt={(v) => v.toFixed(2)} tone="entropy" h={40} />
+          </>
+        )}
       </div>
     </section>
   )
@@ -234,6 +277,7 @@ function CompareView({ cmp, navigate }: { cmp: PolicyComparison; navigate: (r: R
   const maxStep = useMemo(() => Math.max(...cmp.tracks.map((t) => t.frames.length - 1)), [cmp])
   const [cursor, setCursor] = useState(0)
   const [playing, setPlaying] = useState(true)
+  const [showCharts, setShowCharts] = useState(false)
 
   const isPlaying = playing && cursor < maxStep
   useEffect(() => {
@@ -291,6 +335,9 @@ function CompareView({ cmp, navigate }: { cmp: PolicyComparison; navigate: (r: R
             <button className="btn" onClick={() => navigate('cockpit')}>
               OPEN COCKPIT
             </button>
+            <button className="btn" onClick={() => setShowCharts((v) => !v)} aria-pressed={showCharts}>
+              {showCharts ? 'HIDE CHARTS' : 'SHOW CHARTS'}
+            </button>
           </div>
           <input
             className="cmp__scrub"
@@ -318,7 +365,7 @@ function CompareView({ cmp, navigate }: { cmp: PolicyComparison; navigate: (r: R
       <div className="cmp__lanes">
         {dp >= 0 && <div className="cmp__dpline" style={{ left: `calc(var(--lane-x) + (100% - var(--lane-x)) * ${(dp + 1) / cols})` }} aria-hidden />}
         {tracks.map((t) => (
-          <Lane key={t.policy.name} track={t} cols={cols} cursor={cursor} dp={dp} entropyMax={entropyMax} compact={tracks.length > 2} />
+          <Lane key={t.policy.name} track={t} cols={cols} cursor={cursor} dp={dp} entropyMax={entropyMax} showCharts={showCharts} />
         ))}
         {cmp.not_run.map((n) => (
           <NotRunRow key={n.policy.name} policy={n.policy} reason={n.reason} />
@@ -328,7 +375,7 @@ function CompareView({ cmp, navigate }: { cmp: PolicyComparison; navigate: (r: R
       <div className="cmp__foot">
         <Scoreboard tracks={tracks} reveal={finished} />
         <p className="cmp__legend">
-          Traces and cards are the public replay of each policy on the same seeded world. Verdicts come from the privileged evaluator and are attached to the record only after the terminal decision. <b>EIG</b> = expected information gain (bits) the policy assigned to the action it took.
+          Steps and charts are the public replay of each policy on the same seeded world. Verdicts come from the privileged evaluator and are attached to the record only after the terminal decision. <b>EIG</b> = expected information gain (bits) the policy assigned to the action it took.
         </p>
       </div>
     </div>
