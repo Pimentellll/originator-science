@@ -16,11 +16,12 @@ import sys
 import urllib.request
 
 import mirage_env as E
+from benchmark_command import development_benchmark_argv
 
 HELP = """\
 MIRAGE: one-command launcher
 
-  ./mirage demo [--scenario S] [--seed N] [--no-browser]   set up if needed, start API + cockpit, open browser
+  ./mirage demo [--scenario S] [--seed N] [--no-browser] [--no-benchmark]   set up if needed, start API + cockpit, open browser
   ./mirage dev                                             API + cockpit with prefixed [API]/[WEB] logs, hot reload
   ./mirage setup [--force] [--skip-frontend]               create .venv, install Python + frontend deps (idempotent)
   ./mirage doctor [--json]                                 diagnose the environment; exit 0 = ready
@@ -243,8 +244,7 @@ def cmd_benchmark_dev(_: list[str]) -> int:
     E.banner("Benchmark (development split)")
     E.info(f"development seeds only, 2 episodes per archetype, output in {out.relative_to(E.ROOT)}")
     E.info("held-out seeds and results/ are never touched by this command.")
-    return _stream([str(E.venv_python()), "scripts/run_binder_benchmark.py", "--split", "development", "--per-archetype", "2",
-                    "--out", str(out), "--benchmark-id", "binder-campaign-dev"], cwd=E.ROOT, env=E.project_env())
+    return _stream(development_benchmark_argv(), cwd=E.ROOT, env=E.project_env())
 
 
 def cmd_test(argv: list[str]) -> int:

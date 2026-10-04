@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 
-export type Route = 'results' | 'episode' | 'lab' | 'method' | 'launch' | 'cockpit' | 'compare' | 'benchmark' | 'diagnostics'
+export type Route = 'overview' | 'results' | 'episode' | 'lab' | 'method' | 'launch' | 'cockpit' | 'compare' | 'benchmark' | 'diagnostics'
 /** Routes of the receptor-binder campaign app (the rest are the growth benchmark). */
 export const BINDER_ROUTES: readonly Route[] = ['launch', 'cockpit', 'compare', 'benchmark', 'diagnostics']
-const ROUTES: readonly Route[] = ['results', 'episode', 'lab', 'method', 'launch', 'cockpit', 'compare', 'benchmark', 'diagnostics']
+const ROUTES: readonly Route[] = ['overview', 'results', 'episode', 'lab', 'method', 'launch', 'cockpit', 'compare', 'benchmark', 'diagnostics']
 
 function decodeSegment(segment: string): string {
   try {
@@ -15,11 +15,11 @@ function decodeSegment(segment: string): string {
 
 /**
  * `?transport=live` is the URL `./mirage demo` opens: with no hash it lands on the launcher, not the
- * growth Results page. Everything else keeps the original default.
+ * Overview page. Everything else opens the Overview.
  */
 export function defaultRoute(search: string): Route {
   const q = new URLSearchParams(search)
-  if (q.get('transport') !== 'live') return 'results'
+  if (q.get('transport') !== 'live') return 'overview'
   return q.get('guided') === '1' ? 'cockpit' : 'launch'
 }
 

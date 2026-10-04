@@ -189,6 +189,16 @@ def test_benchmark_endpoints_are_gated(tmp_path, service):
     assert on.get("/benchmarks/..%2Fx", headers=ok).status_code in (404, 422)
 
 
+def test_empty_benchmark_store_lists_no_summaries_when_directory_is_missing(tmp_path, service):
+    store = EvaluationStore(tmp_path / "missing" / "privileged")
+    assert store.list_summaries() == []
+
+    client = TestClient(create_app(service, evaluation_store=store, aggregate_token="s3cret"))
+    response = client.get("/benchmarks", headers={TOKEN_HEADER: "s3cret"})
+    assert response.status_code == 200
+    assert response.json() == []
+
+
 def test_openapi_exposes_no_privileged_schema(client):
     spec = client.get("/openapi.json").text.lower()
     for needle in ("simulator_truth", "privileged", "particle", "hidden_truth", "failurelabels", "campaignevaluation"):

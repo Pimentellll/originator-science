@@ -36,10 +36,12 @@ npm run typecheck && npm run lint && npm test && npm run build
 
 Policy availability comes from `GET /policies` (only entries flagged `available`); `VITE_MIRAGE_POLICIES` (default
 `rescue_planner,greedy_eig,fixed_pipeline,random`) is the fallback for servers without that route, `VITE_MIRAGE_SEEDS` the
-seeds (default `9`). Every other policy (Lookahead, PPO) is shown as **NOT RUN** / **NOT AVAILABLE** without a request. The eval token is attached by the dev
-proxy from `MIRAGE_EVAL_TOKEN`; it is never a `VITE_` variable and never reaches the bundle.
+seeds (default `9`). Every other policy (Lookahead, PPO) is shown as **NOT RUN** / **NOT AVAILABLE** without a request.
+A configured policy that returns 422 is reported once as **NOT RUN** while other lanes continue; other errors propagate.
+The eval token is attached by the dev proxy from `MIRAGE_EVAL_TOKEN`; it is never a `VITE_` variable and never reaches
+the bundle.
 
-### What the backend does not give us yet
+### Backend availability and limitations
 
 - **Server entry point.** `scripts/serve_api.py` (normally started by `./mirage demo`) serves the public API. `make_receptor_binder_service` registers `random`, `fixed_pipeline`, `rescue_planner` and `greedy_eig`. `GET /policies` is the source of truth for what is offered (Lookahead and PPO are listed as NOT AVAILABLE); `VITE_MIRAGE_POLICIES` is only a fallback for servers without that route. `GET /scenarios`, `/version` and `/diagnostics` feed the launcher and the System check tab.
 - **Per-episode verdict route.** The public leak guard forbids the keys `correct` / `justified` on every
@@ -59,9 +61,10 @@ The growth routes are `#/results`, `#/episode/{run_id}/{episode_id}`, `#/lab`, `
 
 The growth client uses the live API by default, with `VITE_MIRAGE_API_BASE` or `/api` as its base. Select the
 offline client with `?growth=static` or `VITE_MIRAGE_GROWTH=static`; its data base defaults to `/growth-data`
-and can be changed with `VITE_MIRAGE_GROWTH_DATA`. `npm run build:static` exports the experiment results into
-`public/growth-data` and builds with static mode enabled. Set `PYTHON` to the repository venv interpreter when
-needed, for example `PYTHON=../.venv/bin/python npm run build:static`. Generated growth data is ignored by git.
+and can be changed with `VITE_MIRAGE_GROWTH_DATA`. From `frontend/`, run
+`PYTHON=../.venv/bin/python npm run build:static` to export the experiment results into `public/growth-data` and
+build with static mode enabled; this selects the repository venv, which has the exporter's Python dependencies.
+Generated growth data is ignored by git.
 
 Live aggregate runs, episodes, and grids plus sandbox verdict/autoplay routes are token-gated. The dev proxy
 adds `MIRAGE_EVAL_TOKEN` server-side; do not put the evaluator token in a `VITE_` variable. Public sandbox

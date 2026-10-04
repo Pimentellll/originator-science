@@ -16,6 +16,7 @@ from mirage.belief import (
     BINDER_SCHEMA_PROVISIONAL, DegenerateBeliefError, IndependentPrior, ParticleBelief, bernoulli, uniform,
 )
 from mirage.belief.binder import BinderParticleModel
+from mirage.belief.seeding import belief_stream_seed
 from mirage.belief.summary import BeliefSummary
 from mirage.core import ScientificAction, StepResult
 from mirage.policies.base import REDESIGN_ACTIONS
@@ -40,7 +41,12 @@ def receptor_binder_prior() -> IndependentPrior:
 class BeliefTracker:
     def __init__(self, seed: int, particles: int = DEFAULT_PARTICLES) -> None:
         self.model = BinderParticleModel()
-        self.belief = ParticleBelief.from_prior(BINDER_SCHEMA_PROVISIONAL, receptor_binder_prior(), n=particles, seed=seed)
+        self.belief = ParticleBelief.from_prior(
+            BINDER_SCHEMA_PROVISIONAL,
+            receptor_binder_prior(),
+            n=particles,
+            seed=belief_stream_seed(seed),
+        )
         self.degenerate_updates = 0
 
     def summary(self) -> BeliefSummary:

@@ -1,12 +1,20 @@
 """BASELINE V1 export: read-only, self-consistent, no placeholders in numeric tables."""
 
 import json
+import os
 import re
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 
 from mirage.evaluation.campaign.aggregate import EvaluationStore
-from mirage.evaluation.campaign.baseline_export import ExportMismatch, export_baseline
+from mirage.evaluation.campaign.baseline_export import (
+    ExportMismatch,
+    _json_values_equal,
+    export_baseline,
+)
 from mirage.evaluation.campaign.binder_benchmark import (
     BenchmarkConfig,
     export_showcase_replays,
@@ -19,6 +27,14 @@ from mirage.provenance import PublicRecordStore
 SPLIT = SeedSplit(development=(1, 2), held_out=(70000, 70001, 70002))
 SMALL = BenchmarkConfig(n_particles=64, eig_samples=8, max_steps=20)
 SEEDS = {"development": SPLIT.development, "held_out": SPLIT.held_out}
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_json_summary_comparison_tolerates_only_tiny_float_differences():
+    assert _json_values_equal({"rate": 0.25}, {"rate": 0.25 + 5e-13})
+    assert not _json_values_equal({"rate": 0.25}, {"rate": 0.25 + 1e-6})
+    assert not _json_values_equal({"rates": [0.25, 0.5]}, {"rates": [0.25]})
+    assert not _json_values_equal({"flag": True}, {"flag": 1})
 
 
 @pytest.fixture(scope="module")
@@ -100,6 +116,33 @@ def test_export_refuses_overlapping_or_foreign_seeds(finished, tmp_path):
         export_baseline(results_dir=results, out_dir=tmp_path / "b", seed_split={"development": [1], "held_out": [70000]}, reserved_train_seeds=(100_000, 199_999))
     with pytest.raises(ExportMismatch):
         export_baseline(results_dir=results, out_dir=tmp_path / "c", seed_split=SEEDS, reserved_train_seeds=(60_000, 80_000))
+
+
+def test_export_refuses_nonempty_output_directory(finished, tmp_path):
+    results, _ = finished
+    out = tmp_path / "existing"
+    out.mkdir()
+    marker = out / "preserve.txt"
+    marker.write_text("keep")
+
+    with pytest.raises(ExportMismatch, match="output directory already exists and is not empty"):
+        export_baseline(results_dir=results, out_dir=out, seed_split=SEEDS, reserved_train_seeds=(100_000, 199_999))
+
+    assert marker.read_text() == "keep"
+
+
+def test_export_cli_requires_output_directory():
+    env = {**os.environ, "PYTHONPATH": str(ROOT / "src")}
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "export_baseline_v1.py")],
+        cwd=ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 2
+    assert "the following arguments are required: --out" in result.stderr
 
 
 def test_world_digests_are_exported_for_every_baseline_world(finished, tmp_path):

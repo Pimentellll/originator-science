@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useSession } from '../state/sessionContext'
 import { ModePill, ProvenancePill } from './ui'
 import { fmtBudget, fmtSample } from '../lib/format'
-import { actionShort } from '../lib/actions'
+import { actionShort, canonicalPolicyKey, policyInfo } from '../lib/actions'
 
 /** One labelled cell of the summary bar. */
 function Cell({ label, hint, children, warn }: { label: string; hint?: string; children: React.ReactNode; warn?: boolean }) {
@@ -25,12 +25,21 @@ export function SummaryBar() {
   const live = s.transport.kind === 'live'
   const [seedText, setSeedText] = useState<string | null>(null)
   const [revealed, setRevealed] = useState(false)
+  const [open, setOpen] = useState(false)
 
   const scenarioMap = new Map(s.episodes.map((e) => [e.scenario.id, e.scenario]))
   if (s.scenarioId && !scenarioMap.has(s.scenarioId) && f) scenarioMap.set(s.scenarioId, f.scenario)
   const scenarios = Array.from(scenarioMap.values())
   const forScenario = s.episodes.filter((e) => e.scenario.id === s.scenarioId)
   const policies = Array.from(new Map((forScenario.length ? forScenario : s.episodes).map((e) => [e.policy.name, e.policy])).values())
+  const requestedPolicy = s.launch.policy
+  const requestedPolicyUnavailable =
+    requestedPolicy !== null && s.policyName !== null && !policies.some((p) => canonicalPolicyKey(p.name) === canonicalPolicyKey(requestedPolicy))
+  const selectedPolicyLabel = s.policyName
+    ? policyInfo(s.policyName).label.toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase())
+    : 'Rescue Planner'
+
+  const showSettings = open || requestedPolicyUnavailable || s.phase === 'error'
 
   const seedValue = seedText ?? String(f?.seed ?? s.launch.seed)
   const seedNum = /^\d+$/.test(seedValue) ? Number(seedValue) : null
@@ -44,6 +53,26 @@ export function SummaryBar() {
 
   return (
     <div className="sum" role="region" aria-label="Campaign summary">
+      <Cell label="Status">
+        <span className={`pill ${status[1]}`}>{status[0]}</span>
+      </Cell>
+
+      {f && r && (
+        <>
+          <Cell label="Budget" warn={r.budget.remaining / r.budget.total < 0.15} hint="Abstract simulator budget units, not currency.">
+            <span className="mono">
+              {fmtBudget(r.budget.total - r.budget.remaining)} <small>/ {fmtBudget(r.budget.total)}</small>
+            </span>
+          </Cell>
+        </>
+      )}
+      {s.launch.control === 'manual' && <span className="pill pill--warn" title="You pick each action; MIRAGE only recommends.">MANUAL SCIENTIST</span>}
+      <div className="hdr__spacer" />
+      <button type="button" className="sum__toggle" aria-expanded={showSettings} aria-controls="run-settings" onClick={() => setOpen(!open)} title="Policy, scenario, seed and provenance of this run">
+        Run settings {showSettings ? '▴' : '▾'}
+      </button>
+      {showSettings && (
+        <div className="sum__settings" id="run-settings">
       <Cell label="Campaign" hint="Scientific profile of the campaign (public).">
         <span className="mono">{f?.campaign ?? '—'}</span>
       </Cell>
@@ -121,19 +150,8 @@ export function SummaryBar() {
         <span className="mono">{semantics ?? '—'}</span>
       </Cell>
 
-      <Cell label="Status">
-        <span className={`pill ${status[1]}`}>{status[0]}</span>
-      </Cell>
-
-      <div className="hdr__spacer" />
-
-      {f && r && (
-        <>
-          <Cell label="Budget" warn={r.budget.remaining / r.budget.total < 0.15} hint="Abstract simulator budget units, not currency.">
-            <span className="mono">
-              {fmtBudget(r.budget.total - r.budget.remaining)} <small>/ {fmtBudget(r.budget.total)}</small>
-            </span>
-          </Cell>
+          {f && r && (
+            <>
           <Cell label="Sample" hint="Abstract simulator sample units, not mass.">
             <span className="mono">
               {fmtSample(r.sample.total - r.sample.remaining)} <small>/ {fmtSample(r.sample.total)}</small>
@@ -142,12 +160,24 @@ export function SummaryBar() {
           <Cell label="SPR health" warn={r.spr_health < 0.5} hint="SPR instrument health in [0, 1]. A badly behaved sample damages it, which degrades later kinetic readings.">
             <span className="mono">{r.spr_health.toFixed(2)}</span>
           </Cell>
-        </>
-      )}
+            </>
+          )}
       {s.session && <ModePill mode={s.session.mode} />}
       {f && <ProvenancePill provenance={f.provenance} />}
-      {s.launch.control === 'manual' && <span className="pill pill--warn" title="You pick each action; MIRAGE only recommends.">MANUAL SCIENTIST</span>}
       {!f && s.transport.kind === 'mock' && <span className="pill pill--mock">DEV / MOCK</span>}
+        </div>
+      )}
+      {requestedPolicyUnavailable && (
+        <div className="sum__notice" role="status">
+          Policy "{requestedPolicy}" isn&apos;t offered by this server; showing {selectedPolicyLabel}.
+        </div>
+      )}
+      {s.phase === 'error' && s.error && (
+        <div className="sum__notice" role="alert">
+          {s.error}
+          {policies.length > 1 && ' Choose another policy from the Policy menu above.'}
+        </div>
+      )}
     </div>
   )
 }

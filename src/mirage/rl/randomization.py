@@ -88,7 +88,7 @@ def sample_world_config(seed: int, stage: int = FULL_STAGE, *, randomize: bool =
         sample=float(rng.uniform(5.0, 10.0)),
         cost_scale=float(np.exp(rng.uniform(np.log(0.7), np.log(1.4)))),
         spr_cost_scale=float(np.exp(rng.uniform(np.log(0.8), np.log(1.5)))),
-        initial_spr_health=float(1.0 if rng.random() < 0.6 else rng.uniform(0.6, 1.0)),
+        initial_spr_health=float(1.0 if rng.random() < 0.6 else rng.uniform(0.70, 1.0)),
         assay_noise_scale=float(rng.uniform(0.85, 1.25)),
         redesign_effect_scale=float(rng.uniform(0.7, 1.3)),
     )

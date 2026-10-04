@@ -11,6 +11,7 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+import math
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -44,6 +45,32 @@ HEADLINE_MEANS = (
 
 class ExportMismatch(RuntimeError):
     """The rebuilt aggregate disagrees with the aggregate the run wrote."""
+
+
+def _json_values_equal(left: Any, right: Any) -> bool:
+    if isinstance(left, bool) or isinstance(right, bool):
+        return type(left) is bool and type(right) is bool and left == right
+    if isinstance(left, float) or isinstance(right, float):
+        return (
+            type(left) is float
+            and type(right) is float
+            and math.isclose(left, right, rel_tol=1e-12, abs_tol=1e-12)
+        )
+    if isinstance(left, dict) or isinstance(right, dict):
+        return (
+            isinstance(left, dict)
+            and isinstance(right, dict)
+            and left.keys() == right.keys()
+            and all(_json_values_equal(left[key], right[key]) for key in left)
+        )
+    if isinstance(left, list) or isinstance(right, list):
+        return (
+            isinstance(left, list)
+            and isinstance(right, list)
+            and len(left) == len(right)
+            and all(_json_values_equal(a, b) for a, b in zip(left, right))
+        )
+    return type(left) is type(right) and left == right
 
 
 def _sha256(path: Path) -> str:
@@ -101,6 +128,9 @@ def export_baseline(
     evaluator_config: EvaluatorConfig | None = None,
 ) -> dict[str, Path]:
     """Write the BASELINE V1 artifact set to ``out_dir``. Returns name -> path."""
+    if out_dir.exists() and (not out_dir.is_dir() or any(out_dir.iterdir())):
+        raise ExportMismatch(f"output directory already exists and is not empty: {out_dir}")
+
     main = results_dir / "binder_campaign_benchmark.json"
     doc = json.loads(main.read_text())
     root = results_dir / "binder_campaign"
@@ -110,7 +140,7 @@ def export_baseline(
         raise ExportMismatch(f"{len(evaluations)} stored evaluations, run reports {doc['run']['episodes']}")
 
     rebuilt = json.loads(build_benchmark_summary(manifest["benchmark_id"], evaluations).model_dump_json())
-    if rebuilt != doc["summary"]:
+    if not _json_values_equal(rebuilt, doc["summary"]):
         raise ExportMismatch("aggregate rebuilt from per-episode evaluations differs from the run's aggregate")
 
     policies = sorted(doc["summary"]["policies"])

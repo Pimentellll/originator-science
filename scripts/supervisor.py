@@ -21,6 +21,7 @@ from pathlib import Path
 
 import doctor
 import mirage_env as E
+from benchmark_command import development_benchmark_argv
 
 SCENARIOS = ("COMPOUND_FAILURE", "SINGLE_FAILURE", "ASSAY_FAILURE", "MODEL_FAILURE", "MIXED")
 VERSIONS = ("SEMANTICS_V2", "BASELINE_V1")
@@ -38,6 +39,7 @@ def parse(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--port", type=int, default=E.DEFAULT_API_PORT)
     p.add_argument("--frontend-port", type=int, default=E.DEFAULT_WEB_PORT)
     p.add_argument("--no-browser", action="store_true")
+    p.add_argument("--no-benchmark", action="store_true", help="skip background development benchmark generation")
     p.add_argument("--open", action="store_true", help="dev mode: also open the browser")
     p.add_argument("--guided", action="store_true", help="open straight into the guided demo")
     p.add_argument("--docker", action="store_true", help="run with docker compose instead of native processes")
@@ -149,6 +151,51 @@ def show_failure(label: str, services: list[Service]) -> None:
     print("\nSee docs/TROUBLESHOOTING.md. Common causes: a port taken by another program, a half-installed environment (run ./mirage setup --force).")
 
 
+def start_development_benchmark(no_benchmark: bool) -> subprocess.Popen | None:
+    if no_benchmark:
+        return None
+    summaries = E.LOCAL / "benchmark-dev" / "binder_campaign" / "privileged" / "summaries"
+    if next(summaries.glob("*.json"), None) is not None:
+        return None
+    try:
+        proc = subprocess.Popen(
+            development_benchmark_argv(),
+            cwd=E.ROOT,
+            env=E.project_env(),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+    except OSError as exc:
+        E.fail(f"could not start development-split benchmark generation: {exc}")
+        return None
+    E.info("generating the development-split benchmark in the background (~30 s); Benchmark Lab fills in when it finishes")
+    return proc
+
+
+def report_benchmark_exit(proc: subprocess.Popen) -> bool:
+    returncode = proc.poll()
+    if returncode is None:
+        return False
+    if returncode == 0:
+        E.ok("development-split benchmark generation finished")
+    else:
+        E.fail(f"development-split benchmark generation failed (exit {returncode})")
+    return True
+
+
+def stop_development_benchmark(proc: subprocess.Popen) -> None:
+    if proc.poll() is None:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.wait()
+    report_benchmark_exit(proc)
+
+
 # ------------------------------------------------------------------ preflight
 def preflight() -> int:
     import mirage_cli
@@ -245,6 +292,7 @@ def main(argv: list[str], *, dev: bool = False) -> int:
         "api", "API",
         [str(E.venv_python()), "scripts/serve_api.py", "--host", "127.0.0.1", "--port", str(api_port),
          "--records", str(E.RECORDS), "--scenario", args.scenario, "--scenario-version", args.version,
+         "--benchmark-store", str(E.LOCAL / "benchmark-dev" / "binder_campaign" / "privileged"),
          "--cors-origin", f"http://localhost:{web_port}", "--cors-origin", f"http://127.0.0.1:{web_port}",
          "--log-level", "info"],
         E.ROOT, E.project_env({"MIRAGE_EVAL_TOKEN": token}), api_port, "cyan")
@@ -253,7 +301,7 @@ def main(argv: list[str], *, dev: bool = False) -> int:
         [str(E.vite_bin()), "--host", "127.0.0.1", "--port", str(web_port), "--strictPort"],
         E.FRONTEND,
         E.project_env({"MIRAGE_API_PROXY": f"http://127.0.0.1:{api_port}", "MIRAGE_EVAL_TOKEN": token,
-                       "VITE_MIRAGE_EVALUATION": "1", "FORCE_COLOR": "0"}),
+                       "VITE_MIRAGE_EVALUATION": "1", "VITE_MIRAGE_BENCHMARKS": "1", "FORCE_COLOR": "0"}),
         web_port, "yellow")
     services = [api, web]
 
@@ -263,6 +311,7 @@ def main(argv: list[str], *, dev: bool = False) -> int:
     E.write_pidfile("supervisor", os.getpid(), api_port=api_port, web_port=web_port)
 
     code = 0
+    benchmark: subprocess.Popen | None = None
     try:
         print("\nStarting services...")
         echo = dev or args.verbose
@@ -271,6 +320,7 @@ def main(argv: list[str], *, dev: bool = False) -> int:
         if failed:
             show_failure(failed, [api])
             return 1
+        benchmark = start_development_benchmark(args.no_benchmark)
         web.start(echo)
         failed = wait_for(lambda: E.http_ok(f"http://127.0.0.1:{web_port}/", contains='id="root"'), services, STARTUP_TIMEOUT)
         if failed:
@@ -310,10 +360,14 @@ def main(argv: list[str], *, dev: bool = False) -> int:
                 show_failure(dead[0].label, [dead[0]])
                 code = 1
                 break
+            if benchmark is not None and report_benchmark_exit(benchmark):
+                benchmark = None
             stop.wait(0.5)
         if stop.is_set():
             print("\nShutting down...")
     finally:
+        if benchmark is not None:
+            stop_development_benchmark(benchmark)
         for s in reversed(services):
             s.stop()
         E.remove_pidfile("supervisor")

@@ -9,8 +9,8 @@ describe('parseHash', () => {
     })
   })
 
-  it('defaults unknown routes to results', () => {
-    expect(parseHash('#/unknown/RUN/EP')).toEqual({ route: 'results', params: [] })
+  it('defaults unknown routes to the overview', () => {
+    expect(parseHash('#/unknown/RUN/EP')).toEqual({ route: 'overview', params: [] })
   })
 
   it('decodes encoded IDs without splitting their decoded slashes', () => {
@@ -24,9 +24,9 @@ describe('parseHash', () => {
     expect(parseHash('#/episode/RUN/')).toEqual({ route: 'episode', params: ['RUN'] })
   })
 
-  it('defaults an empty hash to results', () => {
-    expect(parseHash('')).toEqual({ route: 'results', params: [] })
-    expect(parseHash('#/')).toEqual({ route: 'results', params: [] })
+  it('defaults an empty hash to the overview', () => {
+    expect(parseHash('')).toEqual({ route: 'overview', params: [] })
+    expect(parseHash('#/')).toEqual({ route: 'overview', params: [] })
   })
 })
 
@@ -40,6 +40,6 @@ describe('live default', () => {
   })
   it('keeps an explicit route and the original default otherwise', () => {
     expect(parseHash('#/cockpit', '?transport=live').route).toBe('cockpit')
-    expect(parseHash('', '?transport=mock').route).toBe('results')
+    expect(parseHash('', '?transport=mock').route).toBe('overview')
   })
 })

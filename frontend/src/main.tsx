@@ -16,6 +16,7 @@ import './styles/lab.css'
 import './styles/launch.css'
 import './styles/paper.css'
 import './styles/doc.css'
+import './styles/story.css'
 import App from './App'
 
 createRoot(document.getElementById('root')!).render(

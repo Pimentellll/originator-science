@@ -62,14 +62,17 @@ def plot_curves(run: Path, out: Path) -> None:
     fig.savefig(out, dpi=130)
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--run", type=Path, required=True)
     p.add_argument("--checkpoint", default="best")
     p.add_argument("--n-heldout", type=int, default=len(HELD_OUT_SEEDS))
     p.add_argument("--particles", type=int, default=256)
-    args = p.parse_args()
+    args = p.parse_args(argv)
 
+    report_path = args.run / "report_heldout_training_utility.json"
+    if report_path.exists():
+        p.error(f"held-out report already exists and will not be overwritten: {report_path}")
     ckpt = args.run / f"{args.checkpoint}.zip"
     seeds = list(HELD_OUT_SEEDS)[: args.n_heldout]
     result = {
@@ -90,7 +93,7 @@ def main() -> None:
         "fixed_pipeline": summarise(rollout_policy(FixedPipelinePolicy(), seeds, randomize=False, particles=args.particles)),
         "greedy_eig": summarise(rollout_policy(greedy, seeds, randomize=False, particles=args.particles, belief_source_factory=attach)),
     }
-    (args.run / "report_heldout_training_utility.json").write_text(json.dumps(result, indent=2))
+    report_path.write_text(json.dumps(result, indent=2))
     plot_curves(args.run, args.run / "learning_curves.png")
     print(json.dumps({k: (v["return_mean"], v["terminal_utility_mean"]) for k, v in
                       {"ppo_nominal": result["ppo_nominal_lab"], "ppo_randomized": result["ppo_randomized_lab"],

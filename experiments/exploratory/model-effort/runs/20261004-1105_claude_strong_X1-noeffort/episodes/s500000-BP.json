@@ -1,0 +1,781 @@
+{
+  "agent": {
+    "effort": null,
+    "kind": "llm",
+    "model": "claude-haiku-4-5-20251001",
+    "name": "claude",
+    "prompt_sha256": "dc07da980883558de995de94ed9c3affc1c8982f31fc5f149f9bfcacda1d91d1",
+    "prompt_version": "prompt-v2",
+    "sdk_version": "1.10.0"
+  },
+  "audit": [
+    {
+      "before_diagnosis": true,
+      "diagnostic_control": true,
+      "event_index": 0,
+      "in_diagnostic_set": true,
+      "in_useful_region": true,
+      "is_diluted": true,
+      "is_late": true,
+      "latent_biomass_odeq": 1.0087541750195923,
+      "noise_free_reading": 0.1008754174555497,
+      "presented_biomass_odeq": 0.10087541750195923,
+      "reconstruction_adequate": true,
+      "request_index": 0
+    },
+    {
+      "before_diagnosis": true,
+      "diagnostic_control": true,
+      "event_index": 1,
+      "in_diagnostic_set": true,
+      "in_useful_region": true,
+      "is_diluted": true,
+      "is_late": true,
+      "latent_biomass_odeq": 1.0087541750195923,
+      "noise_free_reading": 0.1008754174555497,
+      "presented_biomass_odeq": 0.10087541750195923,
+      "reconstruction_adequate": true,
+      "request_index": 1
+    },
+    {
+      "before_diagnosis": true,
+      "diagnostic_control": false,
+      "event_index": 2,
+      "in_diagnostic_set": true,
+      "in_useful_region": true,
+      "is_diluted": true,
+      "is_late": false,
+      "latent_biomass_odeq": 1.0087339704634193,
+      "noise_free_reading": 0.10087339699994077,
+      "presented_biomass_odeq": 0.10087339704634193,
+      "reconstruction_adequate": false,
+      "request_index": 2
+    }
+  ],
+  "diagnosis": {
+    "diagnosis": "BIOMASS_ABOVE_READING",
+    "late_biomass_estimate_od": 1.06,
+    "p_biomass_above_reading": 0.75,
+    "rationale": "Comparison of diluted and undiluted measurements reveals plate reader saturation/non-linearity in the plateau phase (hours 6-18). At hour 18, a 10-fold dilution reading of 0.1064 extrapolates to ~1.064 OD equivalent, significantly exceeding the undiluted reading of 0.9724 (difference of +0.092). Similar pattern observed at hour 7 (diluted extrapolates to 1.043 vs. undiluted 0.9878). The increasing divergence between extrapolated diluted values and undiluted readings as time progresses indicates the reader is underestimating true OD in the final hours due to saturation effects around OD ~1.0. The culture biomass at hour 18 is estimated at approximately 1.06 OD based on diluted sample proportionality, indicating the true biomass is higher than the undiluted readings indicate."
+  },
+  "episode": {
+    "assay": {
+      "eps_lin": 0.05,
+      "n": 8.0,
+      "resolution": 0.0001,
+      "s_odeq": 1.1430003567358629,
+      "sigma_abs": 0.003,
+      "sigma_rel": 0.02,
+      "y_loq": 0.03
+    },
+    "condition": "BIOLOGICAL_PLATEAU",
+    "episode_id": "s500000-BP",
+    "growth": {
+      "k_odeq": 1.0087541750195923,
+      "nu": 8.0,
+      "r_per_h": 0.7806793128419562,
+      "x0_odeq": 0.012731312653996706
+    },
+    "k_ratio": 0.8825493089961531,
+    "scenario_sha256": "5291e69c061fa42973cf541bd84b78a90770dc971227f32f052acfc404c0ce08",
+    "scenario_version": "scenario-v1",
+    "seed": 500000
+  },
+  "events": [
+    {
+      "arguments": {
+        "dilution_factor": 10,
+        "replicates": 2,
+        "time_h": 18
+      },
+      "error": null,
+      "index": 0,
+      "ok": true,
+      "result": {
+        "budget_remaining": 4,
+        "dilution_factor": 10.0,
+        "mean_reading": 0.1064,
+        "readings": [
+          0.1071,
+          0.1056
+        ],
+        "time_h": 18
+      },
+      "tool": "measure_od",
+      "turn": 1
+    },
+    {
+      "arguments": {
+        "dilution_factor": 10,
+        "replicates": 2,
+        "time_h": 13
+      },
+      "error": null,
+      "index": 1,
+      "ok": true,
+      "result": {
+        "budget_remaining": 2,
+        "dilution_factor": 10.0,
+        "mean_reading": 0.0983,
+        "readings": [
+          0.0963,
+          0.1004
+        ],
+        "time_h": 13
+      },
+      "tool": "measure_od",
+      "turn": 2
+    },
+    {
+      "arguments": {
+        "dilution_factor": 10,
+        "replicates": 1,
+        "time_h": 7
+      },
+      "error": null,
+      "index": 2,
+      "ok": true,
+      "result": {
+        "budget_remaining": 1,
+        "dilution_factor": 10.0,
+        "mean_reading": 0.1043,
+        "readings": [
+          0.1043
+        ],
+        "time_h": 7
+      },
+      "tool": "measure_od",
+      "turn": 3
+    },
+    {
+      "arguments": {
+        "notes": "Analysis of diluted vs. undiluted readings reveals reader saturation/non-linearity in the plateau phase. Hour 18 10× dilution (0.1064) extrapolates to ~1.064 OD, exceeding the undiluted reading of 0.9724. Hour 7 shows similar pattern (diluted extrapolates to 1.043 vs. undiluted 0.9878). Hour 13 is more consistent (diluted 0.983 vs. undiluted 0.9951). This suggests biomass in late hours is HIGHER than undiluted readings indicate, with reader saturation occurring around OD ~1.0. The divergence is most pronounced at hour 18, suggesting continued increase in biomass beyond the undiluted measurement capability. Spent 5 of 6 budget units on 5 replicates across 3 timepoints.",
+        "p_biomass_above_reading": 0.75
+      },
+      "error": null,
+      "index": 3,
+      "ok": true,
+      "result": {
+        "status": "recorded"
+      },
+      "tool": "declare_state",
+      "turn": 4
+    },
+    {
+      "arguments": {
+        "diagnosis": "BIOMASS_ABOVE_READING",
+        "late_biomass_estimate_od": 1.06,
+        "p_biomass_above_reading": 0.75,
+        "rationale": "Comparison of diluted and undiluted measurements reveals plate reader saturation/non-linearity in the plateau phase (hours 6-18). At hour 18, a 10-fold dilution reading of 0.1064 extrapolates to ~1.064 OD equivalent, significantly exceeding the undiluted reading of 0.9724 (difference of +0.092). Similar pattern observed at hour 7 (diluted extrapolates to 1.043 vs. undiluted 0.9878). The increasing divergence between extrapolated diluted values and undiluted readings as time progresses indicates the reader is underestimating true OD in the final hours due to saturation effects around OD ~1.0. The culture biomass at hour 18 is estimated at approximately 1.06 OD based on diluted sample proportionality, indicating the true biomass is higher than the undiluted readings indicate."
+      },
+      "error": null,
+      "index": 4,
+      "ok": true,
+      "result": {
+        "status": "received"
+      },
+      "tool": "submit_diagnosis",
+      "turn": 5
+    }
+  ],
+  "llm_transcript": [
+    {
+      "content": "{\"budget\": {\"cost\": \"1 unit per replicate reading\", \"remaining_units\": 6, \"total_units\": 6}, \"experiment\": {\"assay\": \"OD600 plate reader; blank-subtracted readings of undiluted culture\", \"culture\": \"bacterial batch culture inoculated at t = 0 h, incubated 18 h\", \"retained_aliquots_h\": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]}, \"limits\": {\"dilution_factor\": \"1 to 100\", \"max_turns\": 12, \"replicates\": \"1 to 3\", \"time_h\": \"integer 0 to 18\"}, \"passive_readings\": [{\"dilution_factor\": 1.0, \"reading\": 0.0088, \"time_h\": 0}, {\"dilution_factor\": 1.0, \"reading\": 0.0219, \"time_h\": 1}, {\"dilution_factor\": 1.0, \"reading\": 0.06, \"time_h\": 2}, {\"dilution_factor\": 1.0, \"reading\": 0.128, \"time_h\": 3}, {\"dilution_factor\": 1.0, \"reading\": 0.2867, \"time_h\": 4}, {\"dilution_factor\": 1.0, \"reading\": 0.6429, \"time_h\": 5}, {\"dilution_factor\": 1.0, \"reading\": 0.9655, \"time_h\": 6}, {\"dilution_factor\": 1.0, \"reading\": 0.9878, \"time_h\": 7}, {\"dilution_factor\": 1.0, \"reading\": 0.9974, \"time_h\": 8}, {\"dilution_factor\": 1.0, \"reading\": 0.9697, \"time_h\": 9}, {\"dilution_factor\": 1.0, \"reading\": 0.9518, \"time_h\": 10}, {\"dilution_factor\": 1.0, \"reading\": 0.9721, \"time_h\": 11}, {\"dilution_factor\": 1.0, \"reading\": 0.9613, \"time_h\": 12}, {\"dilution_factor\": 1.0, \"reading\": 0.9951, \"time_h\": 13}, {\"dilution_factor\": 1.0, \"reading\": 0.979, \"time_h\": 14}, {\"dilution_factor\": 1.0, \"reading\": 0.9778, \"time_h\": 15}, {\"dilution_factor\": 1.0, \"reading\": 0.9635, \"time_h\": 16}, {\"dilution_factor\": 1.0, \"reading\": 1.0024, \"time_h\": 17}, {\"dilution_factor\": 1.0, \"reading\": 0.9724, \"time_h\": 18}]}",
+      "kind": "user"
+    },
+    {
+      "kind": "assistant",
+      "request": {
+        "max_tokens": 16000,
+        "model": "claude-haiku-4-5-20251001",
+        "tool_choice": {
+          "disable_parallel_tool_use": true,
+          "type": "auto"
+        }
+      },
+      "request_id": "req_011Cfh63UWdfDZ5bV9jrjGiN",
+      "response": {
+        "container": null,
+        "content": [
+          {
+            "text": "I'll analyze this bacterial culture experiment to determine whether the biomass in the final hours is at the level the undiluted readings indicate, or higher.\n\nLet me first examine the passive readings pattern:\n\n**Observations from the data:**\n- Hours 0-5: Exponential growth (0.0088 → 0.6429)\n- Hours 6-18: Plateau phase with readings hovering around 0.96-1.00\n\nThe culture appears to have reached stationary phase around hour 6. However, I notice something important: **the undiluted readings in the plateau phase (0.96-1.00) are suspiciously stable and hovering near the typical upper limit of OD600 plate readers**, which often have limited linear range or can show saturation effects.\n\nThis raises a critical question: **Are the undiluted readings in hours 6-18 actually accurate, or has the culture density exceeded the reader's reliable range?** If biomass has continued to increase beyond what the undiluted readings show, diluted samples should reveal this.\n\nLet me test this hypothesis by measuring the final hours with dilutions:",
+            "type": "text"
+          },
+          {
+            "caller": {
+              "type": "direct"
+            },
+            "id": "toolu_01J6K9MP798hNWjpyi1CYXuC",
+            "input": {
+              "dilution_factor": 10,
+              "replicates": 2,
+              "time_h": 18
+            },
+            "name": "measure_od",
+            "type": "tool_use"
+          }
+        ],
+        "diagnostics": null,
+        "id": "msg_011Cfh63VSCDehvRpPNd8jr7",
+        "model": "claude-haiku-4-5-20251001",
+        "role": "assistant",
+        "stop_details": null,
+        "stop_reason": "tool_use",
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "not_available",
+          "input_tokens": 1997,
+          "output_tokens": 334,
+          "service_tier": "standard"
+        }
+      },
+      "stop_reason": "tool_use",
+      "turn": 1
+    },
+    {
+      "content": [
+        {
+          "content": "{\"budget_remaining\": 4, \"dilution_factor\": 10.0, \"mean_reading\": 0.1064, \"readings\": [0.1071, 0.1056], \"time_h\": 18}",
+          "is_error": false,
+          "tool_use_id": "toolu_01J6K9MP798hNWjpyi1CYXuC",
+          "type": "tool_result"
+        }
+      ],
+      "kind": "user",
+      "turn": 1
+    },
+    {
+      "kind": "assistant",
+      "request": {
+        "max_tokens": 16000,
+        "model": "claude-haiku-4-5-20251001",
+        "tool_choice": {
+          "disable_parallel_tool_use": true,
+          "type": "auto"
+        }
+      },
+      "request_id": "req_011Cfh63mFwvgVV35PYJ615S",
+      "response": {
+        "container": null,
+        "content": [
+          {
+            "text": "Excellent! This is very informative. The 10-fold dilution at hour 18 gives a mean of **0.1064**, which would scale to **~1.064 at undiluted equivalent**. The undiluted reading at hour 18 was **0.9724**, which is significantly **lower** than the diluted measurement suggests.\n\nThis strongly suggests **reader saturation or non-linearity** in the undiluted readings. Let me check an earlier plateau timepoint to see if this pattern holds:",
+            "type": "text"
+          },
+          {
+            "caller": {
+              "type": "direct"
+            },
+            "id": "toolu_01EMBpS6nvgEDADZBtzkMj9S",
+            "input": {
+              "dilution_factor": 10,
+              "replicates": 2,
+              "time_h": 13
+            },
+            "name": "measure_od",
+            "type": "tool_use"
+          }
+        ],
+        "diagnostics": null,
+        "id": "msg_011Cfh63mdn6WzHDJJ42vJjG",
+        "model": "claude-haiku-4-5-20251001",
+        "role": "assistant",
+        "stop_details": null,
+        "stop_reason": "tool_use",
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "not_available",
+          "input_tokens": 2404,
+          "output_tokens": 200,
+          "service_tier": "standard"
+        }
+      },
+      "stop_reason": "tool_use",
+      "turn": 2
+    },
+    {
+      "content": [
+        {
+          "content": "{\"budget_remaining\": 2, \"dilution_factor\": 10.0, \"mean_reading\": 0.0983, \"readings\": [0.0963, 0.1004], \"time_h\": 13}",
+          "is_error": false,
+          "tool_use_id": "toolu_01EMBpS6nvgEDADZBtzkMj9S",
+          "type": "tool_result"
+        }
+      ],
+      "kind": "user",
+      "turn": 2
+    },
+    {
+      "kind": "assistant",
+      "request": {
+        "max_tokens": 16000,
+        "model": "claude-haiku-4-5-20251001",
+        "tool_choice": {
+          "disable_parallel_tool_use": true,
+          "type": "auto"
+        }
+      },
+      "request_id": "req_011Cfh63wXpwq38ZKCNi4CjG",
+      "response": {
+        "container": null,
+        "content": [
+          {
+            "text": "The 10-fold dilution at hour 13 gives **0.0983**, scaling to **~0.983 undiluted equivalent**. The actual undiluted reading was **0.9951**, which is very close.\n\nLet me check an earlier time in the plateau phase to establish the pattern better:",
+            "type": "text"
+          },
+          {
+            "caller": {
+              "type": "direct"
+            },
+            "id": "toolu_01SCZsygWJjcssf2jwhaQcKV",
+            "input": {
+              "dilution_factor": 10,
+              "replicates": 1,
+              "time_h": 7
+            },
+            "name": "measure_od",
+            "type": "tool_use"
+          }
+        ],
+        "diagnostics": null,
+        "id": "msg_011Cfh63wtfy8CRg4nWAyP5f",
+        "model": "claude-haiku-4-5-20251001",
+        "role": "assistant",
+        "stop_details": null,
+        "stop_reason": "tool_use",
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "not_available",
+          "input_tokens": 2677,
+          "output_tokens": 154,
+          "service_tier": "standard"
+        }
+      },
+      "stop_reason": "tool_use",
+      "turn": 3
+    },
+    {
+      "content": [
+        {
+          "content": "{\"budget_remaining\": 1, \"dilution_factor\": 10.0, \"mean_reading\": 0.1043, \"readings\": [0.1043], \"time_h\": 7}",
+          "is_error": false,
+          "tool_use_id": "toolu_01SCZsygWJjcssf2jwhaQcKV",
+          "type": "tool_result"
+        }
+      ],
+      "kind": "user",
+      "turn": 3
+    },
+    {
+      "kind": "assistant",
+      "request": {
+        "max_tokens": 16000,
+        "model": "claude-haiku-4-5-20251001",
+        "tool_choice": {
+          "disable_parallel_tool_use": true,
+          "type": "auto"
+        }
+      },
+      "request_id": "req_011Cfh64A1BWm5Qq9R4BQ5YV",
+      "response": {
+        "container": null,
+        "content": [
+          {
+            "text": "At hour 7, the 10-fold dilution gives **0.1043**, scaling to **~1.043 undiluted equivalent**. The actual undiluted reading was **0.9878**.\n\n**Pattern emerging:** In the plateau phase:\n- Hour 7: Diluted suggests 1.043, actual undiluted was 0.9878 (difference: +0.055)\n- Hour 13: Diluted suggests 0.983, actual undiluted was 0.9951 (close)\n- Hour 18: Diluted suggests 1.064, actual undiluted was 0.9724 (difference: +0.092)\n\nThis indicates increasing discrepancy as we approach hour 18. Let me record my findings:",
+            "type": "text"
+          },
+          {
+            "caller": {
+              "type": "direct"
+            },
+            "id": "toolu_01SFczmyQmvD5CKFf181SEW1",
+            "input": {
+              "notes": "Analysis of diluted vs. undiluted readings reveals reader saturation/non-linearity in the plateau phase. Hour 18 10× dilution (0.1064) extrapolates to ~1.064 OD, exceeding the undiluted reading of 0.9724. Hour 7 shows similar pattern (diluted extrapolates to 1.043 vs. undiluted 0.9878). Hour 13 is more consistent (diluted 0.983 vs. undiluted 0.9951). This suggests biomass in late hours is HIGHER than undiluted readings indicate, with reader saturation occurring around OD ~1.0. The divergence is most pronounced at hour 18, suggesting continued increase in biomass beyond the undiluted measurement capability. Spent 5 of 6 budget units on 5 replicates across 3 timepoints.",
+              "p_biomass_above_reading": 0.75
+            },
+            "name": "declare_state",
+            "type": "tool_use"
+          }
+        ],
+        "diagnostics": null,
+        "id": "msg_011Cfh64AVCsuzZg2siEEQog",
+        "model": "claude-haiku-4-5-20251001",
+        "role": "assistant",
+        "stop_details": null,
+        "stop_reason": "tool_use",
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "not_available",
+          "input_tokens": 2898,
+          "output_tokens": 442,
+          "service_tier": "standard"
+        }
+      },
+      "stop_reason": "tool_use",
+      "turn": 4
+    },
+    {
+      "content": [
+        {
+          "content": "{\"status\": \"recorded\"}",
+          "is_error": false,
+          "tool_use_id": "toolu_01SFczmyQmvD5CKFf181SEW1",
+          "type": "tool_result"
+        }
+      ],
+      "kind": "user",
+      "turn": 4
+    },
+    {
+      "kind": "assistant",
+      "request": {
+        "max_tokens": 16000,
+        "model": "claude-haiku-4-5-20251001",
+        "tool_choice": {
+          "disable_parallel_tool_use": true,
+          "type": "auto"
+        }
+      },
+      "request_id": "req_011Cfh64VooUzKorf9FqgPra",
+      "response": {
+        "container": null,
+        "content": [
+          {
+            "text": "Now I'll submit my final diagnosis:",
+            "type": "text"
+          },
+          {
+            "caller": {
+              "type": "direct"
+            },
+            "id": "toolu_01FzTNt1Gqk1Yj9iTH4Ahtf8",
+            "input": {
+              "diagnosis": "BIOMASS_ABOVE_READING",
+              "late_biomass_estimate_od": 1.06,
+              "p_biomass_above_reading": 0.75,
+              "rationale": "Comparison of diluted and undiluted measurements reveals plate reader saturation/non-linearity in the plateau phase (hours 6-18). At hour 18, a 10-fold dilution reading of 0.1064 extrapolates to ~1.064 OD equivalent, significantly exceeding the undiluted reading of 0.9724 (difference of +0.092). Similar pattern observed at hour 7 (diluted extrapolates to 1.043 vs. undiluted 0.9878). The increasing divergence between extrapolated diluted values and undiluted readings as time progresses indicates the reader is underestimating true OD in the final hours due to saturation effects around OD ~1.0. The culture biomass at hour 18 is estimated at approximately 1.06 OD based on diluted sample proportionality, indicating the true biomass is higher than the undiluted readings indicate."
+            },
+            "name": "submit_diagnosis",
+            "type": "tool_use"
+          }
+        ],
+        "diagnostics": null,
+        "id": "msg_011Cfh64WJZSW6vnzdkxn7kG",
+        "model": "claude-haiku-4-5-20251001",
+        "role": "assistant",
+        "stop_details": null,
+        "stop_reason": "tool_use",
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "not_available",
+          "input_tokens": 3367,
+          "output_tokens": 339,
+          "service_tier": "standard"
+        }
+      },
+      "stop_reason": "tool_use",
+      "turn": 5
+    },
+    {
+      "content": [
+        {
+          "content": "{\"status\": \"received\"}",
+          "is_error": false,
+          "tool_use_id": "toolu_01FzTNt1Gqk1Yj9iTH4Ahtf8",
+          "type": "tool_result"
+        }
+      ],
+      "kind": "user",
+      "turn": 5
+    }
+  ],
+  "passive": [
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.0088,
+      "readings": [
+        0.0088
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 0
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.0219,
+      "readings": [
+        0.0219
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 1
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.06,
+      "readings": [
+        0.06
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 2
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.128,
+      "readings": [
+        0.128
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 3
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.2867,
+      "readings": [
+        0.2867
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 4
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.6429,
+      "readings": [
+        0.6429
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 5
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9655,
+      "readings": [
+        0.9655
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 6
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9878,
+      "readings": [
+        0.9878
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 7
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9974,
+      "readings": [
+        0.9974
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 8
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9697,
+      "readings": [
+        0.9697
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 9
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9518,
+      "readings": [
+        0.9518
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 10
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9721,
+      "readings": [
+        0.9721
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 11
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9613,
+      "readings": [
+        0.9613
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 12
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9951,
+      "readings": [
+        0.9951
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 13
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.979,
+      "readings": [
+        0.979
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 14
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9778,
+      "readings": [
+        0.9778
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 15
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9635,
+      "readings": [
+        0.9635
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 16
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.0024,
+      "readings": [
+        1.0024
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 17
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9724,
+      "readings": [
+        0.9724
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 18
+    }
+  ],
+  "run_meta": {
+    "finished_at": "2026-10-04T11:05:36+00:00",
+    "run_id": "20261004-1105_claude_strong_X1-noeffort",
+    "started_at": "2026-10-04T11:05:18+00:00"
+  },
+  "schema_version": "episode-result-v2",
+  "scores": {
+    "brier": 0.5625,
+    "correct": false,
+    "cost_units": 5,
+    "diagnostic_control": true,
+    "justified": false,
+    "m5_diagnosticity": null,
+    "measure_calls_before_diagnosis": 3,
+    "reconstruction_adequate": true
+  },
+  "status": "DIAGNOSED",
+  "versions": {
+    "anthropic": "1.10.0",
+    "mirage": "0.1.0",
+    "numpy": "2.3.5",
+    "pydantic": "2.12.5",
+    "python": "3.12.15"
+  }
+}

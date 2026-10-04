@@ -1,0 +1,507 @@
+{
+  "agent": {
+    "effort": "high",
+    "kind": "llm",
+    "model": "claude-sonnet-5-5",
+    "name": "claude",
+    "prompt_sha256": "1060a492fbef72883df6832767db5105d0781a8f23f684db374d57040b072a97",
+    "prompt_version": "prompt-v2+price6",
+    "sdk_version": "1.10.0"
+  },
+  "audit": [
+    {
+      "before_diagnosis": true,
+      "diagnostic_control": true,
+      "event_index": 0,
+      "in_diagnostic_set": true,
+      "in_useful_region": true,
+      "is_diluted": true,
+      "is_late": true,
+      "latent_biomass_odeq": 1.3282022858111577,
+      "noise_free_reading": 0.13282022854874845,
+      "presented_biomass_odeq": 0.13282022858111578,
+      "reconstruction_adequate": true,
+      "request_index": 0
+    }
+  ],
+  "diagnosis": {
+    "diagnosis": "BIOMASS_AS_READ",
+    "late_biomass_estimate_od": 1.28,
+    "p_biomass_above_reading": 0.06,
+    "rationale": "The 18 h aliquot diluted 10-fold read 0.1264. Scaled by 10 that is 1.264, which matches the undiluted reading of 1.29 (within about 2%). If the reader were saturating, the diluted sample would have read well above 0.129, so there is no sign of nonlinearity at OD ~1.3. The plateau from 7 h onward is a real stationary phase. The check is a single replicate, so some uncertainty remains."
+  },
+  "episode": {
+    "assay": {
+      "eps_lin": 0.05,
+      "n": 8.0,
+      "resolution": 0.0001,
+      "s_odeq": 1.6293809297208663,
+      "sigma_abs": 0.003,
+      "sigma_rel": 0.02,
+      "y_loq": 0.03
+    },
+    "condition": "BIOLOGICAL_PLATEAU",
+    "episode_id": "s500016-BP",
+    "growth": {
+      "k_odeq": 1.3282022858111577,
+      "nu": 8.0,
+      "r_per_h": 0.7954060232105746,
+      "x0_odeq": 0.007727324416017175
+    },
+    "k_ratio": 0.8151576231094687,
+    "scenario_sha256": "5291e69c061fa42973cf541bd84b78a90770dc971227f32f052acfc404c0ce08",
+    "scenario_version": "scenario-v1",
+    "seed": 500016
+  },
+  "events": [
+    {
+      "arguments": {
+        "dilution_factor": 10,
+        "replicates": 1,
+        "time_h": 18
+      },
+      "error": null,
+      "index": 0,
+      "ok": true,
+      "result": {
+        "budget_remaining": 0,
+        "dilution_factor": 10.0,
+        "mean_reading": 0.1264,
+        "readings": [
+          0.1264
+        ],
+        "time_h": 18
+      },
+      "tool": "measure_od",
+      "turn": 1
+    },
+    {
+      "arguments": {
+        "diagnosis": "BIOMASS_AS_READ",
+        "late_biomass_estimate_od": 1.28,
+        "p_biomass_above_reading": 0.06,
+        "rationale": "The 18 h aliquot diluted 10-fold read 0.1264. Scaled by 10 that is 1.264, which matches the undiluted reading of 1.29 (within about 2%). If the reader were saturating, the diluted sample would have read well above 0.129, so there is no sign of nonlinearity at OD ~1.3. The plateau from 7 h onward is a real stationary phase. The check is a single replicate, so some uncertainty remains."
+      },
+      "error": null,
+      "index": 1,
+      "ok": true,
+      "result": {
+        "status": "received"
+      },
+      "tool": "submit_diagnosis",
+      "turn": 2
+    }
+  ],
+  "llm_transcript": [
+    {
+      "content": "{\"budget\": {\"cost\": \"6 units per replicate reading\", \"remaining_units\": 6, \"total_units\": 6}, \"experiment\": {\"assay\": \"OD600 plate reader; blank-subtracted readings of undiluted culture\", \"culture\": \"bacterial batch culture inoculated at t = 0 h, incubated 18 h\", \"retained_aliquots_h\": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]}, \"limits\": {\"dilution_factor\": \"1 to 100\", \"max_turns\": 12, \"replicates\": \"1 to 3\", \"time_h\": \"integer 0 to 18\"}, \"passive_readings\": [{\"dilution_factor\": 1.0, \"reading\": 0.0039, \"time_h\": 0}, {\"dilution_factor\": 1.0, \"reading\": 0.009, \"time_h\": 1}, {\"dilution_factor\": 1.0, \"reading\": 0.0404, \"time_h\": 2}, {\"dilution_factor\": 1.0, \"reading\": 0.0842, \"time_h\": 3}, {\"dilution_factor\": 1.0, \"reading\": 0.1705, \"time_h\": 4}, {\"dilution_factor\": 1.0, \"reading\": 0.4222, \"time_h\": 5}, {\"dilution_factor\": 1.0, \"reading\": 0.8823, \"time_h\": 6}, {\"dilution_factor\": 1.0, \"reading\": 1.272, \"time_h\": 7}, {\"dilution_factor\": 1.0, \"reading\": 1.2781, \"time_h\": 8}, {\"dilution_factor\": 1.0, \"reading\": 1.3082, \"time_h\": 9}, {\"dilution_factor\": 1.0, \"reading\": 1.2488, \"time_h\": 10}, {\"dilution_factor\": 1.0, \"reading\": 1.3506, \"time_h\": 11}, {\"dilution_factor\": 1.0, \"reading\": 1.3015, \"time_h\": 12}, {\"dilution_factor\": 1.0, \"reading\": 1.2829, \"time_h\": 13}, {\"dilution_factor\": 1.0, \"reading\": 1.3098, \"time_h\": 14}, {\"dilution_factor\": 1.0, \"reading\": 1.3091, \"time_h\": 15}, {\"dilution_factor\": 1.0, \"reading\": 1.293, \"time_h\": 16}, {\"dilution_factor\": 1.0, \"reading\": 1.2782, \"time_h\": 17}, {\"dilution_factor\": 1.0, \"reading\": 1.2896, \"time_h\": 18}]}",
+      "kind": "user"
+    },
+    {
+      "kind": "assistant",
+      "request": {
+        "max_tokens": 16000,
+        "model": "claude-sonnet-5-5",
+        "output_config": {
+          "effort": "high"
+        },
+        "tool_choice": {
+          "disable_parallel_tool_use": true,
+          "type": "auto"
+        }
+      },
+      "request_id": "req_011Cfh6sLhAypRL8BmP5iVxw",
+      "response": {
+        "container": null,
+        "content": [
+          {
+            "signature": "CAQSpQcKEAgSGAI4AUIIdGhpbmtpbmcSDBr0LbXMQ3NnXQSThxoMF/qYnwtsxY2SyLmSIjDSVs4Zse1K3J+Lz13lGKWXOlC7RBpjPMGHc6h7h2c3CFTfncnm7z8asha5G1YIvYMqwgbNtdxt90hAz0TqIERM3h4BgvRVYfQAwz19RGJH9yZmG9B5WWqz/FbVuPq+VvJ+doviIncuCcjaFOERBdVItD+IYmNc8eTPht/yKIeptxX3qYNTlSzHXaHeROfPmKIGg0W3v+pmxx4veC5torprCgMaawXL0yHfBzTqp2z3xl85hSFy/Y5/lD7uFeY26UTNTzMdy6ixKSrdMF7sFviZfSfU4GVramWsFIS1B2Do2JiyZVgu9a05vgv7DuhRkBl5GJC9nECFQI6r/relygUhltqfPF/whMQdCCERXXIuOFN19nMoextGasKC4+zCn2ep3sfgMWKkuV3OWtUD1keQD4Wj1MDdZC08QufPwU/nVrbhMR/PsC8xBk2E1ntRnDRox499hCtsBvHrSmPfM8FDvi0rhR0qP6KYcpxISw2ovHpP3lOSLu32OtArhPNxcW5erOO2gb8l2c0bphJhTvauxZrVVbR154Viy5R9RfQ3GVzPi5ZnL8sz7jKJH+nCkShd+dkOHtEIdReLqNYoWvZHNen3in+y4CauCUzafITG6RLhZD2dJFhlTpHreFRjMg4Gi/9DOhDJ2t57w6R6TjcOMcP/tElLaYcgkvHvsHvRQKy5UsrPI8Pc0sDAmbMXnPEEhq6qbFnNO3SxSq3AFcqEilqInHDf3FoJJga509d5atRJiBVAZSzBJ96hK4ib2Z4YYnKRl8XXM4ZTLwtZZgDZW1fBsPn3q5A51p+WgheiiSJu0z6s82O0UfrzVF+rszEn85VdtqT02LfoCgTKu0JpPm42XGq1NO4TPG/VgKTWIgufiff30An51yMm3fQmWD0mgRPy1es0eOBeLIF0payL0VorGwbc+Dky7KM3s0AWWOrgTFvM5p5nHqpEvdzjZI2LJvpUxHm/spAdZuOBgpZqszBCKFs97J/v8ZSbbRUA/I0VTgbcq1PZlGTiosWacKt3bCsR3nqyEkWdeO5l/qcPHnRtUIrK2KcZKdyRI4KBH85s0GOs4iwo5asWDv3rnF45vhCSostBPunxhnhI8FMay5sDxKYKDqb2nSQ4nth+X1QXGm2lIFrwkYht2m3MsBTs+sZwcd7MVBue3MgU/RjLwWxpMFAYAQ==",
+            "thinking": "",
+            "type": "thinking"
+          },
+          {
+            "caller": {
+              "type": "direct"
+            },
+            "id": "toolu_011xrXrAySQvWq3YNJA2bKge",
+            "input": {
+              "dilution_factor": 10,
+              "replicates": 1,
+              "time_h": 18
+            },
+            "name": "measure_od",
+            "type": "tool_use"
+          }
+        ],
+        "diagnostics": null,
+        "id": "msg_011Cfh6sM5EyFqg6GF9CvxSn",
+        "model": "claude-sonnet-5-5",
+        "role": "assistant",
+        "stop_details": null,
+        "stop_reason": "tool_use",
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "global",
+          "input_tokens": 2480,
+          "output_tokens": 260,
+          "output_tokens_details": {
+            "thinking_tokens": 162
+          },
+          "service_tier": "standard"
+        }
+      },
+      "stop_reason": "tool_use",
+      "turn": 1
+    },
+    {
+      "content": [
+        {
+          "content": "{\"budget_remaining\": 0, \"dilution_factor\": 10.0, \"mean_reading\": 0.1264, \"readings\": [0.1264], \"time_h\": 18}",
+          "is_error": false,
+          "tool_use_id": "toolu_011xrXrAySQvWq3YNJA2bKge",
+          "type": "tool_result"
+        }
+      ],
+      "kind": "user",
+      "turn": 1
+    },
+    {
+      "kind": "assistant",
+      "request": {
+        "max_tokens": 16000,
+        "model": "claude-sonnet-5-5",
+        "output_config": {
+          "effort": "high"
+        },
+        "tool_choice": {
+          "disable_parallel_tool_use": true,
+          "type": "auto"
+        }
+      },
+      "request_id": "req_011Cfh6sbhKVfjfoDVKMBq1d",
+      "response": {
+        "container": null,
+        "content": [
+          {
+            "signature": "CAQSxwUKEAgSGAI4AUIIdGhpbmtpbmcSDAg0Jwn7+Ytc6sc/EhoMCclq/Q9YWaMXq6SUIjDYPc1QZDrM3rOIb8oTXVNrIOXACWoH7lCvNU4uzHqseps4sAVCMJhgAr9vcqa+IrAq5ARJ7VEHLvYy23SjOJf8s8e2ataM14iWZg7HT/Uyd9Ld/5klDQIC9DeNpcH92nV3Xsl4FbCmmGBcq/aqWhTZ+HQedphexpbqYb7/1RdcE8jm6ZtsbKUHzjXfIqq5xepE1W6ICuCjITv+GxLhlfUme2GrREHs0SqIIBHUfehDGLSsxf6vLJhBFytMoUqqYz+uAkpxMcqaQJAxHcuiuWeSNoAN3AHo8cpyUqBHdF46RCLm9VQNgziiVj+tHwwJ/auorLDE9OApMGpZsbIKbAKJT1JIopEcv7bmkTGVR3qmJ+yZJrcbBirg4Er+Y99HEERszQAKtJf7B8yk71Tkr42ylkvMEyxBEUy2v8EgNUU6cUWtEkNhxboNPvBu3tsGb3x2jM4/kIhzrjJ5HA0d7ywQ68lTVfIO2DKUJR73A51LNM77TjLoNnk+lpphNe6bsu3UmzmR3rC0iK+odrHHaueHIEL1vQ8ar+LsO52RK7KEu56l+1Xb4bRnvhXnUhHCWzErD1rYQdnHIR/EVrrVveMN69h7F+rXns9eItpFTrvdYgkED7OgehVPROpmb7/Wn3mKNt0bfFHbxYRA8Oop2bkV2fKF+boLPPBCdup3WhBvieeydc4FHu7f3aTcEAdo51d7PGm3QO/sy2rmKg7ISBeOveOpqZq++SxURo8tphihZ//J4rlaHLomJk0SSpzPNCJwsFNicx4j/O2JnCQlcHVXR7HsBFkuxutHxE4/XJU93FJiIO0uvvW9i38/Ej9mvPTMezUjIpH6TsvOvF/M3ppdU8/ikC8mTGk0cwVADO1jWoJayzVTmH4YAQ==",
+            "thinking": "",
+            "type": "thinking"
+          },
+          {
+            "caller": {
+              "type": "direct"
+            },
+            "id": "toolu_018NSig5vPCtreutx21Zjwj7",
+            "input": {
+              "diagnosis": "BIOMASS_AS_READ",
+              "late_biomass_estimate_od": 1.28,
+              "p_biomass_above_reading": 0.06,
+              "rationale": "The 18 h aliquot diluted 10-fold read 0.1264. Scaled by 10 that is 1.264, which matches the undiluted reading of 1.29 (within about 2%). If the reader were saturating, the diluted sample would have read well above 0.129, so there is no sign of nonlinearity at OD ~1.3. The plateau from 7 h onward is a real stationary phase. The check is a single replicate, so some uncertainty remains."
+            },
+            "name": "submit_diagnosis",
+            "type": "tool_use"
+          }
+        ],
+        "diagnostics": null,
+        "id": "msg_011Cfh6sc4eHXX24CHEkotNx",
+        "model": "claude-sonnet-5-5",
+        "role": "assistant",
+        "stop_details": null,
+        "stop_reason": "tool_use",
+        "stop_sequence": null,
+        "type": "message",
+        "usage": {
+          "cache_creation": {
+            "ephemeral_1h_input_tokens": 0,
+            "ephemeral_5m_input_tokens": 0
+          },
+          "cache_creation_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "inference_geo": "global",
+          "input_tokens": 2803,
+          "output_tokens": 329,
+          "output_tokens_details": {
+            "thinking_tokens": 28
+          },
+          "service_tier": "standard"
+        }
+      },
+      "stop_reason": "tool_use",
+      "turn": 2
+    },
+    {
+      "content": [
+        {
+          "content": "{\"status\": \"received\"}",
+          "is_error": false,
+          "tool_use_id": "toolu_018NSig5vPCtreutx21Zjwj7",
+          "type": "tool_result"
+        }
+      ],
+      "kind": "user",
+      "turn": 2
+    }
+  ],
+  "passive": [
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.0039,
+      "readings": [
+        0.0039
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 0
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.009,
+      "readings": [
+        0.009
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 1
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.0404,
+      "readings": [
+        0.0404
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 2
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.0842,
+      "readings": [
+        0.0842
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 3
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.1705,
+      "readings": [
+        0.1705
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 4
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.4222,
+      "readings": [
+        0.4222
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 5
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.8823,
+      "readings": [
+        0.8823
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 6
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.272,
+      "readings": [
+        1.272
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 7
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.2781,
+      "readings": [
+        1.2781
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 8
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.3082,
+      "readings": [
+        1.3082
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 9
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.2488,
+      "readings": [
+        1.2488
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 10
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.3506,
+      "readings": [
+        1.3506
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 11
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.3015,
+      "readings": [
+        1.3015
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 12
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.2829,
+      "readings": [
+        1.2829
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 13
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.3098,
+      "readings": [
+        1.3098
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 14
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.3091,
+      "readings": [
+        1.3091
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 15
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.293,
+      "readings": [
+        1.293
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 16
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.2782,
+      "readings": [
+        1.2782
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 17
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 1.2896,
+      "readings": [
+        1.2896
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 18
+    }
+  ],
+  "run_meta": {
+    "finished_at": "2026-10-04T11:16:15+00:00",
+    "price_units_per_replicate": 6,
+    "run_id": "sonnet55_price6_strong",
+    "started_at": "2026-10-04T11:16:08+00:00"
+  },
+  "schema_version": "episode-result-v2",
+  "scores": {
+    "brier": 0.0036,
+    "correct": true,
+    "cost_units": 1,
+    "diagnostic_control": true,
+    "justified": true,
+    "m5_diagnosticity": null,
+    "measure_calls_before_diagnosis": 1,
+    "reconstruction_adequate": true
+  },
+  "status": "DIAGNOSED",
+  "versions": {
+    "anthropic": "1.10.0",
+    "mirage": "0.1.0",
+    "numpy": "2.3.5",
+    "pydantic": "2.12.5",
+    "python": "3.12.15"
+  }
+}

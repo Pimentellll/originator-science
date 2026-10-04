@@ -12,7 +12,7 @@ TRAIN_RESERVED = (100_000, 199_999)
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--results", type=Path, default=Path("results"))
-    parser.add_argument("--out", type=Path, default=Path("results/baseline_v1"))
+    parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     written = export_baseline(
         results_dir=args.results,
