@@ -171,6 +171,36 @@ def test_diagnosed_claude_run_has_llm_records_and_reports(tmp_path: Path) -> Non
     assert "| C1 Claude | 2 |" in markdown
 
 
+def test_claude_demo_pair_run_records_manifest_and_api_rerun(tmp_path: Path) -> None:
+    client = FakeClient(
+        [*diagnosed_responses(), api_connection_error(), *diagnosed_responses()]
+    )
+    run_dir = runner.run(
+        "claude",
+        "demo",
+        tmp_path / "runs",
+        gate0_summary=fixture_gate0(tmp_path / "gate0.json"),
+        run_id="demo",
+        reference_seeds=REFERENCE_SEEDS[:5000],
+        client=client,
+    )
+
+    loaded = records(run_dir)
+    assert [record.episode.episode_id for record in loaded] == ["demo-BP", "demo-MA"]
+    assert all(record.status == "DIAGNOSED" for record in loaded)
+    manifest = read_manifest(run_dir)
+    assert manifest["model"] == MODEL
+    assert manifest["effort"] == "high"
+    assert manifest["prompt_sha256"] == prompt_sha256()
+    attempt1_path = run_dir / "reruns" / "demo-MA.attempt1.json"
+    assert EpisodeResult.model_validate_json(
+        attempt1_path.read_text(encoding="utf-8")
+    ).status == "API_FAILURE"
+    assert json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))[
+        "n_episodes"
+    ] == 2
+
+
 def test_api_failure_reruns_episode_and_persists_first_attempt(tmp_path: Path) -> None:
     run_dir = run_claude(
         tmp_path,
