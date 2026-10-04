@@ -61,6 +61,26 @@ def _mean_ess(post: np.ndarray) -> float:
     return float(np.mean(1.0 / np.sum(post**2, axis=1)))
 
 
+def tempered_posteriors(log_w: np.ndarray, ll: np.ndarray, min_posterior_ess: float) -> tuple[np.ndarray, float]:
+    """Row-wise posteriors softmax(log_w + tau * ll) with the largest tau <= 1 whose mean
+    ESS is at least min(min_posterior_ess, ESS(log_w) / 2). -inf likelihoods stay -inf.
+    Shared by EIG and the lookahead planner so finite particles cannot fake certainty."""
+    w = np.exp(log_w - np.max(log_w))
+    base_ess = float(w.sum() ** 2 / np.sum(w**2))
+    target = min(min_posterior_ess, 0.5 * base_ess)
+    tau = 1.0
+    if _mean_ess(_posteriors(log_w, ll, 1.0)) < target:
+        lo, hi = 0.0, 1.0
+        for _ in range(30):
+            mid = 0.5 * (lo + hi)
+            if _mean_ess(_posteriors(log_w, ll, mid)) >= target:
+                lo = mid
+            else:
+                hi = mid
+        tau = lo
+    return _posteriors(log_w, ll, tau), tau
+
+
 def expected_information_gain(
     belief: ParticleBelief,
     model: ParticlePredictiveModel,
@@ -91,19 +111,7 @@ def expected_information_gain(
         return EIGEstimate(0.0, 1.0, belief.effective_sample_size)
     ll = ll[ok]
 
-    log_w = belief.log_weights
-    target = min(min_posterior_ess, 0.5 * belief.effective_sample_size)
-    tau = 1.0
-    if _mean_ess(_posteriors(log_w, ll, 1.0)) < target:
-        lo, hi = 0.0, 1.0
-        for _ in range(30):
-            mid = 0.5 * (lo + hi)
-            if _mean_ess(_posteriors(log_w, ll, mid)) >= target:
-                lo = mid
-            else:
-                hi = mid
-        tau = lo
-    post = _posteriors(log_w, ll, tau)
+    post, tau = tempered_posteriors(belief.log_weights, ll, min_posterior_ess)
     indicators = belief.failure_indicators().astype(float)
     h_after = binary_entropy(post @ indicators).sum(axis=1)
     return EIGEstimate(float(belief.mechanism_entropy() - h_after.mean()), tau, _mean_ess(post))

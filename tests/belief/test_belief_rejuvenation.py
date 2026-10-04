@@ -48,16 +48,20 @@ def test_moves_restore_diversity_that_plain_resampling_loses():
 
 
 def test_beliefs_agree_across_seeds_with_moves_but_not_without():
-    plan = [(A.MEASURE_SPR, dict(log_kd=-9.0, log_koff=-1.2)), (A.MEASURE_STABILITY, dict(stability_proxy=0.8)),
-            (A.MEASURE_DEVELOPABILITY, dict(liability_proxy=0.2)), (A.VALIDATE_ASSAY, dict(control_signal=0.86)),
-            (A.MEASURE_SEC, dict(monomer_fraction=0.6)), (A.MEASURE_EPITOPE, dict(epitope_signal=0.82))]
+    # Evidence well away from every failure threshold: aggregated sample (degraded SPR, low SEC).
+    plan = [(A.MEASURE_SPR, "degraded", dict(log_kd=-8.15, log_koff=-0.85)),
+            (A.MEASURE_STABILITY, "nominal", dict(stability_proxy=0.8)),
+            (A.MEASURE_DEVELOPABILITY, "nominal", dict(liability_proxy=0.2)),
+            (A.VALIDATE_ASSAY, "nominal", dict(control_signal=0.86)),
+            (A.MEASURE_SEC, "nominal", dict(monomer_fraction=0.35)),
+            (A.MEASURE_EPITOPE, "nominal", dict(epitope_signal=0.82))]
 
     def spread(sweeps):
         rows = []
         for seed in range(4):
             b = make_belief(1024, seed=seed, rejuvenation_sweeps=sweeps)
-            for a, m in plan:
-                b.observe(MODEL, act(a), obs(a, **m))
+            for a, q, m in plan:
+                b.observe(MODEL, act(a), obs(a, quality=q, **m))
             s = b.summary()
             rows.append([s.p_aggregation_failure, s.p_kinetic_failure, s.p_assay_invalid, s.p_epitope_failure])
         return np.array(rows).std(axis=0).max()
@@ -142,3 +146,15 @@ def test_independent_prior_without_densities_has_no_log_prob():
     assert not hasattr(IndependentPrior(SCHEMA, {f: (lambda r, n: np.zeros(n)) for f in SCHEMA.factors}), "log_prob")
     with pytest.raises(ValueError):
         IndependentPrior(SCHEMA, {"stability": uniform(0, 1)})
+
+
+def test_binary_factors_without_evidence_keep_their_prior_marginal_after_moves():
+    """Regression: an always-flip proposal left unobserved binary factors stuck on the ancestors."""
+    means = []
+    for seed in range(6):
+        b = make_belief(1024, seed=seed)
+        b.observe(MODEL, act(A.MEASURE_SPR), obs(A.MEASURE_SPR, quality="degraded", log_kd=-8.15, log_koff=-0.85))
+        b.observe(MODEL, act(A.MEASURE_STABILITY), obs(A.MEASURE_STABILITY, stability_proxy=0.8), resample=True)
+        means.append([b.particles[:, b.schema.index(f)].mean() for f in ("functional_epitope", "model_valid")])
+    assert np.mean(means, axis=0) == pytest.approx([0.5, 0.5], abs=0.1)
+    assert np.min(means) > 0.3 and np.max(means) < 0.7

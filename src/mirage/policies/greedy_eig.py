@@ -15,8 +15,8 @@ from mirage.belief.summary import BeliefSummary
 from mirage.core.contracts import ActionType, AgentState, ScientificAction
 from mirage.policies.base import (
     MEASUREMENT_ACTIONS,
-    PolicyError,
     ScientificPolicy,
+    check_belief_in_sync,
     sorted_actions,
     threshold_terminal_decision,
     usable_actions,
@@ -129,7 +129,7 @@ class GreedyEIGPolicy(ScientificPolicy):
         self._require_decidable(state, available_actions)
         started = time.perf_counter()
         particle_belief = self.belief_source()
-        self._check_in_sync(particle_belief, belief)
+        check_belief_in_sync(particle_belief, belief)
 
         usable = usable_actions(state, available_actions)
         candidates = [a for a in sorted_actions(list(usable.values())) if a.action_type in MEASUREMENT_ACTIONS]
@@ -141,17 +141,3 @@ class GreedyEIGPolicy(ScientificPolicy):
             if self.last_scores[best].score >= self.min_eig:
                 return usable[best]
         return threshold_terminal_decision(belief, usable, self.decision_threshold)
-
-    @staticmethod
-    def _check_in_sync(particle_belief: ParticleBelief, summary: BeliefSummary) -> None:
-        mine = particle_belief.summary()
-        if not (
-            np.isclose(mine.posterior_entropy, summary.posterior_entropy, atol=1e-9)
-            and np.isclose(mine.effective_sample_size, summary.effective_sample_size, atol=1e-6)
-            and all(
-                np.isclose(getattr(mine, f), getattr(summary, f), atol=1e-9)
-                for f in type(summary).model_fields
-                if f.startswith("p_")
-            )
-        ):
-            raise PolicyError("belief_source is out of sync with the BeliefSummary passed to choose_action")

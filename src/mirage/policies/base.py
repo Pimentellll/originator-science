@@ -10,6 +10,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Sequence
 
+import numpy as np
+
+from mirage.belief.particles import ParticleBelief
 from mirage.belief.summary import BeliefSummary
 from mirage.core.contracts import ActionType, AgentState, ScientificAction
 
@@ -82,19 +85,24 @@ def usable_actions(
 def threshold_terminal_decision(
     belief: BeliefSummary, usable: dict[ActionType, ScientificAction], threshold: float
 ) -> ScientificAction:
-    """Shared closing rule for the non-learning baselines (public belief only):
+    """Shared closing rule for the non-learning baselines (public belief only).
 
+    Checked in the order of the correct-terminal partition: a probable molecular failure
+    wins first (REJECT is right whatever the assay or model did), because p(model invalid)
+    is not measured by any assay and rests at its prior unless every other cause is
+    eliminated.
+
+        any molecular failure marginal >= t     -> REJECT
         p_assay_invalid >= t                    -> ABSTAIN
         p_model_invalid >= t                    -> MODEL_INVALID
-        any molecular failure marginal >= t     -> REJECT
         otherwise                               -> SELECT
     """
-    if belief.p_assay_invalid >= threshold:
+    if any(getattr(belief, f) >= threshold for f in _MOLECULAR_FIELDS):
+        wanted = ActionType.REJECT
+    elif belief.p_assay_invalid >= threshold:
         wanted = ActionType.ABSTAIN
     elif belief.p_model_invalid >= threshold:
         wanted = ActionType.MODEL_INVALID
-    elif any(getattr(belief, f) >= threshold for f in _MOLECULAR_FIELDS):
-        wanted = ActionType.REJECT
     else:
         wanted = ActionType.SELECT
     if wanted in usable:
@@ -103,3 +111,19 @@ def threshold_terminal_decision(
         if fallback in usable:
             return usable[fallback]
     raise PolicyError("no terminal action is available")
+
+
+def check_belief_in_sync(particle_belief: ParticleBelief, summary: BeliefSummary) -> None:
+    """Fail loudly if a policy's belief handle is not the belief that produced ``summary``."""
+    mine = particle_belief.summary()
+    in_sync = (
+        np.isclose(mine.posterior_entropy, summary.posterior_entropy, atol=1e-9)
+        and np.isclose(mine.effective_sample_size, summary.effective_sample_size, atol=1e-6)
+        and all(
+            np.isclose(getattr(mine, f), getattr(summary, f), atol=1e-9)
+            for f in type(summary).model_fields
+            if f.startswith("p_")
+        )
+    )
+    if not in_sync:
+        raise PolicyError("belief_source is out of sync with the BeliefSummary passed to choose_action")

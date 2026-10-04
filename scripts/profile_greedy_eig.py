@@ -5,7 +5,7 @@ hypothetical sources) over a grid of particle counts and Monte Carlo sample coun
 prior and after two observations. Uses the test-only prior from tests/binder_support.py, so
 the numbers characterise the algorithm's cost, not any benchmark world.
 
-    PYTHONPATH=src:tests:tests/policies python scripts/profile_greedy_eig.py [--repeats 9] [--json]
+    PYTHONPATH=src:tests python scripts/profile_greedy_eig.py [--repeats 9] [--json]
 """
 
 from __future__ import annotations

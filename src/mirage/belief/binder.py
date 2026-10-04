@@ -13,6 +13,7 @@ import numpy as np
 from mirage.belief.schema import BINDER_SCHEMA_PROVISIONAL, LatentSchema
 from mirage.core.contracts import ScientificAction, ScientificObservation
 from mirage.environments.binder.predictive import BinderHypothesis, BinderPredictiveModel
+from mirage.environments.binder.scenarios import BinderWorldMode, sample_world
 
 _BOOL_FACTORS = ("functional_epitope", "assay_valid", "model_valid")
 _FIELDS = (
@@ -82,3 +83,21 @@ class BinderParticleModel:
         return np.array(
             [self.to_row(self.model.redesign(self.to_hypothesis(r), action, rng)) for r in particles]
         )
+
+
+class ScenarioPrior:
+    """Public prior over hypothetical worlds: a uniform mixture over the environment's
+    published world-generator modes (``sample_world``), drawn with the caller's RNG.
+
+    This is the benchmark's *known world model* (an oracle-prior baseline, disclosed as
+    such): it never reads an episode's world, only the generator's distribution. It has no
+    closed-form density, so resample-move rejuvenation is unavailable with it.
+    """
+
+    def __init__(self, particle_model: "BinderParticleModel", modes: tuple[BinderWorldMode, ...] | None = None) -> None:
+        self._model = particle_model
+        self._modes = tuple(modes or tuple(BinderWorldMode))
+
+    def sample(self, rng: np.random.Generator, n: int) -> np.ndarray:
+        picks = rng.integers(len(self._modes), size=n)
+        return np.array([self._model.to_row(sample_world(self._modes[k], rng)) for k in picks])

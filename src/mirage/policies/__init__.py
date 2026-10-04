@@ -9,9 +9,23 @@ from mirage.policies.base import (
 )
 from mirage.policies.fixed import DEFAULT_PIPELINE, FixedPipelineConfig, FixedPipelinePolicy
 from mirage.policies.greedy_eig import ActionScore, GreedyEIGPolicy
+from mirage.policies.lookahead import (
+    DEFAULT_ACTION_COSTS,
+    ActionCost,
+    LookaheadConfig,
+    LookaheadPolicy,
+    PlanDiagnostics,
+    SPRHealthModel,
+)
 from mirage.policies.random import RandomPolicy
 
 __all__ = [
+    "ActionCost",
+    "DEFAULT_ACTION_COSTS",
+    "LookaheadConfig",
+    "LookaheadPolicy",
+    "PlanDiagnostics",
+    "SPRHealthModel",
     "ActionScore",
     "DEFAULT_PIPELINE",
     "FixedPipelineConfig",
