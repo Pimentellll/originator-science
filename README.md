@@ -176,8 +176,8 @@ cd originator-science
 python3 experiments/reference/design_validation.py --quick   # stdlib only; design-time reference
 ```
 
-The application and test suite do not exist yet. Planned commands are listed in
-[TEAM_HANDOFF](docs/mirage-bio/TEAM_HANDOFF.md#commands).
+The growth benchmark application and pytest suite are implemented. The Binder
+BioPOMDP is in development; see [docs/START_HERE.md](docs/START_HERE.md).
 
 ## Collaboration
 
