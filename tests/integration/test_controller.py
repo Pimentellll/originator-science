@@ -1,8 +1,12 @@
 """H0 end-to-end integration coverage."""
 
-from mirage.core import ActionType
+from types import SimpleNamespace
+
+from mirage.belief.summary import BeliefSummary
+from mirage.core import ActionType, ScientificAction
 from mirage.environments.binder import BinderWorldMode
 from mirage.integration import CampaignController, ScientificProfile
+from mirage.integration.rescue_policy import ReceptorRescuePlannerPolicy
 from mirage.provenance import PublicRecordStore, Replay
 
 
@@ -32,3 +36,41 @@ def test_controller_steps_only_with_public_dto_data(tmp_path) -> None:
     payload = outcome.dto.model_dump_json().lower()
     assert initial.active_candidate.candidate_id == "binder-000"
     assert "hidden" not in payload and "truth" not in payload and "world_mode" not in payload
+
+
+def test_rescue_planner_does_not_repeat_validation_already_observed_on_any_candidate() -> None:
+    state = SimpleNamespace(
+        terminal=False,
+        active_candidate=SimpleNamespace(candidate_id="binder-001", parent_candidate_id="binder-000"),
+        observations=(
+            SimpleNamespace(
+                candidate_id="binder-000",
+                action_type=ActionType.MEASURE_SEC,
+                measurements={"monomer_fraction": 0.9},
+            ),
+            SimpleNamespace(candidate_id="binder-001", action_type=ActionType.MEASURE_SPR),
+            SimpleNamespace(candidate_id="binder-000", action_type=ActionType.VALIDATE_ASSAY),
+        ),
+    )
+    belief = BeliefSummary(
+        p_folding_failure=0.0,
+        p_aggregation_failure=0.0,
+        p_affinity_failure=0.0,
+        p_kinetic_failure=0.0,
+        p_epitope_failure=0.0,
+        p_developability_failure=0.0,
+        p_assay_invalid=0.5,
+        p_model_invalid=0.1,
+        posterior_entropy=1.0,
+        continuous_means={},
+        continuous_variances={},
+        effective_sample_size=256.0,
+    )
+    available = (
+        ScientificAction(action_type=ActionType.VALIDATE_ASSAY, candidate_id="binder-001"),
+        ScientificAction(action_type=ActionType.REJECT, candidate_id="binder-001"),
+    )
+
+    action = ReceptorRescuePlannerPolicy().choose_action(state, belief, available)
+
+    assert action.action_type == ActionType.REJECT

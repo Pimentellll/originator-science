@@ -27,7 +27,7 @@ _TITLES = {
 }
 
 _POLICIES = (
-    ("rescue_planner", "Rescue Planner", "domain_expert", "Protects later kinetic evidence: runs SEC first and redesigns for solubility when aggregation is severe, then measures SPR."),
+    ("rescue_planner", "Rescue Planner", "domain_expert", "Protects later kinetic evidence: runs SEC first and redesigns for solubility when aggregation is severe, then measures SPR and validates the assay when in doubt."),
     ("greedy_eig", "Greedy EIG", "myopic_planner", "Picks the single action with the highest expected information gain per unit cost from the particle belief."),
     ("fixed_pipeline", "Fixed Pipeline", "scripted_baseline", "Runs a fixed assay order regardless of what has been learned."),
     ("random", "Random", "random", "Chooses uniformly among legal non-terminal actions. A floor for comparison."),
