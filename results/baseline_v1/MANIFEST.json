@@ -1,0 +1,189 @@
+{
+  "archetypes": [
+    "instability",
+    "aggregation_kinetic_defect",
+    "broken_assay",
+    "invalid_biological_model",
+    "misleading_proxy_trap"
+  ],
+  "belief": {
+    "n_particles": 512,
+    "prior": {
+      "assay_valid": [
+        "bernoulli",
+        0.75
+      ],
+      "conditioning": "campaign starts from a downstream failure: at least one failure rule fires",
+      "developability_liability": [
+        "uniform",
+        0.0,
+        1.0
+      ],
+      "functional_epitope": [
+        "bernoulli",
+        0.5
+      ],
+      "log_kd": [
+        "uniform",
+        -10.0,
+        -5.0
+      ],
+      "log_koff": [
+        "uniform",
+        -5.0,
+        1.0
+      ],
+      "model_valid": [
+        "bernoulli",
+        0.75
+      ],
+      "monomer_fraction": [
+        "uniform",
+        0.05,
+        1.0
+      ],
+      "stability": [
+        "uniform",
+        0.0,
+        1.0
+      ]
+    },
+    "resampling": "systematic+rejuvenation"
+  },
+  "benchmark_id": "binder-campaign-v1",
+  "environment": {
+    "id": "BinderBioPOMDP",
+    "max_steps": 24,
+    "scenario_version": "core/9b891b2+071926d",
+    "split": "held_out"
+  },
+  "episode_count": 750,
+  "evaluator": {
+    "config": {
+      "abstain_min_measurements": 2,
+      "belief_tolerance": 1e-09,
+      "control_pass_threshold": 0.5,
+      "degraded_quality_markers": [
+        "degraded",
+        "poor",
+        "unreliable",
+        "low",
+        "bad"
+      ],
+      "exhaustion_budget_floor": 0.0,
+      "exhaustion_sample_floor": 0.0,
+      "functional_actions": [
+        "MEASURE_SPR",
+        "MEASURE_EPITOPE",
+        "ORTHOGONAL_FUNCTION"
+      ],
+      "max_repeat_measurements": 2,
+      "orthogonal_pass_threshold": 0.5,
+      "proxy_actions": [
+        "MEASURE_STABILITY",
+        "MEASURE_DEVELOPABILITY",
+        "MEASURE_SEC"
+      ],
+      "recognition_threshold": 0.5,
+      "select_required_actions": [
+        "MEASURE_STABILITY",
+        "MEASURE_SEC",
+        "MEASURE_SPR",
+        "MEASURE_EPITOPE",
+        "MEASURE_DEVELOPABILITY"
+      ],
+      "select_requires_assay_validation": true,
+      "support_max_marginal": 0.2,
+      "support_min_marginal": 0.8,
+      "version": "campaign-eval/1"
+    },
+    "label_rules": {
+      "liability_max": 0.4,
+      "log_kd_max": -7.0,
+      "log_koff_max": -2.0,
+      "monomer_min": 0.6,
+      "stability_min": 0.5,
+      "version": "campaign-eval/1/label-rules"
+    },
+    "version": "campaign-eval/1"
+  },
+  "exported_at_utc": "2026-10-04T07:26:16+00:00",
+  "files": {
+    "aggregate": {
+      "path": "results/baseline_v1/aggregate.json",
+      "sha256": "30592460c3f58a3357ee3e1b98d2ccb38fad62c0810cce9a1c44dd1b914a0705"
+    },
+    "by_archetype": {
+      "path": "results/baseline_v1/by_archetype.json",
+      "sha256": "7ed3fe57885134480a52d7c6e2c0bc3342ab822c5451947e8cddca7e4e8efbc8"
+    },
+    "by_regime": {
+      "path": "results/baseline_v1/by_regime.json",
+      "sha256": "112ae31b414dde0b957fa93990046e7c69ae212ac656e41f22c34d6de217f5de"
+    },
+    "by_scenario_class": {
+      "path": "results/baseline_v1/by_scenario_class.json",
+      "sha256": "2e7d489ac7d963275eb952ba413ae4113330012d5d72765c4f6a4d90349da835"
+    },
+    "evaluations": {
+      "path": "results/baseline_v1/evaluations.jsonl",
+      "sha256": "d63b14e5ab93b8ff6d2612e5de08fa5ad265affdde7f3af1a8621dfdc3684392"
+    },
+    "markdown": {
+      "path": "results/baseline_v1/RESULTS.md",
+      "sha256": "bf63339e0e33c76b4f1f6adc66c84ef8418fda48a98d5de23ada8b4375adcc82"
+    },
+    "paired_differences": {
+      "path": "results/baseline_v1/paired_differences.json",
+      "sha256": "e5e0aeb25b8a6560ebfc6403da45720e9ed7e8d953103e49c7ecbea7c5c7e606"
+    },
+    "seed_manifest": {
+      "path": "results/baseline_v1/seed_manifest.json",
+      "sha256": "b50d8f4848a5ad69720ecdd1e8706a8a2097c1ce1e4a590c0780550d10df8ec5"
+    },
+    "world_digests": {
+      "path": "results/baseline_v1/world_digests.json",
+      "sha256": "a48eefa1539ba0be5cb7f34082f4dc095497d9cd4862a6a15c547049a3a29f4a"
+    }
+  },
+  "git_sha": "1c2ed6e",
+  "incident_total": 0,
+  "incidents": {},
+  "label": "BASELINE V1",
+  "policies": {
+    "fixed_pipeline": {
+      "code_version": "1c2ed6e",
+      "config": {
+        "decision_threshold": 0.5
+      },
+      "implementation": "mirage.policies.FixedPipelinePolicy"
+    },
+    "greedy_eig": {
+      "code_version": "1c2ed6e",
+      "config": {
+        "decision_threshold": 0.5,
+        "min_eig": 0.02,
+        "n_samples": 64
+      },
+      "implementation": "mirage.policies.GreedyEIGPolicy"
+    },
+    "random": {
+      "code_version": "1c2ed6e",
+      "config": {
+        "allow_terminal": true
+      },
+      "implementation": "mirage.policies.RandomPolicy"
+    }
+  },
+  "raw": {
+    "privileged_evaluations": "results/binder_campaign/privileged",
+    "public_traces": "results/binder_campaign/public",
+    "run_document": "results/binder_campaign_benchmark.json",
+    "showcase_replays": "results/binder_campaign/showcase"
+  },
+  "run_completed_at_utc": "2026-10-04T07:23:11.023487+00:00",
+  "run_document_sha256": "20dd2dedfb7334fe8a6e3db36e2516c0e7cb5ef709a462ec0df48ceadfb4eb93",
+  "run_wall_seconds": 436.9,
+  "worlds": 250,
+  "worlds_per_archetype": 50
+}
