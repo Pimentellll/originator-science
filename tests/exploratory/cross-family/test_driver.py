@@ -240,6 +240,7 @@ def test_cli_run_and_spend_commands(tmp_path, monkeypatch, capsys):
         encoding="utf-8",
     )
     monkeypatch.setattr(driver, "DEFAULT_LEDGER", ledger_path)
+    monkeypatch.setattr(driver, "KIMI_LEDGER", tmp_path / "no_kimi_ledger.jsonl")
     calls = []
 
     def fake_run_config(config, matrix, *, resume_run_id=None):
