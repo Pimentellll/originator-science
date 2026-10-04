@@ -15,7 +15,7 @@ import {
   reliability,
   toCsv,
 } from "../../lib/growth/analysis";
-import type { Condition, GrowthRun, Rate } from "../../lib/growth/types";
+import type { Condition, ExploratoryRun, GrowthRun, Rate } from "../../lib/growth/types";
 import type { Route } from "../../state/route";
 import { runMeta } from "./agents";
 import { growthClient, useAsync } from "./data";
@@ -50,7 +50,7 @@ export function Results({
   const data = useAsync("results", load);
   if (data.state !== "ready")
     return <DocState async={data} what="benchmark results" />;
-  const { grid, details, demo, runs } = data.value;
+  const { grid, details, demo, runs, exploratory } = data.value;
   const labels = details.map((d) => {
     const m = runMeta(d.run);
     return `${m.code} ${m.name}`;
@@ -376,6 +376,86 @@ export function Results({
           </div>
         </section>
 
+        {exploratory.length > 0 && (
+          <section className="doc__section">
+            <h3>Table 2 · Exploratory runs</h3>
+            <table className="bk">
+              <thead>
+                <tr>
+                  <th>Agent</th>
+                  <th>Correct (M1)</th>
+                  <th>Ran the control (M2)</th>
+                  <th>Correct and justified (M3)</th>
+                  <th>Q1</th>
+                  <th>Brier ↓</th>
+                  <th>Units used</th>
+                </tr>
+              </thead>
+              <tbody>
+                {exploratory.map((run: ExploratoryRun) => {
+                  const h = run.headline;
+                  return (
+                    <tr key={`${run.experiment}/${run.run_id}`}>
+                      <td>
+                        {run.label}
+                        <span className="sub">
+                          {run.variable} · {run.experiment}
+                        </span>
+                      </td>
+                      {h ? (
+                        <>
+                          {(["M1", "M2", "M3"] as const).map((k) => (
+                            <td key={k}>
+                              <span
+                                className={`num ${k === "M3" && h.M1.k - h.M3.k > 5 ? "gap" : ""}`}
+                              >
+                                {h[k].k}
+                                <small>/{h[k].n}</small>
+                              </span>
+                              <CiBar
+                                k={h[k].k}
+                                n={h[k].n}
+                                lo={h[k].wilson95[0]}
+                                hi={h[k].wilson95[1]}
+                              />
+                            </td>
+                          ))}
+                          <td className="num">
+                            {h.Q1 === null ? "—" : h.Q1.toFixed(2)}
+                          </td>
+                        </>
+                      ) : (
+                        <td colSpan={4}>no summary</td>
+                      )}
+                      <td className="num">
+                        {run.brier_mean === null
+                          ? "—"
+                          : run.brier_mean.toFixed(3)}
+                      </td>
+                      <td className="num">
+                        {run.units_mean === null
+                          ? "—"
+                          : run.units_mean.toFixed(2)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            <figcaption>
+              <b>Table 2. Exploratory runs, not part of the frozen evaluation.</b>{" "}
+              Each was registered before its first scored call, ran the same{" "}
+              {exploratory[0].n_episodes} held-out strong-matrix episodes and was
+              scored by the same evaluator. They are exploratory: a difference
+              here is a lead to follow up, not a confirmed result. Write-ups:{" "}
+              <span className="mono">
+                experiments/exploratory/&lt;experiment&gt;/RESULT.md
+              </span>
+              .
+            </figcaption>
+          </section>
+        )}
+
         <Fold
           title="Every episode"
           hint="Each of the 30 cultures for every agent; open any square to replay it."
@@ -455,7 +535,7 @@ export function Results({
           hint="Plateau vs saturated cultures, including the one shared Claude miss."
         >
           <section className="doc__section">
-            <h3>Table 2</h3>
+            <h3>Table 3</h3>
             <table className="bk">
               <thead>
                 <tr>
@@ -502,7 +582,7 @@ export function Results({
               </tbody>
             </table>
             <figcaption>
-              <b>Table 2. Results by hidden condition.</b> Both Claude models
+              <b>Table 3. Results by hidden condition.</b> Both Claude models
               miss the same plateau episode,{" "}
               <span className="mono">s500028-BP</span>. There the reader
               under-reads the plateau by 2–4%, so a careful dilution looks like

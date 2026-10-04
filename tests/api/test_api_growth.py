@@ -118,6 +118,107 @@ def test_growth_runs_match_ui_api(growth_client):
     assert response.json() == growth_api.list_runs(RESULTS)
 
 
+def test_growth_exploratory_runs_require_aggregate_token(service):
+    disabled = TestClient(create_app(service, growth_results_root=RESULTS))
+    assert disabled.get("/benchmarks/growth/exploratory").status_code == 404
+
+    enabled = TestClient(
+        create_app(
+            service,
+            growth_results_root=RESULTS,
+            aggregate_token=TOKEN,
+        )
+    )
+    assert enabled.get("/benchmarks/growth/exploratory").status_code == 403
+    assert (
+        enabled.get(
+            "/benchmarks/growth/exploratory",
+            headers={TOKEN_HEADER: "wrong"},
+        ).status_code
+        == 403
+    )
+    assert (
+        enabled.get(
+            "/benchmarks/growth/exploratory",
+            headers=TOKEN_HEADERS,
+        ).status_code
+        == 200
+    )
+
+
+def test_growth_exploratory_runs_match_registry_and_committed_summaries(
+    growth_client,
+):
+    response = growth_client.get(
+        "/benchmarks/growth/exploratory", headers=TOKEN_HEADERS
+    )
+    assert response.status_code == 200
+    rows = response.json()
+    registry = json.loads(
+        (ROOT / "experiments" / "exploratory" / "index.json").read_text(
+            encoding="utf-8"
+        )
+    )["runs"]
+    assert len(rows) == len(registry) == 9
+    assert [
+        (row["experiment"], row["run_id"]) for row in rows
+    ] == [(entry["experiment"], entry["run"]) for entry in registry]
+    assert all(
+        row["label"]
+        and row["variable"]
+        and row["result_path"]
+        and (ROOT / row["result_path"]).is_file()
+        for row in rows
+    )
+
+    gpt = rows[0]
+    assert gpt["n_episodes"] == 30
+    summary = json.loads(
+        (
+            ROOT
+            / "experiments"
+            / "exploratory"
+            / gpt["experiment"]
+            / "runs"
+            / gpt["run_id"]
+            / "summary.json"
+        ).read_text(encoding="utf-8")
+    )
+    overall = summary["metrics"]["intention_to_treat"]["overall"]
+    assert gpt["headline"]["M2"]["k"] == overall["M2"]["k"]
+    assert gpt["headline"]["M3"]["k"] == overall["M3"]["k"]
+
+
+def test_list_exploratory_runs_missing_root_or_index_returns_empty(tmp_path):
+    assert growth_api.list_exploratory_runs(tmp_path / "missing") == []
+
+    empty = tmp_path / "exploratory"
+    empty.mkdir()
+    assert growth_api.list_exploratory_runs(empty) == []
+
+
+def test_list_exploratory_runs_rejects_missing_registered_run(tmp_path):
+    root = tmp_path / "exploratory"
+    root.mkdir()
+    (root / "index.json").write_text(
+        json.dumps(
+            {
+                "runs": [
+                    {
+                        "experiment": "missing",
+                        "run": "missing-run",
+                        "label": "Missing",
+                        "variable": "missing",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(growth_api.APIError, match="registered exploratory run"):
+        growth_api.list_exploratory_runs(root)
+
+
 def test_growth_episode_contains_derived_measurements_and_diagnosis(
     growth_client,
 ):

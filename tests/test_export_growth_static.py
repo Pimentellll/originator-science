@@ -23,8 +23,13 @@ def test_export_growth_static_writes_all_api_files(tmp_path: Path) -> None:
     runs = api.list_runs(RESULTS)
     assert json.loads((output / "runs.json").read_text(encoding="utf-8")) == runs
     assert DEMO_RUN in {run["run_id"] for run in runs}
+    exploratory = api.list_exploratory_runs(RESULTS.parent / "exploratory")
+    assert (
+        json.loads((output / "exploratory.json").read_text(encoding="utf-8"))
+        == exploratory
+    )
 
-    expected_files = {"runs.json", "grid-strong.json"}
+    expected_files = {"runs.json", "exploratory.json", "grid-strong.json"}
     for entry in runs:
         run_id = entry["run_id"]
         run = api.get_run(RESULTS, run_id)

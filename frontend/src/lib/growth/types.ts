@@ -28,6 +28,14 @@ export interface GrowthRunEntry {
   brier_mean: number | null
 }
 
+export type ExploratoryRun = GrowthRunEntry & {
+  label: string
+  variable: string
+  experiment: string
+  result_path: string
+  units_mean: number | null
+}
+
 export interface RunEpisodeRow {
   episode_id: string
   condition: Condition
