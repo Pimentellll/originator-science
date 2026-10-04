@@ -8,7 +8,7 @@ import { buildGraph, mechanismStatus, neighbourhood, SPR_DAMAGE } from '../lib/d
 import type { EdgeRelation, GraphNode } from '../lib/derive'
 import type { CockpitState, EventView } from '../lib/types'
 import { actionShort, formatMeasurement, isPoorQuality, measurementLabel } from '../lib/actions'
-import { fmtMoney, fmtP, fmtT, MECH_LABEL } from '../lib/format'
+import { fmtBudget, fmtNum, fmtP, fmtT, MECH_LABEL } from '../lib/format'
 
 const COL_X = [0, 262, 612]
 const NODE_W = [196, 196, 168]
@@ -64,12 +64,12 @@ function EventNode({ data }: NodeProps<FlowNode>) {
             {kind === 'failure' && fmtT(ev.t_h)}
             {kind === 'action' && (
               <>
-                {ev.candidate_id} · {fmtMoney(ev.cost.budget)} · {ev.cost.time} h
+                {ev.candidate_id} · cost {fmtBudget(ev.cost.budget)} · t {fmtNum(ev.cost.time)}
               </>
             )}
             {kind === 'redesign' && (
               <>
-                {fmtMoney(ev.cost.budget)} · {ev.cost.time} h
+                cost {fmtBudget(ev.cost.budget)} · t {fmtNum(ev.cost.time)}
               </>
             )}
             {kind === 'decision' && ev.candidate_id}
@@ -288,7 +288,7 @@ function Inner() {
         nodes={built.nodes}
         edges={built.edges}
         nodeTypes={nodeTypes}
-        proOptions={{ hideAttribution: true }}
+        proOptions={{ hideAttribution: false }}
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable

@@ -66,9 +66,7 @@ export function CandidatePanel() {
         })}
       </div>
 
-      <div className="cand__sec cand__note">
-        Synthetic benchmark candidate. Identifiers and lineage are public; sequence, structure and molecular parameters are not part of the contract, and nothing here is a validated binder or a therapeutic claim.
-      </div>
+      <div className="cand__sec cand__note">Identifiers and lineage are public. Sequence, structure and molecular parameters are not part of the contract.</div>
     </Panel>
   )
 }

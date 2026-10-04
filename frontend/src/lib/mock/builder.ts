@@ -20,20 +20,21 @@ import { MECHANISMS } from '../types'
 
 export const MOCK_PROVENANCE = { source: 'mock' as const, label: 'DEV / MOCK · authored for frontend development, not a simulator run' }
 
-export const BUDGET_TOTAL = 5500
-export const SAMPLE_TOTAL = 520
+/** Scale of the real Binder environment (src/mirage/environments/binder/environment.py). */
+export const BUDGET_TOTAL = 12
+export const SAMPLE_TOTAL = 8
 
 export const COST: Record<ActionType, Required<ResourceCost>> = {
-  MEASURE_STABILITY: { budget: 150, sample: 15, time: 2 },
-  MEASURE_SEC: { budget: 210, sample: 30, time: 3 },
-  MEASURE_SPR: { budget: 640, sample: 40, time: 6 },
-  MEASURE_EPITOPE: { budget: 450, sample: 30, time: 8 },
-  MEASURE_DEVELOPABILITY: { budget: 180, sample: 20, time: 4 },
-  VALIDATE_ASSAY: { budget: 260, sample: 20, time: 10 },
-  ORTHOGONAL_FUNCTION: { budget: 320, sample: 25, time: 12 },
-  REDESIGN_STABILITY: { budget: 1400, sample: 150, time: 72 },
-  REDESIGN_SOLUBILITY: { budget: 1400, sample: 150, time: 72 },
-  REDESIGN_INTERFACE: { budget: 1400, sample: 150, time: 72 },
+  MEASURE_STABILITY: { budget: 1, sample: 0.5, time: 0.5 },
+  MEASURE_SEC: { budget: 1, sample: 0.5, time: 0.5 },
+  MEASURE_SPR: { budget: 2, sample: 1, time: 1 },
+  MEASURE_EPITOPE: { budget: 1, sample: 0.4, time: 0.5 },
+  MEASURE_DEVELOPABILITY: { budget: 1, sample: 0.4, time: 0.5 },
+  VALIDATE_ASSAY: { budget: 0.75, sample: 0.1, time: 0.25 },
+  ORTHOGONAL_FUNCTION: { budget: 1.5, sample: 0.25, time: 0.75 },
+  REDESIGN_STABILITY: { budget: 2, sample: 1, time: 1 },
+  REDESIGN_SOLUBILITY: { budget: 2, sample: 1, time: 1 },
+  REDESIGN_INTERFACE: { budget: 2, sample: 1, time: 1 },
   SELECT: { budget: 0, sample: 0, time: 0 },
   REJECT: { budget: 0, sample: 0, time: 0 },
   MODEL_INVALID: { budget: 0, sample: 0, time: 0 },

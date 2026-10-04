@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useSession } from '../state/sessionContext'
 import type { Route } from '../state/route'
 import { Modal, Panel } from './ui'
-import { fmtBits, fmtHours, fmtMoney, MECH_LABEL, pct } from '../lib/format'
+import { fmtBits, fmtBudget, fmtNum, fmtSample, MECH_LABEL, pct } from '../lib/format'
 import type { AlternativeView, CockpitState, Recommendation } from '../lib/types'
 import { actionKind, actionLabel, actionShort } from '../lib/actions'
 import { counterfactualFor } from '../lib/derive'
@@ -16,8 +16,6 @@ function Stat({ label, children, sub }: { label: string; children: React.ReactNo
     </div>
   )
 }
-
-const yn = (v: boolean | null | undefined) => (v === null || v === undefined ? 'n/a' : v ? 'yes' : 'no')
 
 function Terminal({ frame }: { frame: CockpitState }) {
   const t = frame.terminal!
@@ -34,23 +32,33 @@ function Terminal({ frame }: { frame: CockpitState }) {
         </span>
         {ev && (
           <>
-            <span className={`pill ${ev.terminal_correct ? 'pill--ok' : 'pill--bad'}`}>{ev.terminal_correct ? 'CORRECT' : 'INCORRECT'}</span>
+            <span className={`pill ${ev.terminal_correct === null ? '' : ev.terminal_correct ? 'pill--ok' : 'pill--bad'}`}>{ev.terminal_correct === null ? 'ABSTAINED' : ev.terminal_correct ? 'CORRECT' : 'INCORRECT'}</span>
             <span className={`pill ${ev.justified ? 'pill--ok' : 'pill--bad'}`}>{ev.justified ? 'JUSTIFIED' : 'NOT JUSTIFIED'}</span>
+            {ev.lucky_correct && <span className="pill pill--warn">LUCKY-CORRECT</span>}
+            {ev.supported_but_wrong && <span className="pill pill--warn">SUPPORTED BUT WRONG</span>}
           </>
         )}
-        <span className="dim">{ev ? 'Verdict from the privileged evaluator, shown after the decision.' : 'No evaluator verdict attached to this record.'}</span>
+        <span className="dim">{ev ? 'Correct and justified are scored separately by the privileged evaluator, after the decision.' : 'No evaluator verdict is attached to this record (the public API does not expose one).'}</span>
       </div>
       <div className="aterm__grid">
         <Stat label="Actions">{frame.events.length - 1}</Stat>
-        <Stat label="Cost">{fmtMoney(spent)}</Stat>
-        <Stat label="Sample used">{used} µg</Stat>
-        <Stat label="Sim. time">{Math.round(frame.resources.time.elapsed)} h</Stat>
+        <Stat label="Budget used">{fmtBudget(spent)}</Stat>
+        <Stat label="Sample used">{fmtSample(used)}</Stat>
+        <Stat label="Sim. time">{fmtNum(frame.resources.time.elapsed)}</Stat>
         <Stat label="Redesigns">{redesigns}</Stat>
         <Stat label="SPR health">{frame.resources.spr_health.toFixed(2)}</Stat>
         <Stat label="Unnecessary redesigns">{ev?.unnecessary_redesigns ?? 'n/a'}</Stat>
-        <Stat label="Compound recognised">{yn(ev?.compound_recognised)}</Stat>
-        <Stat label="Assay invalid detected">{yn(ev?.assay_invalid_detected)}</Stat>
       </div>
+      {ev?.checks && ev.checks.length > 0 && (
+        <div className="aterm__checks">
+          <span className="hdr__label">Justification checks</span>
+          {ev.checks.map((c) => (
+            <span key={c.name} className={`chip ${c.passed ? 'chip--support' : 'chip--contra'}`}>
+              {c.passed ? '✓' : '✗'} {c.name.replace(/_/g, ' ')}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -106,7 +114,7 @@ function WhyDialog({ frame, ra, onClose }: { frame: CockpitState; ra: Recommenda
                 )}
               </td>
               <td className="mono">{fmtBits(a.eig)}</td>
-              <td className="mono">{a.cost?.budget !== undefined ? fmtMoney(a.cost.budget) : '—'}</td>
+              <td className="mono">{a.cost?.budget !== undefined ? fmtBudget(a.cost.budget) : '—'}</td>
               <td className="why__why">{a.chosen ? ra.rationale?.split('. ')[0] : a.why_not}</td>
             </tr>
           ))}
@@ -143,7 +151,7 @@ function CounterfactualDialog({ onClose }: { onClose: () => void }) {
               <b>{cf.alternative.label}</b>
               {modeCost && (
                 <span className="mono dim">
-                  {fmtMoney(modeCost.budget)} · {modeCost.sample} µg · {fmtHours(modeCost.time)}
+                  budget {fmtBudget(modeCost.budget)} · sample {fmtSample(modeCost.sample)} · time {fmtNum(modeCost.time)}
                 </span>
               )}
             </div>
@@ -175,6 +183,7 @@ export function ActionPanel({ navigate }: { navigate: (r: Route) => void }) {
   const running = s.phase === 'running'
   const histStep = s.session?.mode === 'replay' && s.cursor < s.frames.length - 1
   const kind = ra ? actionKind(ra.action_type) : 'measurement'
+  const apiOnly = ra !== null && ra.score === undefined && ra.confidence === undefined && ra.eig === undefined && ra.cost === undefined
 
   return (
     <Panel
@@ -204,6 +213,11 @@ export function ActionPanel({ navigate }: { navigate: (r: Route) => void }) {
               </h2>
               <span className="act__disc">{ra.discriminates.map((m) => <span key={m} className="chip">{MECH_LABEL[m]}</span>)}</span>
             </div>
+            {apiOnly ? (
+              <p className="act__apionly">
+                The API supplies the recommended action only. This policy exposes no score, confidence, expected information gain or cost estimate; the realised cost appears once it runs.
+              </p>
+            ) : (
             <div className="act__stats">
               <Stat label="Policy score">{ra.score !== undefined ? ra.score.toFixed(2) : '—'}</Stat>
               <div className="astat">
@@ -217,11 +231,12 @@ export function ActionPanel({ navigate }: { navigate: (r: Route) => void }) {
               </div>
               <Stat label="Expected info">{fmtBits(ra.eig)}</Stat>
               <Stat label="Cost" sub={ra.cost?.budget !== undefined ? `${((ra.cost.budget / frame.resources.budget.total) * 100).toFixed(1)}% of budget` : undefined}>
-                {ra.cost?.budget !== undefined ? fmtMoney(ra.cost.budget) : '—'}
+                {ra.cost?.budget !== undefined ? fmtBudget(ra.cost.budget) : '—'}
               </Stat>
-              <Stat label="Sample">{ra.cost?.sample !== undefined ? `${ra.cost.sample} µg` : '—'}</Stat>
-              <Stat label="Time">{ra.cost?.time !== undefined ? fmtHours(ra.cost.time) : '—'}</Stat>
+              <Stat label="Sample">{ra.cost?.sample !== undefined ? fmtSample(ra.cost.sample) : '—'}</Stat>
+              <Stat label="Time">{ra.cost?.time !== undefined ? fmtNum(ra.cost.time) : '—'}</Stat>
             </div>
+            )}
             <div className="act__text">
               <div>
                 <span className="hdr__label">Scientific rationale</span>

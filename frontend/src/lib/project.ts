@@ -17,7 +17,7 @@ import type {
   Recommendation,
   Resources,
 } from './types'
-import { actionInforms, actionKind, actionLabel, isPoorQuality, isTerminalAction, policyInfo } from './actions'
+import { actionInforms, actionKind, actionLabel, canonicalPolicyKey, CANONICAL_POLICIES, isPoorQuality, isTerminalAction, policyInfo } from './actions'
 
 /**
  * Projection: public EpisodeRecord -> frontend frames. Pure and total; the
@@ -28,7 +28,7 @@ import { actionInforms, actionKind, actionLabel, isPoorQuality, isTerminalAction
 export function toBelief(b: BeliefSummary): Belief {
   const p = {} as Record<Mechanism, number>
   for (const m of MECHANISMS) p[m] = b[BELIEF_KEYS[m]]
-  return { p, entropy: b.posterior_entropy, ess: b.effective_sample_size, means: b.continuous_means, variances: b.continuous_variances }
+  return { p, localisation: b.failure_localisation ?? null, entropy: b.posterior_entropy, ess: b.effective_sample_size, means: b.continuous_means, variances: b.continuous_variances }
 }
 
 function toResources(r: ResourceState, totals: ResourceState): Resources {
@@ -221,6 +221,7 @@ export function projectEpisode(record: EpisodeRecord): CockpitState[] {
     frames.push({
       episode_id: record.episode_id,
       seed: record.seed,
+      campaign: record.campaign ?? null,
       step: i,
       total_steps: record.complete ? n : null,
       policy,
@@ -241,6 +242,7 @@ export function projectEpisode(record: EpisodeRecord): CockpitState[] {
             }
           : null,
       provenance: record.provenance,
+      certificate: i === n && record.certificate ? record.certificate : null,
     })
   }
   return frames
@@ -254,10 +256,21 @@ export function projectComparison(c: PolicyComparisonRecord): PolicyComparison {
   return {
     scenario: c.scenario,
     seed: c.seed,
-    tracks: c.records.map((r) => ({ policy: policyInfo(r.policy.name, r.policy.description), frames: projectEpisode(r) })),
+    tracks: c.records.map((r) => ({ policy: policyInfo(r.policy.name, r.policy.description), frames: projectEpisode(r), provenance: r.provenance })),
+    not_run: notRunPolicies(c),
     divergence_note: c.divergence_note,
     provenance: c.provenance,
   }
+}
+
+/** Every canonical policy without a track is NOT RUN, whatever the source forgot to mention. */
+function notRunPolicies(c: PolicyComparisonRecord) {
+  const ran = new Set(c.records.map((r) => canonicalPolicyKey(r.policy.name)))
+  const why = new Map((c.not_run ?? []).map((n) => [canonicalPolicyKey(n.policy_name), n.reason]))
+  return CANONICAL_POLICIES.filter((p) => !ran.has(p.key)).map((p) => ({
+    policy: policyInfo(p.key),
+    reason: why.get(p.key) ?? 'No replay artifact or benchmark result exists for this policy.',
+  }))
 }
 
 export function projectBenchmark(b: BenchmarkReportDto): BenchmarkReport {
@@ -266,11 +279,27 @@ export function projectBenchmark(b: BenchmarkReportDto): BenchmarkReport {
     provenance: b.provenance,
     generated_at: b.generated_at,
     seed_set: b.seed_set,
-    policies: b.policies.map((p) => ({ ...policyInfo(p.name), label: p.label ?? policyInfo(p.name).label })),
+    policies: canonicalBenchmarkPolicies(b),
     families: b.families,
     metrics: b.metrics,
     cells: b.cells,
   }
+}
+
+/**
+ * Canonical policies first (in fixed order), then any extra the report names.
+ * A canonical policy the report does not contain stays in the list with no
+ * cells, which the Lab renders as NOT RUN.
+ */
+function canonicalBenchmarkPolicies(b: BenchmarkReportDto) {
+  const given = b.policies.map((p) => ({ ...policyInfo(p.name), label: p.label ?? policyInfo(p.name).label }))
+  const have = new Set(given.map((p) => canonicalPolicyKey(p.name)))
+  const missing = CANONICAL_POLICIES.filter((p) => !have.has(p.key)).map((p) => policyInfo(p.key))
+  const order = (n: string) => {
+    const i = CANONICAL_POLICIES.findIndex((p) => p.key === canonicalPolicyKey(n))
+    return i < 0 ? 99 : i
+  }
+  return [...given, ...missing].sort((a, b) => order(a.name) - order(b.name))
 }
 
 export function notRunReport(label: string, source: 'mock' | 'recorded' | 'live' = 'recorded'): BenchmarkReport {

@@ -70,6 +70,8 @@ export interface BeliefSummary {
   continuous_means: Record<string, number>
   continuous_variances: Record<string, number>
   effective_sample_size: number
+  /** Optional FailureLocalisation group probabilities. Not mutually exclusive, not a distribution. */
+  failure_localisation?: { molecule: number; experiment: number; biological_model: number }
 }
 
 export interface ResourceState {
@@ -135,13 +137,14 @@ export interface ScientificEvent {
 
 /** PROVISIONAL: authorised evaluator output, separate from the public trace. Optional. */
 export interface EpisodeEvaluation {
-  terminal_correct: boolean
+  /** null when the episode abstained: correctness is undefined. */
+  terminal_correct: boolean | null
   justified: boolean
-  compound_recognised?: boolean | null
-  assay_invalid_detected?: boolean | null
-  model_invalid_detected?: boolean | null
+  lucky_correct?: boolean
+  supported_but_wrong?: boolean
   unnecessary_redesigns?: number
-  decision_calibration_error?: number
+  /** Named evidence checks behind `justified`. */
+  checks?: { name: string; passed: boolean }[]
 }
 
 export interface PolicyMeta {
@@ -161,10 +164,20 @@ export interface PendingState {
   recommendation?: { action: ScientificAction; rationale?: string | null; decision?: DecisionTrace }
 }
 
+/** PROVISIONAL: scientific JustificationCertificate. Consumed when the backend supplies it. */
+export interface JustificationCertificate {
+  threshold_met: boolean
+  threshold?: number
+  missing_evidence?: string[]
+  rationale?: string
+}
+
 export interface EpisodeRecord {
   contract_version: string
   episode_id: string
   seed: number
+  /** Public scientific profile, e.g. RECEPTOR_BINDER_RESCUE. Never the world class. */
+  campaign?: string
   /** Neutral public title. NOT the world class (a generation control, never shown). */
   scenario: { id: string; title: string; summary?: string }
   policy: PolicyMeta
@@ -182,6 +195,8 @@ export interface EpisodeRecord {
   complete: boolean
   pending?: PendingState
   evaluation?: EpisodeEvaluation
+  /** Certificate for the latest state of the record, if the backend provides one. */
+  certificate?: JustificationCertificate
 }
 
 /** Identical seeded world under several policies (G13). */
@@ -189,6 +204,8 @@ export interface PolicyComparisonRecord {
   scenario: { id: string; title: string; summary?: string }
   seed: number
   records: EpisodeRecord[]
+  /** Policies that were asked for but have no real artifact. Rendered as NOT RUN, never as a lane. */
+  not_run?: { policy_name: string; reason: string }[]
   /** PROVISIONAL optional narrative for the decision point. */
   divergence_note?: string
   provenance: Provenance

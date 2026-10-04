@@ -43,17 +43,52 @@ export const isTerminalAction = (a: ActionType) => actionKind(a) === 'decision'
 
 // ---------------------------------------------------------------- policies
 
-const POLICY_LABELS: Record<string, string> = {
-  RandomPolicy: 'RANDOM',
-  FixedPipelinePolicy: 'FIXED PIPELINE',
-  GreedyEIGPolicy: 'GREEDY EIG',
-  PPOPolicy: 'MIRAGE PPO',
-  ClaudeScientistPolicy: 'CLAUDE SCIENTIST',
+export type PolicyFamily = 'baseline' | 'myopic' | 'campaign' | 'mock' | 'other'
+
+interface PolicyMeta {
+  key: string
+  label: string
+  family: PolicyFamily
+}
+
+/** The five policies the product compares. Order is display order. */
+export const CANONICAL_POLICIES: PolicyMeta[] = [
+  { key: 'random', label: 'RANDOM', family: 'baseline' },
+  { key: 'fixed_pipeline', label: 'FIXED PIPELINE', family: 'baseline' },
+  { key: 'greedy_eig', label: 'GREEDY EIG', family: 'myopic' },
+  { key: 'rescue_planner', label: 'RESCUE PLANNER', family: 'campaign' },
+  { key: 'lookahead', label: 'LOOKAHEAD', family: 'campaign' },
+  { key: 'ppo', label: 'PPO', family: 'campaign' },
+]
+
+/** Not a benchmarked policy: the authored illustrative trace used only in DEV / MOCK mode. */
+const MOCK_POLICY: PolicyMeta = { key: 'mock_long_horizon', label: 'LONG-HORIZON · MOCK', family: 'mock' }
+
+const norm = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/policy$/, '')
+const ALIASES: Record<string, string> = {
+  fixedpipeline: 'fixed_pipeline',
+  greedyeig: 'greedy_eig',
+  mocklonghorizon: 'mock_long_horizon',
+  rescueplanner: 'rescue_planner',
+  receptorrescueplanner: 'rescue_planner',
+}
+
+/** Backend names ("greedy_eig", "GreedyEIGPolicy", "ppo"...) -> canonical key. */
+export function canonicalPolicyKey(name: string): string {
+  const n = norm(name)
+  return ALIASES[n] ?? n
+}
+
+function metaFor(name: string): PolicyMeta {
+  const key = canonicalPolicyKey(name)
+  return CANONICAL_POLICIES.find((p) => p.key === key) ?? (key === MOCK_POLICY.key ? MOCK_POLICY : { key, label: name.toUpperCase().replace(/_/g, ' '), family: 'other' })
 }
 
 export function policyInfo(name: string, description?: string): PolicyInfo {
-  return { name, label: POLICY_LABELS[name] ?? name, description }
+  const m = metaFor(name)
+  return { name, label: m.label, family: m.family, description }
 }
+export const policyFamily = (name: string): PolicyFamily => metaFor(name).family
 
 // ------------------------------------------------------------ measurements
 

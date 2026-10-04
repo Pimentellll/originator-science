@@ -2,13 +2,49 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSession } from '../state/sessionContext'
 import type { Route } from '../state/route'
 import { ProvenancePill } from '../components/ui'
+import { CANONICAL_POLICIES, canonicalPolicyKey } from '../lib/actions'
 import { divergenceStep, SPR_DAMAGE } from '../lib/derive'
 import { actionLabel, actionShort, formatMeasurement, isPoorQuality, measurementLabel } from '../lib/actions'
-import { fmtMoney } from '../lib/format'
+import { fmtBudget, fmtNum, fmtSample } from '../lib/format'
 import type { CockpitState, EventView, PolicyComparison, PolicyTrack } from '../lib/types'
 import { LoadState } from './Cockpit'
 
 const STEP_MS = 1250
+
+/** Contrast pair first, then the baselines. */
+function orderTracks(tracks: PolicyTrack[]): PolicyTrack[] {
+  // The contrast pair leads (campaign-level, then myopic), then the baselines in canonical order.
+  const lead: Record<string, number> = { campaign: 0, mock: 0, myopic: 1 }
+  const rank = (t: PolicyTrack) => {
+    const i = CANONICAL_POLICIES.findIndex((p) => p.key === canonicalPolicyKey(t.policy.name))
+    return (lead[t.policy.family] ?? 2) * 100 + (i < 0 ? 99 : i)
+  }
+  return [...tracks].sort((a, b) => rank(a) - rank(b))
+}
+
+/**
+ * The long-horizon thesis is claimed only when the data back it: a real campaign-level lane that
+ * ends with a healthier SPR instrument than greedy EIG, or the clearly labelled mock lane.
+ */
+function thesisKind(tracks: PolicyTrack[]): { kind: 'real' | 'mock'; label: string } | null {
+  const spr = (t: PolicyTrack) => t.frames[t.frames.length - 1].resources.spr_health
+  const greedy = tracks.find((t) => t.policy.family === 'myopic')
+  if (!greedy) return null
+  const real = tracks.find((t) => t.policy.family === 'campaign' && t.provenance.source !== 'mock' && spr(t) > spr(greedy))
+  if (real) return { kind: 'real', label: real.policy.label }
+  const mock = tracks.find((t) => t.policy.family === 'mock')
+  if (mock) return { kind: 'mock', label: mock.policy.label }
+  return null
+}
+
+/** Neutral description of the decision point, derived from the traces. */
+function firstActions(tracks: PolicyTrack[]): string {
+  const parts = tracks.map((t) => {
+    const a = t.frames[0].recommendation?.action_type
+    return `${t.policy.label} → ${a ? actionShort(a) : '—'}`
+  })
+  return `Identical public state at step 1. First actions: ${parts.join(' · ')}.`
+}
 
 /** Compact tally of what a policy actually did, e.g. "SPR ×4 · REDESIGN ×2". */
 function tally(frame: CockpitState): string {
@@ -42,7 +78,7 @@ function Card({ ev, decisionPoint, hidden, active }: { ev: EventView | undefined
       )}
       <div className="cc__foot mono">
         {ev.decision?.eig !== undefined && <span className="cc__eig">EIG {ev.decision.eig.toFixed(2)}</span>}
-        {ev.cost.budget > 0 && <span className="faint">{fmtMoney(ev.cost.budget)}</span>}
+        {ev.cost.budget > 0 && <span className="faint">cost {fmtBudget(ev.cost.budget)}</span>}
         {damaged && (
           <span className="cc__dmg">
             SPR {(ev.resources_before?.spr_health ?? 1).toFixed(2)} → {ev.resources_after.spr_health.toFixed(2)}
@@ -54,9 +90,9 @@ function Card({ ev, decisionPoint, hidden, active }: { ev: EventView | undefined
 }
 
 /** One polyline across the shared step columns. */
-function Trace({ title, values, max, upTo, cols, fmt, tone }: { title: string; values: number[]; max: number; upTo: number; cols: number; fmt: (v: number) => string; tone: 'spr' | 'entropy' }) {
+function Trace({ title, values, max, upTo, cols, fmt, tone, h }: { title: string; values: number[]; max: number; upTo: number; cols: number; fmt: (v: number) => string; tone: 'spr' | 'entropy'; h: number }) {
   const W = cols * 100
-  const H = 58
+  const H = h
   const y = (v: number) => H - 4 - (Math.min(v, max) / max) * (H - 10)
   const pts = values.slice(0, upTo + 1).map((v, i) => [i * 100 + 50, y(v)] as const)
   const last = pts[pts.length - 1]
@@ -76,23 +112,26 @@ function Trace({ title, values, max, upTo, cols, fmt, tone }: { title: string; v
   )
 }
 
-function Lane({ track, cols, cursor, dp, entropyMax }: { track: PolicyTrack; cols: number; cursor: number; dp: number; entropyMax: number }) {
+function Lane({ track, cols, cursor, dp, entropyMax, compact }: { track: PolicyTrack; cols: number; cursor: number; dp: number; entropyMax: number; compact: boolean }) {
   const last = track.frames[track.frames.length - 1]
   const upTo = Math.min(cursor, track.frames.length - 1)
   const done = cursor >= track.frames.length - 1
   const ev = last.terminal?.evaluation
-  const verdict = ev ? (ev.terminal_correct ? (ev.justified ? 'ok' : 'warn') : 'bad') : 'none'
+  const verdict = ev ? (ev.terminal_correct === null ? 'abstain' : ev.terminal_correct ? (ev.justified ? 'ok' : 'warn') : ev.justified ? 'warn' : 'bad') : 'none'
+  const decision = last.terminal ? `${actionShort(last.terminal.decision)}` : 'NO DECISION'
   const spr = track.frames.map((f) => f.resources.spr_health)
   const ent = track.frames.map((f) => f.belief.entropy)
   const damagedAt = last.events.find((e) => e.spr_delta < -SPR_DAMAGE)
   return (
-    <section className={`lane lane--${track.policy.name === 'GreedyEIGPolicy' ? 'greedy' : 'mirage'}`} aria-label={track.policy.label}>
+    <section className={`lane lane--${track.policy.family}`} aria-label={track.policy.label}>
       <header className="lane__hd">
         <h2>{track.policy.label}</h2>
+        <ProvenancePill provenance={track.provenance} />
+        {track.provenance.source === 'live' && <span className="pill pill--live">LIVE TRACE</span>}
         <p>{track.policy.description}</p>
         <div className="lane__tally mono">{tally({ ...last, events: last.events.slice(0, upTo + 1) })}</div>
         <div className={`lane__stamp lane__stamp--${done ? verdict : 'none'}`}>
-          {!done ? 'RUNNING…' : verdict === 'ok' ? '✓ CORRECT · JUSTIFIED' : verdict === 'warn' ? '≈ CORRECT · NOT JUSTIFIED' : verdict === 'bad' ? '✗ INCORRECT' : 'NO VERDICT ATTACHED'}
+          {!done ? 'RUNNING…' : verdict === 'ok' ? '✓ CORRECT · JUSTIFIED' : verdict === 'warn' ? '≈ CORRECT · NOT JUSTIFIED' : verdict === 'bad' ? '✗ INCORRECT · NOT JUSTIFIED' : verdict === 'abstain' ? `ABSTAINED · ${ev?.justified ? 'JUSTIFIED' : 'NOT JUSTIFIED'}` : `${decision} · no evaluator verdict`}
         </div>
         {done && damagedAt && <div className="lane__note">SPR instrument damaged at step {damagedAt.step}</div>}
         {done && !damagedAt && <div className="lane__note lane__note--good">SPR instrument preserved</div>}
@@ -103,31 +142,43 @@ function Lane({ track, cols, cursor, dp, entropyMax }: { track: PolicyTrack; col
             <Card key={i} ev={last.events[i]} decisionPoint={i === dp + 1 && dp >= 0} hidden={i > cursor && i < last.events.length} active={i === cursor} />
           ))}
         </div>
-        <Trace title="SPR instrument health" values={spr} max={1} upTo={upTo} cols={cols} fmt={(v) => v.toFixed(2)} tone="spr" />
-        <Trace title="Posterior entropy" values={ent} max={entropyMax} upTo={upTo} cols={cols} fmt={(v) => v.toFixed(2)} tone="entropy" />
+        <Trace title="SPR instrument health" values={spr} max={1} upTo={upTo} cols={cols} fmt={(v) => v.toFixed(2)} tone="spr" h={compact ? 34 : 58} />
+        <Trace title="Posterior entropy" values={ent} max={entropyMax} upTo={upTo} cols={cols} fmt={(v) => v.toFixed(2)} tone="entropy" h={compact ? 34 : 58} />
       </div>
     </section>
   )
 }
 
-function Scoreboard({ cmp, reveal }: { cmp: PolicyComparison; reveal: boolean }) {
+function NotRunRow({ policy, reason }: { policy: { label: string }; reason: string }) {
+  return (
+    <section className="lane lane--notrun" aria-label={`${policy.label}: not run`}>
+      <header className="lane__hd lane__hd--nr">
+        <h2>{policy.label}</h2>
+        <span className="lane__nr mono">NOT RUN</span>
+      </header>
+      <div className="lane__nrbody">{reason}</div>
+    </section>
+  )
+}
+
+function Scoreboard({ tracks, reveal }: { tracks: PolicyTrack[]; reveal: boolean }) {
   const rows: { label: string; get: (f: CockpitState) => string; num?: (f: CockpitState) => number; better?: 'lower' | 'higher' }[] = [
     { label: 'Terminal decision', get: (f) => (f.terminal ? `${actionShort(f.terminal.decision)} ${f.terminal.candidate_id}` : '—') },
-    { label: 'Evaluator verdict', get: (f) => (f.terminal?.evaluation ? (f.terminal.evaluation.terminal_correct ? (f.terminal.evaluation.justified ? 'correct · justified' : 'correct · not justified') : 'incorrect') : 'not attached') },
+    { label: 'Evaluator verdict', get: (f) => (f.terminal?.evaluation ? (f.terminal.evaluation.terminal_correct === null ? 'abstained' : `${f.terminal.evaluation.terminal_correct ? 'correct' : 'incorrect'} · ${f.terminal.evaluation.justified ? 'justified' : 'not justified'}`) : 'not attached') },
     { label: 'Final SPR health', get: (f) => f.resources.spr_health.toFixed(2), num: (f) => f.resources.spr_health, better: 'higher' },
-    { label: 'Cost', get: (f) => fmtMoney(f.resources.budget.total - f.resources.budget.remaining), num: (f) => f.resources.budget.total - f.resources.budget.remaining, better: 'lower' },
-    { label: 'Sample used', get: (f) => `${f.resources.sample.total - f.resources.sample.remaining} µg`, num: (f) => f.resources.sample.total - f.resources.sample.remaining, better: 'lower' },
-    { label: 'Sim. time', get: (f) => `${Math.round(f.resources.time.elapsed)} h`, num: (f) => f.resources.time.elapsed, better: 'lower' },
+    { label: 'Cost', get: (f) => fmtBudget(f.resources.budget.total - f.resources.budget.remaining), num: (f) => f.resources.budget.total - f.resources.budget.remaining, better: 'lower' },
+    { label: 'Sample used', get: (f) => fmtSample(f.resources.sample.total - f.resources.sample.remaining), num: (f) => f.resources.sample.total - f.resources.sample.remaining, better: 'lower' },
+    { label: 'Sim. time', get: (f) => fmtNum(f.resources.time.elapsed), num: (f) => f.resources.time.elapsed, better: 'lower' },
     { label: 'Redesigns', get: (f) => String(f.events.filter((e) => e.kind === 'redesign').length), num: (f) => f.events.filter((e) => e.kind === 'redesign').length, better: 'lower' },
     { label: 'Final posterior entropy', get: (f) => f.belief.entropy.toFixed(2), num: (f) => f.belief.entropy, better: 'lower' },
   ]
-  const lasts = cmp.tracks.map((t) => t.frames[t.frames.length - 1])
+  const lasts = tracks.map((t) => t.frames[t.frames.length - 1])
   return (
     <table className={`score ${reveal ? 'is-on' : ''}`}>
       <thead>
         <tr>
           <th />
-          {cmp.tracks.map((t) => (
+          {tracks.map((t) => (
             <th key={t.policy.name}>{t.policy.label}</th>
           ))}
         </tr>
@@ -154,8 +205,17 @@ function Scoreboard({ cmp, reveal }: { cmp: PolicyComparison; reveal: boolean })
 }
 
 export function ComparePolicies({ navigate }: { navigate: (r: Route) => void }) {
-  const cmp = useSession().comparison
+  const { comparison: cmp, comparisonError } = useSession()
   if (cmp === undefined) return <LoadState what="policy comparison" />
+  if (cmp === null && comparisonError)
+    return (
+      <div className="state" role="alert">
+        <b>Policy comparison failed</b>
+        <pre>{comparisonError}</pre>
+        <span className="faint">This is a failure to produce the comparison, not a NOT RUN result.</span>
+        <button className="btn" onClick={() => window.location.reload()}>RETRY</button>
+      </div>
+    )
   if (cmp === null)
     return (
       <div className="state" role="status">
@@ -170,7 +230,8 @@ export function ComparePolicies({ navigate }: { navigate: (r: Route) => void }) 
 }
 
 function CompareView({ cmp, navigate }: { cmp: PolicyComparison; navigate: (r: Route) => void }) {
-  const maxStep = useMemo(() => (cmp ? Math.max(...cmp.tracks.map((t) => t.frames.length - 1)) : 0), [cmp])
+  const tracks = useMemo(() => orderTracks(cmp.tracks), [cmp])
+  const maxStep = useMemo(() => Math.max(...cmp.tracks.map((t) => t.frames.length - 1)), [cmp])
   const [cursor, setCursor] = useState(0)
   const [playing, setPlaying] = useState(true)
 
@@ -182,21 +243,29 @@ function CompareView({ cmp, navigate }: { cmp: PolicyComparison; navigate: (r: R
   }, [isPlaying, cursor])
 
   const cols = maxStep + 1
-  const dp = divergenceStep(cmp.tracks)
-  const entropyMax = Math.max(...cmp.tracks.flatMap((t) => t.frames.map((f) => f.belief.entropy)), 1)
+  const dp = divergenceStep(tracks)
+  const entropyMax = Math.max(...tracks.flatMap((t) => t.frames.map((f) => f.belief.entropy)), 1)
   const finished = cursor >= maxStep
+  const thesis = thesisKind(tracks)
 
   return (
     <div className="cmp">
       <div className="cmp__hero">
         <div className="cmp__thesis">
-          <h1>
-            <span className="cmp__a">Greedy picks the best next experiment.</span>
-            <span className="cmp__b">MIRAGE picks the better scientific campaign.</span>
-          </h1>
-          <p>
-            {cmp.divergence_note ?? (dp >= 0 ? `The policies share the same public state until step ${dp + 1}, then choose different actions.` : 'The policies chose the same first action.')}
-          </p>
+          {thesis ? (
+            <h1>
+              <span className="cmp__a">Greedy picks the best next experiment.</span>
+              <span className="cmp__b">{thesis.kind === 'real' ? `${thesis.label} picks the better scientific campaign.` : 'A long-horizon policy picks the better scientific campaign.'}</span>
+            </h1>
+          ) : (
+            <h1>
+              <span className="cmp__a">Same seeded world.</span>
+              <span className="cmp__b">Different scientific campaigns.</span>
+            </h1>
+          )}
+          <p>{cmp.divergence_note ?? firstActions(tracks)}</p>
+          {!thesis && <p className="cmp__warn mono">No campaign-level lane protects the instrument better than greedy EIG in these traces, so no long-horizon claim is made.</p>}
+          {thesis?.kind === 'mock' && <p className="cmp__warn mono">The long-horizon lane is an authored DEV / MOCK illustration. It is not Lookahead or PPO output.</p>}
         </div>
         <div className="cmp__ctl">
           <div className="cmp__meta mono">
@@ -248,13 +317,16 @@ function CompareView({ cmp, navigate }: { cmp: PolicyComparison; navigate: (r: R
 
       <div className="cmp__lanes">
         {dp >= 0 && <div className="cmp__dpline" style={{ left: `calc(var(--lane-x) + (100% - var(--lane-x)) * ${(dp + 1) / cols})` }} aria-hidden />}
-        {cmp.tracks.map((t) => (
-          <Lane key={t.policy.name} track={t} cols={cols} cursor={cursor} dp={dp} entropyMax={entropyMax} />
+        {tracks.map((t) => (
+          <Lane key={t.policy.name} track={t} cols={cols} cursor={cursor} dp={dp} entropyMax={entropyMax} compact={tracks.length > 2} />
+        ))}
+        {cmp.not_run.map((n) => (
+          <NotRunRow key={n.policy.name} policy={n.policy} reason={n.reason} />
         ))}
       </div>
 
       <div className="cmp__foot">
-        <Scoreboard cmp={cmp} reveal={finished} />
+        <Scoreboard tracks={tracks} reveal={finished} />
         <p className="cmp__legend">
           Traces and cards are the public replay of each policy on the same seeded world. Verdicts come from the privileged evaluator and are attached to the record only after the terminal decision. <b>EIG</b> = expected information gain (bits) the policy assigned to the action it took.
         </p>

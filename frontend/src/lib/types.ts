@@ -12,9 +12,32 @@ export type Mechanism = (typeof MECHANISMS)[number]
 /** Explanations where the molecule is not the thing that is wrong. */
 export const NON_MOLECULAR: readonly Mechanism[] = ['assay_invalid', 'model_invalid']
 
+export type GroupId = 'molecule' | 'experiment' | 'biological_model'
+
+/**
+ * Where the failure is localised. Groups are for reading, not for normalising: members stay
+ * independent probabilities, and a group's own probability exists only if the backend's
+ * FailureLocalisation supplies it.
+ */
+export const MECHANISM_GROUPS: { id: GroupId; label: string; sub?: string; members: readonly Mechanism[] }[] = [
+  { id: 'molecule', label: 'MOLECULE', members: ['folding', 'aggregation', 'affinity', 'kinetic', 'epitope', 'developability'] },
+  { id: 'experiment', label: 'EXPERIMENT', sub: 'assay validity', members: ['assay_invalid'] },
+  { id: 'biological_model', label: 'BIOLOGICAL MODEL', sub: 'model validity', members: ['model_invalid'] },
+]
+
+export const groupOf = (m: Mechanism): GroupId => MECHANISM_GROUPS.find((g) => g.members.includes(m))!.id
+
+export interface Localisation {
+  molecule: number
+  experiment: number
+  biological_model: number
+}
+
 export interface Belief {
   /** Independent marginals. NOT a distribution: they need not sum to 1. */
   p: Record<Mechanism, number>
+  /** Group-level FailureLocalisation probabilities, only when the backend supplies them. */
+  localisation: Localisation | null
   entropy: number
   ess: number | null
   means: Record<string, number>
@@ -131,6 +154,8 @@ export interface Recommendation {
 export interface PolicyInfo {
   name: string
   label: string
+  /** baseline | myopic | campaign (lookahead / PPO) | mock (authored illustration) | other */
+  family: 'baseline' | 'myopic' | 'campaign' | 'mock' | 'other'
   description?: string
 }
 
@@ -145,19 +170,20 @@ export interface TerminalView {
   candidate_id: string
   /** Authorised evaluator output, only when attached. */
   evaluation: {
-    terminal_correct: boolean
+    terminal_correct: boolean | null
     justified: boolean
-    compound_recognised?: boolean | null
-    assay_invalid_detected?: boolean | null
-    model_invalid_detected?: boolean | null
+    lucky_correct?: boolean
+    supported_but_wrong?: boolean
     unnecessary_redesigns?: number
-    decision_calibration_error?: number
+    checks?: { name: string; passed: boolean }[]
   } | null
 }
 
 export interface CockpitState {
   episode_id: string
   seed: number
+  /** Public scientific profile, e.g. RECEPTOR_BINDER_RESCUE. */
+  campaign: string | null
   step: number
   /** Known episode length; null while a live episode is still open-ended. */
   total_steps: number | null
@@ -173,6 +199,15 @@ export interface CockpitState {
   status: 'running' | 'terminal'
   terminal: TerminalView | null
   provenance: Provenance
+  /** Scientific JustificationCertificate for this frame; null when the backend does not supply one. */
+  certificate: Certificate | null
+}
+
+export interface Certificate {
+  threshold_met: boolean
+  threshold?: number
+  missing_evidence?: string[]
+  rationale?: string
 }
 
 // ----------------------------------------------------- session / transport
@@ -182,12 +217,20 @@ export type SessionMode = 'live' | 'replay'
 export interface PolicyTrack {
   policy: PolicyInfo
   frames: CockpitState[]
+  provenance: Provenance
+}
+
+export interface NotRunPolicy {
+  policy: PolicyInfo
+  reason: string
 }
 
 export interface PolicyComparison {
   scenario: ScenarioInfo
   seed: number
   tracks: PolicyTrack[]
+  /** Canonical policies with no real artifact. Always shown, as NOT RUN. */
+  not_run: NotRunPolicy[]
   divergence_note?: string
   provenance: Provenance
 }
