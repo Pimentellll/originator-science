@@ -128,4 +128,16 @@ not of "size" alone.
 
 ## Deviations
 
-None yet. Later deviations are added here with a date; the text above is not edited.
+None at registration time. Dated entries below were added after the registration commit (0437e0f).
+
+- **2026-10-04, X1 contingency triggered (pre-registered, not a protocol change).** The X1 dev dry
+  run with `output_config: {"effort": "high"}` failed on both seeds with HTTP 400 "This model does
+  not support the effort parameter." (API_FAILURE; both attempts kept in the uncommitted dev run
+  `20261004-1058_claude_dev_X1`; no tokens billed). As registered in §3, X1 therefore omits
+  `output_config` (`--no-effort`, manifest `effort = null`). The X1 dev re-run and all X1 strong
+  episodes use this setting.
+- **2026-10-04, driver fixes before any strong episode.** (1) The run id gets a `-noeffort` suffix when
+  `output_config` is omitted, so the X1 re-run does not collide with the failed run directory in the
+  same minute. (2) If a response reports a model id that is not in the price table, the cost is priced
+  at the requested model. Neither fix changes prompts, tools, scoring or the strong-matrix procedure.
+ Later deviations are added here with a date; the text above is not edited.

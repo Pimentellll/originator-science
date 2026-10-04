@@ -184,7 +184,9 @@ class MeteredClient:
             "matrix": self.matrix,
             "model": response_model,
             **counts,
-            "cost_usd": cost_usd(usage, response_model),
+            "cost_usd": cost_usd(
+                usage, response_model if response_model in PRICES_PER_MTOK else model
+            ),
             "utc": datetime.now(UTC).isoformat(timespec="seconds"),
         }
         _append_jsonl(self.run_dir / "usage.jsonl", usage_line)
@@ -248,6 +250,7 @@ def run_config(
 
     run_id = resume_run_id or (
         f"{datetime.now(UTC):%Y%m%d-%H%M}_claude_{matrix_name}_{config_id}"
+        + ("-noeffort" if no_effort else "")
     )
     out_root = Path(out_root) if out_root is not None else (
         STRONG_OUT_ROOT if matrix_name == "strong" else DEV_OUT_ROOT
