@@ -1,0 +1,1060 @@
+{
+  "agent": {
+    "effort": "high",
+    "kind": "llm",
+    "model": "gpt-6-luna",
+    "name": "openai_responses",
+    "prompt_sha256": "dc07da980883558de995de94ed9c3affc1c8982f31fc5f149f9bfcacda1d91d1",
+    "prompt_version": "prompt-v2",
+    "sdk_version": "urllib/3.12.15"
+  },
+  "audit": [
+    {
+      "before_diagnosis": true,
+      "diagnostic_control": true,
+      "event_index": 0,
+      "in_diagnostic_set": true,
+      "in_useful_region": true,
+      "is_diluted": true,
+      "is_late": true,
+      "latent_biomass_odeq": 4.504134804607778,
+      "noise_free_reading": 0.4502632109506778,
+      "presented_biomass_odeq": 0.45041348046077784,
+      "reconstruction_adequate": true,
+      "request_index": 0
+    },
+    {
+      "before_diagnosis": true,
+      "diagnostic_control": true,
+      "event_index": 1,
+      "in_diagnostic_set": true,
+      "in_useful_region": true,
+      "is_diluted": true,
+      "is_late": true,
+      "latent_biomass_odeq": 4.504134804607778,
+      "noise_free_reading": 0.04504134804592729,
+      "presented_biomass_odeq": 0.04504134804607778,
+      "reconstruction_adequate": true,
+      "request_index": 1
+    }
+  ],
+  "diagnosis": {
+    "diagnosis": "BIOMASS_ABOVE_READING",
+    "late_biomass_estimate_od": 4.46,
+    "p_biomass_above_reading": 0.999,
+    "rationale": "At 18 h the undiluted reading was 0.9178, but dilution tests gave 0.4702 mean at 10-fold dilution and 0.0446 mean at 100-fold dilution. Correcting these readings by their dilution factors gives proportional OD600 estimates of 4.70 and 4.46, respectively. Their close agreement supports a diluted, proportional estimate near 4.5 OD and shows that the undiluted reading substantially under-reports late-culture biomass, consistent with loss of linearity at high density."
+  },
+  "episode": {
+    "assay": {
+      "eps_lin": 0.05,
+      "n": 8.0,
+      "resolution": 0.0001,
+      "s_odeq": 0.9445743852140908,
+      "sigma_abs": 0.003,
+      "sigma_rel": 0.02,
+      "y_loq": 0.03
+    },
+    "condition": "MEASUREMENT_ARTIFACT",
+    "episode_id": "s500023-MA",
+    "growth": {
+      "k_odeq": 4.504134804607778,
+      "nu": 8.0,
+      "r_per_h": 0.7032466223365215,
+      "x0_odeq": 0.018204539199202716
+    },
+    "k_ratio": 4.768427849741979,
+    "scenario_sha256": "5291e69c061fa42973cf541bd84b78a90770dc971227f32f052acfc404c0ce08",
+    "scenario_version": "scenario-v1",
+    "seed": 500023
+  },
+  "events": [
+    {
+      "arguments": {
+        "dilution_factor": 10,
+        "replicates": 3,
+        "time_h": 18
+      },
+      "error": null,
+      "index": 0,
+      "ok": true,
+      "result": {
+        "budget_remaining": 3,
+        "dilution_factor": 10.0,
+        "mean_reading": 0.4702,
+        "readings": [
+          0.4813,
+          0.4749,
+          0.4543
+        ],
+        "time_h": 18
+      },
+      "tool": "measure_od",
+      "turn": 1
+    },
+    {
+      "arguments": {
+        "dilution_factor": 100,
+        "replicates": 3,
+        "time_h": 18
+      },
+      "error": null,
+      "index": 1,
+      "ok": true,
+      "result": {
+        "budget_remaining": 0,
+        "dilution_factor": 100.0,
+        "mean_reading": 0.0446,
+        "readings": [
+          0.0463,
+          0.0436,
+          0.0438
+        ],
+        "time_h": 18
+      },
+      "tool": "measure_od",
+      "turn": 2
+    },
+    {
+      "arguments": {
+        "diagnosis": "BIOMASS_ABOVE_READING",
+        "late_biomass_estimate_od": 4.46,
+        "p_biomass_above_reading": 0.999,
+        "rationale": "At 18 h the undiluted reading was 0.9178, but dilution tests gave 0.4702 mean at 10-fold dilution and 0.0446 mean at 100-fold dilution. Correcting these readings by their dilution factors gives proportional OD600 estimates of 4.70 and 4.46, respectively. Their close agreement supports a diluted, proportional estimate near 4.5 OD and shows that the undiluted reading substantially under-reports late-culture biomass, consistent with loss of linearity at high density."
+      },
+      "error": null,
+      "index": 2,
+      "ok": true,
+      "result": {
+        "status": "received"
+      },
+      "tool": "submit_diagnosis",
+      "turn": 3
+    }
+  ],
+  "llm_transcript": [
+    {
+      "content": "{\"budget\": {\"cost\": \"1 unit per replicate reading\", \"remaining_units\": 6, \"total_units\": 6}, \"experiment\": {\"assay\": \"OD600 plate reader; blank-subtracted readings of undiluted culture\", \"culture\": \"bacterial batch culture inoculated at t = 0 h, incubated 18 h\", \"retained_aliquots_h\": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]}, \"limits\": {\"dilution_factor\": \"1 to 100\", \"max_turns\": 12, \"replicates\": \"1 to 3\", \"time_h\": \"integer 0 to 18\"}, \"passive_readings\": [{\"dilution_factor\": 1.0, \"reading\": 0.0153, \"time_h\": 0}, {\"dilution_factor\": 1.0, \"reading\": 0.0417, \"time_h\": 1}, {\"dilution_factor\": 1.0, \"reading\": 0.0804, \"time_h\": 2}, {\"dilution_factor\": 1.0, \"reading\": 0.1423, \"time_h\": 3}, {\"dilution_factor\": 1.0, \"reading\": 0.3081, \"time_h\": 4}, {\"dilution_factor\": 1.0, \"reading\": 0.5962, \"time_h\": 5}, {\"dilution_factor\": 1.0, \"reading\": 0.9279, \"time_h\": 6}, {\"dilution_factor\": 1.0, \"reading\": 0.9514, \"time_h\": 7}, {\"dilution_factor\": 1.0, \"reading\": 0.9464, \"time_h\": 8}, {\"dilution_factor\": 1.0, \"reading\": 0.9575, \"time_h\": 9}, {\"dilution_factor\": 1.0, \"reading\": 0.9416, \"time_h\": 10}, {\"dilution_factor\": 1.0, \"reading\": 0.9254, \"time_h\": 11}, {\"dilution_factor\": 1.0, \"reading\": 0.9099, \"time_h\": 12}, {\"dilution_factor\": 1.0, \"reading\": 0.9497, \"time_h\": 13}, {\"dilution_factor\": 1.0, \"reading\": 0.9551, \"time_h\": 14}, {\"dilution_factor\": 1.0, \"reading\": 0.9336, \"time_h\": 15}, {\"dilution_factor\": 1.0, \"reading\": 0.9717, \"time_h\": 16}, {\"dilution_factor\": 1.0, \"reading\": 0.9291, \"time_h\": 17}, {\"dilution_factor\": 1.0, \"reading\": 0.9178, \"time_h\": 18}]}",
+      "kind": "user"
+    },
+    {
+      "kind": "assistant",
+      "request": {
+        "include": [
+          "reasoning.encrypted_content"
+        ],
+        "max_output_tokens": 16000,
+        "model": "gpt-6-luna",
+        "parallel_tool_calls": false,
+        "reasoning": {
+          "effort": "high"
+        },
+        "store": false,
+        "tool_choice": "auto"
+      },
+      "response": {
+        "access_programs": null,
+        "background": false,
+        "billing": {
+          "payer": "openai"
+        },
+        "completed_at": 1791115711,
+        "created_at": 1791115706,
+        "error": null,
+        "frequency_penalty": 0.0,
+        "id": "resp_04acd627036cf33f016ac241ba747487d082047457edc506ac",
+        "incomplete_details": null,
+        "instructions": "You are an autonomous scientist working in a virtual microbiology laboratory.\n\nA bacterial batch culture was inoculated at t = 0 h and incubated for 18 h. Its\noptical density at 600 nm (OD600) was read every hour on a plate reader, and an\naliquot of the culture was withdrawn and retained every hour. The hourly readings\nare provided in the first message.\n\nYour task is to decide whether, over the final hours of the experiment, the\nculture's biomass is at the level the undiluted readings indicate, or higher than\nthe undiluted readings indicate, and to support your conclusion with evidence.\n\nYou may request additional measurements with measure_od; each replicate reading\ncosts 1 unit from a budget of 6 units. Finish by calling submit_diagnosis. You have\nat most 12 turns.",
+        "max_output_tokens": 16000,
+        "max_tool_calls": null,
+        "metadata": {},
+        "model": "gpt-6-luna",
+        "moderation": null,
+        "object": "response",
+        "output": [
+          {
+            "content": [],
+            "encrypted_content": "gAAAAABqwkG_W6kdixK5q_HScbkdT40QqnatT7clVhkm2L9f54yk4an2Y1koEh90GV7SkBDXdPxs5hIfY19DnLXvSVNce5-o_cj2OVwPZi0cQ4SCjAUKhw4uaPEV-3ilxz3JDfoypl7RgOKaLgJ8IuI7PKs8ZZqHqbj81h8by549ElW59V15esKdN_dNKrO4CJrbmF2lOw-k7pRHVLO41mGxFqS3hat1-DbCD503Krnp1qslh7WjC63P06EYNmN5evViky66aRNOhLG1H28wE0FvhmCmsNZkte7MFyLV2c_6J9ALbj7MD1k0rU32wwlDoO8FNttmHuIBSSHZslaxhI_sr01Qj4h4edONae5ss0vzDFu77VQajgWgrBeKrK-Z776LU9RSp9wsm0f1tlOvYiZf7YlzEWkARsRmLfSwrJIqLy1zwgyCQ-wZXp1K2eP_-OV8bw23TswSWft95Z052sgZpicIiLsQrQSRsLy02NPrbp4cVWmlEJHNzVBECmRqlfn3AVq0xKj8GjZ-87BWN5jkTcfJar0oovms309SIBxs1G-awq_vUhYJTc_D1Zd7lXuDwItCMRVO-Fqf7AE6YMjonhYZoimnitXdcz0YXN5OOcUjQosDOs10RkWQAFlcrMhEleBQERsTDGcQ1z3YgI3OS71BxkBP8Gj3moXK0sIn-My2KTAKJFzvMAFQ4zOS84ILyJwL_WpI4KP_UyRKkjd0nzYCkOhaS7dSXBZVA4aBE9yVwFszO-FFtFb1U3U2D1iCvuJNUAiEpJumDyFYlLvWn0K07Rn-EMAI28ByVxm4xqNjcYAMkuL2Japnr04iyWG4I-Pfla002ftcepLBhJYPZAXi2va6c1dnhPGCFP_F3lwU0lNRYM8KcVPIV4fl6JAiV8hEZ2l_sq2T6qg3L1O14EFXNXtuSUR2tbfHiAwWMon2ZCIt0jlCfjhmjeZ5DPj8FkOFnVUnZneBjB3qO1kwbi49mTjA-HT_NXAl8dOw-vy04loJwCTyGnzbiHHgNn97KPjEQ5roZnleJI2rv2Hg2jrIH3R9vgC6IQhridBd7qrZ0h-CqAMX4vpGSJQoLYtkrUAjJnhe206UL9ri2dlqEpUojOyMFosTXvhCHIby92GiZrcwUKoSUhVybumwXBst2zAQ6czlVhZhhnN8vnd3xLe08HFvFdIQIhjTL_qDCIw-th0g0_9-v4BtvpY1-iBa_iIOAs5lozpT0Sbnv5WoaRCPovFMOSW5wj3ZpHzF6Kre80i93F3pxoa_fuiABXHJeZSU_wUL8a4B7qBcYCgUg2sCbHWA981QD9i-WGm2A8SkBsuT_qybKuMCfyQeKV-tT3QuUR9yfzJKJc8zQv8mxwicaOdqH8pZRVd3BcQJq0uOiqjopfm5feAFOyrkRzH-X_3Gt0-Jgd9IFddUgp_iq7AhYXwppwmCuekIZTnHLdtSsrFdz7W9FYwB9tmd47DLTCZc1TlOvpyeKXHPT2BsfuewpezAKIYzhl9jHLSvcEaTt5r-zG_fxTdM8PcH_zsXJjdyINtQ1T56qPg8K_Ye6BHJO1hqSyTF2oMH3CIEYqXJ_dvJ9CKfkzj6nXGL41gnxsyk4viZhxlJ-wFZGE8GkhOcvWgDuG5OTHHr0iwAa2I-Un8-zOopBZDuY-r0D13Ug6Ux2Tzr461K6aDbKazRCaIJ9DOvG9cyt56nqwczs8arYt-xRkM94kjtHC6jkfoaFTCLA9HV8t2Spn02AL8KIgxG2bu3EHNfJIIcFFMSW9um2i2BJfQosOO08mfc4h7tYXMq-oo_n_rLwhpYoEqAFiK4c4aNnk3fhJW3n-_kZtYxDteMsyL3sftKbcs0AIKfLHTqwXJjdEMAXwpSDvF2RB-29kouqBQ2fKNpKnBg9ZRlsJVa6X3--loS9hMC30AxHtKgmTSsX1LDfhVWPrdkYJhFpHfkRtwxnMtjUFCooISJ-gDZkYzKsyxbUnmYJq_QqZea45CPdxKYwJAJFnL8sZ_MZa2KXNU49DhG01qnZTpgDDGg_l_6Im5LRbNzWgIwtR1EfgvnEL1Ybg101P-TUryX54Ewnc8zQRZpQQFtW2GZ6mtI5NWHzJNRQZhiljBaMy4UNfvf8hpKpbzcHeGpa9R72EIat-81orBVGo-DqF6WsJ7DCBWh8JewzAbVoGrtkRGsjuQBb-_juJ9Ddv49VsY2LYGblmpOYHpYT36R5UDU1crITKLjxazAJ7TuywyBp8YiZAEJPD3FEzNV3QuYXmE6zRSbkbiWSERqPSn1UU-xdOqvi11L48yoXdXNeiJT3k9d7rNeMP9WKjE07G7Z1ryqIOg9vytvRklcPOpGBX1n9ffZFHTt0bSYLP9sz8NALmJd3h7b6vG6PTa-XwLC8IGh6lPNsI3lAM_Vv6Z1zCBDbo3PR2JKSDqQXvZjPscdQRJdTP3MBUsEDCZnNpWTgrmXyg9bsHJPo1-AHsTcvWAOeqINbMtlDhYBZh8K-WUrflxJNyL7MNawlFzxHP3MKRUSByc0LVg32tsQgSmqSGTD-pJY2PVqAPxS1IAzRCYlXUpluLCm-xUJHavQF3RXdz2hR_OQQ8i2aTx6eW971a0VDG9iDyUmnBxWTN2XyU7AFQnt252L54jx0ANrBuRnVxKcFVZQZQ6DlxjQLpcGWxfNbCp0YX1EIsW_3lciruroySBuQifahLSaEtmrocZB9-GlfZbNOsaZKdYQ3I-J1XypMDtJONsSmpNtPi53sprpVrIZVgIK-iyn08XisUaOxpUVTEwY3U0WC3J6WYexZMB44z9rRhP5nO22swoboaewrYI0Wa0V013Kuhy2SkmwAa3uh1pqxP2S5lma8v1Ni9w-JIisFM25UoiVC8xhLeHeS1n7rJ9suCNx_ZXMeZSDrCMYnsaqMv5IXb-h1aCXVq9YYKraR9llTvgxUyvg2CoWrz04v5xj",
+            "id": "rs_04acd627036cf33f016ac241bb175c87d0ac2332e7d903834f",
+            "summary": [],
+            "type": "reasoning"
+          },
+          {
+            "arguments": "{\"time_h\":18,\"dilution_factor\":10,\"replicates\":3}",
+            "call_id": "call_S6bKFXxNiN3lAqJ0VaWfIuxw",
+            "id": "fc_04acd627036cf33f016ac241bf168487d099eb6d4361f38c42",
+            "name": "measure_od",
+            "status": "completed",
+            "type": "function_call"
+          }
+        ],
+        "parallel_tool_calls": false,
+        "presence_penalty": 0.0,
+        "previous_response_id": null,
+        "prompt_cache_key": null,
+        "prompt_cache_retention": "24h",
+        "reasoning": {
+          "context": "all_turns",
+          "effort": "high",
+          "mode": "standard",
+          "summary": null
+        },
+        "safety_identifier": null,
+        "service_tier": "default",
+        "status": "completed",
+        "store": false,
+        "temperature": 1.0,
+        "text": {
+          "format": {
+            "type": "text"
+          },
+          "verbosity": "medium"
+        },
+        "tool_choice": "auto",
+        "tool_usage": {
+          "image_gen": {
+            "input_tokens": 0,
+            "input_tokens_details": {
+              "image_tokens": 0,
+              "text_tokens": 0
+            },
+            "output_tokens": 0,
+            "output_tokens_details": {
+              "image_tokens": 0,
+              "text_tokens": 0
+            },
+            "total_tokens": 0
+          },
+          "web_search": {
+            "num_requests": 0
+          }
+        },
+        "tools": [
+          {
+            "description": "Analyse a retained aliquot of the culture on the OD600 plate reader. Aliquots were withdrawn and retained every hour from 0 to 18 h; withdrawing them did not affect the culture. The aliquot from the requested hour is diluted in sterile medium by the given factor (1 = undiluted; 10 = 1 part aliquot + 9 parts medium) and read. Each replicate is an independent dilution and read, and costs 1 budget unit. Returns the blank-subtracted OD600 reading of each replicate exactly as read; no correction is applied.",
+            "name": "measure_od",
+            "output_schema": null,
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "dilution_factor": {
+                  "description": "Total dilution factor applied before reading: from 1 (undiluted) to 100.",
+                  "type": "number"
+                },
+                "replicates": {
+                  "description": "Number of independent replicate reads: 1, 2 or 3.",
+                  "type": "integer"
+                },
+                "time_h": {
+                  "description": "Hour at which the aliquot was withdrawn: an integer from 0 to 18.",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "time_h",
+                "dilution_factor",
+                "replicates"
+              ],
+              "type": "object"
+            },
+            "strict": true,
+            "type": "function"
+          },
+          {
+            "description": "Optional. Record your current notes and your current probability that, over the final hours, the culture's biomass is higher than the undiluted readings indicate. Free of charge; never required.",
+            "name": "declare_state",
+            "output_schema": null,
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "notes": {
+                  "description": "Free-text notes on your current thinking.",
+                  "type": "string"
+                },
+                "p_biomass_above_reading": {
+                  "description": "Probability from 0 to 1 that, over the final hours, biomass is higher than the undiluted readings indicate.",
+                  "type": "number"
+                }
+              },
+              "required": [
+                "notes",
+                "p_biomass_above_reading"
+              ],
+              "type": "object"
+            },
+            "strict": true,
+            "type": "function"
+          },
+          {
+            "description": "Submit your conclusion. This ends the experiment; no further measurements are possible.",
+            "name": "submit_diagnosis",
+            "output_schema": null,
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "diagnosis": {
+                  "description": "Whether, over the final hours, the culture's biomass is at the level the undiluted readings indicate (BIOMASS_AS_READ) or higher than they indicate (BIOMASS_ABOVE_READING).",
+                  "enum": [
+                    "BIOMASS_AS_READ",
+                    "BIOMASS_ABOVE_READING"
+                  ],
+                  "type": "string"
+                },
+                "late_biomass_estimate_od": {
+                  "description": "Your estimate of the culture's OD600 at 18 h, expressed as the reading an undiluted sample would give if the reader responded proportionally; null if you have no estimate.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "p_biomass_above_reading": {
+                  "description": "Probability from 0 to 1 that, over the final hours, biomass is higher than the undiluted readings indicate.",
+                  "type": "number"
+                },
+                "rationale": {
+                  "description": "Evidence-based justification.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "diagnosis",
+                "p_biomass_above_reading",
+                "late_biomass_estimate_od",
+                "rationale"
+              ],
+              "type": "object"
+            },
+            "strict": true,
+            "type": "function"
+          }
+        ],
+        "top_logprobs": 0,
+        "top_p": 0.98,
+        "truncation": "disabled",
+        "usage": {
+          "input_tokens": 1463,
+          "input_tokens_details": {
+            "cache_write_tokens": 1460,
+            "cached_tokens": 0
+          },
+          "output_tokens": 376,
+          "output_tokens_details": {
+            "reasoning_tokens": 342
+          },
+          "total_tokens": 1839
+        },
+        "user": null
+      },
+      "response_id": "resp_04acd627036cf33f016ac241ba747487d082047457edc506ac",
+      "turn": 1
+    },
+    {
+      "content": [
+        {
+          "call_id": "call_S6bKFXxNiN3lAqJ0VaWfIuxw",
+          "output": "{\"budget_remaining\": 3, \"dilution_factor\": 10.0, \"mean_reading\": 0.4702, \"readings\": [0.4813, 0.4749, 0.4543], \"time_h\": 18}",
+          "type": "function_call_output"
+        }
+      ],
+      "kind": "user",
+      "turn": 1
+    },
+    {
+      "kind": "assistant",
+      "request": {
+        "include": [
+          "reasoning.encrypted_content"
+        ],
+        "max_output_tokens": 16000,
+        "model": "gpt-6-luna",
+        "parallel_tool_calls": false,
+        "reasoning": {
+          "effort": "high"
+        },
+        "store": false,
+        "tool_choice": "auto"
+      },
+      "response": {
+        "access_programs": null,
+        "background": false,
+        "billing": {
+          "payer": "openai"
+        },
+        "completed_at": 1791115715,
+        "created_at": 1791115711,
+        "error": null,
+        "frequency_penalty": 0.0,
+        "id": "resp_04acd627036cf33f016ac241bf745c87d0ac7cfc73cc3dbeed",
+        "incomplete_details": null,
+        "instructions": "You are an autonomous scientist working in a virtual microbiology laboratory.\n\nA bacterial batch culture was inoculated at t = 0 h and incubated for 18 h. Its\noptical density at 600 nm (OD600) was read every hour on a plate reader, and an\naliquot of the culture was withdrawn and retained every hour. The hourly readings\nare provided in the first message.\n\nYour task is to decide whether, over the final hours of the experiment, the\nculture's biomass is at the level the undiluted readings indicate, or higher than\nthe undiluted readings indicate, and to support your conclusion with evidence.\n\nYou may request additional measurements with measure_od; each replicate reading\ncosts 1 unit from a budget of 6 units. Finish by calling submit_diagnosis. You have\nat most 12 turns.",
+        "max_output_tokens": 16000,
+        "max_tool_calls": null,
+        "metadata": {},
+        "model": "gpt-6-luna",
+        "moderation": null,
+        "object": "response",
+        "output": [
+          {
+            "content": [],
+            "encrypted_content": "gAAAAABqwkHDhHc1rpVsJ_kco7kIntrYU-KwD_zbXOtdfrbKX04_w9r3FtB8RjUIphTlRnv3OLtKSpZB5nsDgoACQET5QLqSwFld1SGMIkKCP_1z3F_WYe2SWRCClxaGfXx_IGaFimDQligB8HslVsLWAwcPuSOYm63hl4JBEv5PpTKhBJKKwxGohISr4qM_vLs912aAhWlw7OHSJKmX1h-SDq8hLptKKu0UppuqH4Q13Wr51dgkUe3z5MbY8Rzo5qhoTL1IkZRSjThjxoHNb5AffwHLjeiuTV2NGEjGASP0redceJ4D_3ox658YZlu9qUPAL2lw9YkcNgDVQGkl7mFZIYF2u3i_F761yPwQQhwnQtDB98VSuNNcUl2KW_cIwZBuo7M2LE46_2qSCHHZ_LdGoi351mJO-7u5zOINfWZlA_d1TvQC0ypKD-Cavdo6qKsh93ATjOFcQDC6ffD7tRVt3KZLSksLBRJ1v_e-1DZv4Hdro_uOE7JnjpDn4YEN18RfQnS6VcMNCGCaiybIUGpQAcTPuRBEcYe_HBl6UO2X3u1A32W0X4dVxuss18fo0IGUVSNmEh15Q7v52REA3Na59VA8xwdUAY3YEw_js2eYfqREP3pdOu9b0HNaDY4SpSDWT9yJf5oyKcEi4nYxfit3WxJnZkucBee8CrX2mEB9Rqdj1_xbyeb5Ojab9OR8X49U0ARlvkaXAMvbRqV2sXdZW0fUSFi3W3vrCMHUoqpAtbnz8DxTi_REPtLLxNq41aiz8rTD0sOXxLvxqwYIlcmD6VdKTsEyxHko4nc3i6NlrGwH3vuICiwerBRcD6WDYdA7Kq4vOxs7Zx9x4l3AOi7RbfHAs0uMLi2r1g3ToH938Ehu84Ga-NDYAeS9oarbsPwXyZ2C5v_KPQZMS-puvwLM7p-rCCAesyPkJUYqHKSYW0mxXFsQhVSzlmplB4HWC6VFwZfPWeQGUM6Q583M7dUEsrfcF2HgeFjnTd-fRk6qIa84vPZHIMCGIzMn2EG64zTyK8yjnAXzpx41sEmXOTAIKvnFtlsMyABPYPtZkU2br0LXersgotu1PFJLFe9q5WQqACLBQcyyfB8Gj9QWCY3L7Vw5mG4RYP9-OXUMbETgvWzLsBhiu6mvC5Mjyr_quaTRlNylcb_Y_zlTlwVJ-muBz9kCT2ThDr9xT1hmtpT0JFynOI6PU2ZRtj7l_TU_L6o173Nq_RyFqPMJ5S-gQ41mtYJRw0XGqUYPIZSQ2O3OrewO3SI4Hsy80mOzjlXZC9tC9lCjbJ87yW80iJaniwiBuqG1E65xWx2fBi4Kx4HzjnhZBH-aa7AWzdYwMCUOMkYmoh9c2CQLQ9ePTo4PFamJy7l8snyx3lDauq-if6tt20v7gHpp-3taCqTaEBmBcHmbiktTxKRjkgjhD3wEesTiHSi4yRNQukleBIzNDa89yUi_VBLdApCl11n92EPni1LSSUyp4S7KLJHR0wxIJKciD5qLYEfbxbWVk9_uuiRBqRbUNo_NwUhd6RZi2gVA4aa3ywsc4A1pWtAkugHLeNE37DGRO_OQgsc6rGEnT2OaPdsTzacjwPAOVMq4pexWIlLzNu4sSSPhCajREn15peK12OWQsZwLzKEmy9KaW71CEBnnDJvDm24sLBYOynXOK-G8i3sMUJlh3L64Zmd6YMQZw9EfHaDtsqQpvw2lyey_JnD1YZEJ0rb3-BTaoSHnLL1xafXG9st6Dgptha9aKfdgOjWlRzt4eTq51Fqz56Ye8e4ZM-TuB23UU3R_xsNR-lgL6DROK0grg59hEGWlBwSQqBZbgHozF6LDBBZ2xL4bL3HqC4HWNq_CDlPJKIaob0KArQutFNgKKKr6QaRpmljowhGWc3rIxuNhBcNst7hRFV2ScLDlL02-hzLtl1zcP2C_gCeh7UsCPnbSk671ikIOB4G5_hmJoiq3Yp8QaJFEM72mNOc9Ccwm8F7NXfEwDyrAUssL96RUsOXxJgzPdjthAZ7J1q8v0J1fnH75igo7XojofQ4AAdDyPbqJJAhW89WKnINCEyTlv0Pc0PPficuLRHl4PnA2UKUf53j_IayHGCkbHFgZpI6vj415QH7DNfpm60PNfAFa8LT8NmGoc_S04kVdVT0WNX33D-QvrqKyPKUXONASABj18NyuU5ihadLFVdJbO4ON",
+            "id": "rs_04acd627036cf33f016ac241c080d487d098dec70cd20b6f24",
+            "summary": [],
+            "type": "reasoning"
+          },
+          {
+            "arguments": "{\"time_h\":18,\"dilution_factor\":100,\"replicates\":3}",
+            "call_id": "call_bM0bhVozcA4gvTa1jO9mE0Cq",
+            "id": "fc_04acd627036cf33f016ac241c2bdf887d090d8fd656c40eca1",
+            "name": "measure_od",
+            "status": "completed",
+            "type": "function_call"
+          }
+        ],
+        "parallel_tool_calls": false,
+        "presence_penalty": 0.0,
+        "previous_response_id": null,
+        "prompt_cache_key": null,
+        "prompt_cache_retention": "24h",
+        "reasoning": {
+          "context": "all_turns",
+          "effort": "high",
+          "mode": "standard",
+          "summary": null
+        },
+        "safety_identifier": null,
+        "service_tier": "default",
+        "status": "completed",
+        "store": false,
+        "temperature": 1.0,
+        "text": {
+          "format": {
+            "type": "text"
+          },
+          "verbosity": "medium"
+        },
+        "tool_choice": "auto",
+        "tool_usage": {
+          "image_gen": {
+            "input_tokens": 0,
+            "input_tokens_details": {
+              "image_tokens": 0,
+              "text_tokens": 0
+            },
+            "output_tokens": 0,
+            "output_tokens_details": {
+              "image_tokens": 0,
+              "text_tokens": 0
+            },
+            "total_tokens": 0
+          },
+          "web_search": {
+            "num_requests": 0
+          }
+        },
+        "tools": [
+          {
+            "description": "Analyse a retained aliquot of the culture on the OD600 plate reader. Aliquots were withdrawn and retained every hour from 0 to 18 h; withdrawing them did not affect the culture. The aliquot from the requested hour is diluted in sterile medium by the given factor (1 = undiluted; 10 = 1 part aliquot + 9 parts medium) and read. Each replicate is an independent dilution and read, and costs 1 budget unit. Returns the blank-subtracted OD600 reading of each replicate exactly as read; no correction is applied.",
+            "name": "measure_od",
+            "output_schema": null,
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "dilution_factor": {
+                  "description": "Total dilution factor applied before reading: from 1 (undiluted) to 100.",
+                  "type": "number"
+                },
+                "replicates": {
+                  "description": "Number of independent replicate reads: 1, 2 or 3.",
+                  "type": "integer"
+                },
+                "time_h": {
+                  "description": "Hour at which the aliquot was withdrawn: an integer from 0 to 18.",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "time_h",
+                "dilution_factor",
+                "replicates"
+              ],
+              "type": "object"
+            },
+            "strict": true,
+            "type": "function"
+          },
+          {
+            "description": "Optional. Record your current notes and your current probability that, over the final hours, the culture's biomass is higher than the undiluted readings indicate. Free of charge; never required.",
+            "name": "declare_state",
+            "output_schema": null,
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "notes": {
+                  "description": "Free-text notes on your current thinking.",
+                  "type": "string"
+                },
+                "p_biomass_above_reading": {
+                  "description": "Probability from 0 to 1 that, over the final hours, biomass is higher than the undiluted readings indicate.",
+                  "type": "number"
+                }
+              },
+              "required": [
+                "notes",
+                "p_biomass_above_reading"
+              ],
+              "type": "object"
+            },
+            "strict": true,
+            "type": "function"
+          },
+          {
+            "description": "Submit your conclusion. This ends the experiment; no further measurements are possible.",
+            "name": "submit_diagnosis",
+            "output_schema": null,
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "diagnosis": {
+                  "description": "Whether, over the final hours, the culture's biomass is at the level the undiluted readings indicate (BIOMASS_AS_READ) or higher than they indicate (BIOMASS_ABOVE_READING).",
+                  "enum": [
+                    "BIOMASS_AS_READ",
+                    "BIOMASS_ABOVE_READING"
+                  ],
+                  "type": "string"
+                },
+                "late_biomass_estimate_od": {
+                  "description": "Your estimate of the culture's OD600 at 18 h, expressed as the reading an undiluted sample would give if the reader responded proportionally; null if you have no estimate.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "p_biomass_above_reading": {
+                  "description": "Probability from 0 to 1 that, over the final hours, biomass is higher than the undiluted readings indicate.",
+                  "type": "number"
+                },
+                "rationale": {
+                  "description": "Evidence-based justification.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "diagnosis",
+                "p_biomass_above_reading",
+                "late_biomass_estimate_od",
+                "rationale"
+              ],
+              "type": "object"
+            },
+            "strict": true,
+            "type": "function"
+          }
+        ],
+        "top_logprobs": 0,
+        "top_p": 0.98,
+        "truncation": "disabled",
+        "usage": {
+          "input_tokens": 1908,
+          "input_tokens_details": {
+            "cache_write_tokens": 445,
+            "cached_tokens": 1460
+          },
+          "output_tokens": 227,
+          "output_tokens_details": {
+            "reasoning_tokens": 193
+          },
+          "total_tokens": 2135
+        },
+        "user": null
+      },
+      "response_id": "resp_04acd627036cf33f016ac241bf745c87d0ac7cfc73cc3dbeed",
+      "turn": 2
+    },
+    {
+      "content": [
+        {
+          "call_id": "call_bM0bhVozcA4gvTa1jO9mE0Cq",
+          "output": "{\"budget_remaining\": 0, \"dilution_factor\": 100.0, \"mean_reading\": 0.0446, \"readings\": [0.0463, 0.0436, 0.0438], \"time_h\": 18}",
+          "type": "function_call_output"
+        }
+      ],
+      "kind": "user",
+      "turn": 2
+    },
+    {
+      "kind": "assistant",
+      "request": {
+        "include": [
+          "reasoning.encrypted_content"
+        ],
+        "max_output_tokens": 16000,
+        "model": "gpt-6-luna",
+        "parallel_tool_calls": false,
+        "reasoning": {
+          "effort": "high"
+        },
+        "store": false,
+        "tool_choice": "auto"
+      },
+      "response": {
+        "access_programs": null,
+        "background": false,
+        "billing": {
+          "payer": "openai"
+        },
+        "completed_at": 1791115719,
+        "created_at": 1791115715,
+        "error": null,
+        "frequency_penalty": 0.0,
+        "id": "resp_04acd627036cf33f016ac241c360dc87d0a92d91b85710bbd6",
+        "incomplete_details": null,
+        "instructions": "You are an autonomous scientist working in a virtual microbiology laboratory.\n\nA bacterial batch culture was inoculated at t = 0 h and incubated for 18 h. Its\noptical density at 600 nm (OD600) was read every hour on a plate reader, and an\naliquot of the culture was withdrawn and retained every hour. The hourly readings\nare provided in the first message.\n\nYour task is to decide whether, over the final hours of the experiment, the\nculture's biomass is at the level the undiluted readings indicate, or higher than\nthe undiluted readings indicate, and to support your conclusion with evidence.\n\nYou may request additional measurements with measure_od; each replicate reading\ncosts 1 unit from a budget of 6 units. Finish by calling submit_diagnosis. You have\nat most 12 turns.",
+        "max_output_tokens": 16000,
+        "max_tool_calls": null,
+        "metadata": {},
+        "model": "gpt-6-luna",
+        "moderation": null,
+        "object": "response",
+        "output": [
+          {
+            "content": [],
+            "encrypted_content": "gAAAAABqwkHHPg7u1EqDgn5zEqsJLhDTsy1CNAO4Ap5MZLZo9EB4EA3ZFufcuia_zr1MvMcjNiStNPN_DfTF641kzoxLqtNSSOsag7oTkeTr0d2X9R-Znvjqn2swEeF1p_M38wFT-x0nRCqqaCVv3fdtb-NBsblY1sKn6FV1AvfIknQBf1H05909YePxCR79rYCVaurPiAZH8QyC7mL7ctmjOaBeos9Xtt_pCdG0-nYL0-CxJMBSJkSfQgH0c-hn3JRxJEl3YrKnOk_DFxKh0Tjso4Q2ysgZXJToxL5z0Ah1FaH6vcTBT6eMCpfVjMFq_Dy7vZgZxamivqLkifsmUJZbOGv-I0C5CjmuLxayhzMobot1gTNhrtuqtFdN8ZQpT3GwJMzJs7fL7Tiw05j8QPRRzrsHMmhTATuUSnz5kDkEne__-rGsqey4VDI0yXxmyzNxNsxA7t4QNvrMyJrHIl5YWXLwSdD5-ASQT-UiXDRPNiodjkwfyfToMAHoIpr1YyxT4ObljnTfVAo0hGGEnx8mNwjy_FBBoWUy8fCTRPnVWgDmiFzuVKrJtYm53l_HnUm_vzj0a_mBJ7UE9RPuPb_yE5OowGavHskaSKr2bmW3b1mTWhxAE8mpdCGM4i30Pm41YtdbrOKpfFqesZ_dx7Ym0NiERdF0ew33LiraD1E9_E5MySJVwdQ_i1qaWC6TQI4kdudKzcr0NyeUC7vbrLt0OWZ4TejVyyJ0YJWJYdX03T80nkTwaKfCCJWO45ewjL6xbOCuPxJ85ZgSGuXBhxzwbkBTYz7FnPzUKMGDNoW7CTHaf0RLhcI2OCZlnCAuwT0Qu0K_kpgwYepgkZFr96BwBQQgZcJEq3TGAzx-akNVR7eQHq_5VDhWr0Jipyr9enK5W6NNjntVYNfo8wgHC9rpfCOJE7n7aZPvFQIekRrz2YE4hoeFumBAfIhBDfq1LvhkEOk6qRwM_7x9FkshQcdNYHrhuxSQSvXPRD6oS60AafBSmnU1Kk8gaMsPE9MLXFL0kW1dJ2jkSa44FHmuLhj0Pw0hdIrNOTqcevYeri748_MYVJNPpkQP6FJFA1-cAdHEZLiALrA6QGM5ulq9hOio4fRNYx6G9rLhn-iRqJzErInUmlqmpiM9hMo0NWYuoLR0mbOgR6oywt46cDzx1hKqeIBgCKbP0D5HWcoOGfoD1zb4AODgw4CHhPF5VU1Tc4LnfTGXFBOCaJrUB4w-uXiepsYHHQX-itkMUiSP6lhURs7xw-lXUYdDpE4fHGbf-1OamXc-ALiuUocWvjpD_3KN3RB0S3Muk81kSZo5KzWs5F1OEDEyhfHN-3KlsNn1Yjg3ZtrorHr0ezs1xrz8jocX2jffJ6mp2Ixe1Hcq_TwQ-KS8_zNoFFA6XIzpK-yKu5Y8iKEDtjuI5vkc7yATSFng1xMxxYX9ctjist9dWc9BQh3qtiujmnshYDdp5axvwgZhuXj9m7-0StcTxKunNotpyRBvoU5txgvR7IYyx_LehU_NRgk47VvDZ7t67SG8kNQT8DyUz4zVrWkxgqXgmohGFyyAjo2fN-1t-2H0ohz0WVYoTaGYN5AU3aYdLWwIHezk3wwp6Cx7EphTA5PUHTs7T9bus1gZgGrQGTMYn-XteHs1bwte0OK0cO0oCabxhqoWIFnprxCvl2LS_64dulUfKfvf5ksjqAaLuCZD2DdMqzWDXonAhKcNTKe4Cy2FbAG0uiaZ_r-FyYolGcHxOpHh-0CeJmCqhXqZ5Hn1VkSj2TQaceF5u8Y8L7mUcCT7ONCGCOzKrTEpUKOoS-z68sjWF68zGRnwPPOLNG_g0Km9rj8pfv_lswkb9fttUJGnCMMiRjr2WSIzCl6tXKpXAXTUHRxH9Bo_RQd-bROcRTKcoC7e5VeUikDQihPm3B_VEk8sehwRYNyk44rtYOslU6cfPumijQocPFjFVkrswlCD6aq9y99BGbEeo5lf5gVyhaXLFuRvNWFxa6MeSaBPgVkr0sGeaQpR3_0fEBILH6zOl3sPGjCHbuycmrZ_YWROvGouJ5Cqye0TE3ZI4zXiuDDEJPIRxYLqKsETwR-xF9RpU8JbwHZdJMqvl1Dsp_muECeceRQMOdHnN9uNe0Z8T6lJjyiMibiOoHfftY4tdd8KCaKFzCw7O8E=",
+            "id": "rs_04acd627036cf33f016ac241c42df087d099bb98a9af0f0562",
+            "summary": [],
+            "type": "reasoning"
+          },
+          {
+            "arguments": "{\"diagnosis\":\"BIOMASS_ABOVE_READING\",\"p_biomass_above_reading\":0.999,\"late_biomass_estimate_od\":4.46,\"rationale\":\"At 18 h the undiluted reading was 0.9178, but dilution tests gave 0.4702 mean at 10-fold dilution and 0.0446 mean at 100-fold dilution. Correcting these readings by their dilution factors gives proportional OD600 estimates of 4.70 and 4.46, respectively. Their close agreement supports a diluted, proportional estimate near 4.5 OD and shows that the undiluted reading substantially under-reports late-culture biomass, consistent with loss of linearity at high density.\"}",
+            "call_id": "call_ytzMmgOnJXBUhiQ1Ld3BRUsl",
+            "id": "fc_04acd627036cf33f016ac241c6034087d0bbc2eec39989db32",
+            "name": "submit_diagnosis",
+            "status": "completed",
+            "type": "function_call"
+          }
+        ],
+        "parallel_tool_calls": false,
+        "presence_penalty": 0.0,
+        "previous_response_id": null,
+        "prompt_cache_key": null,
+        "prompt_cache_retention": "24h",
+        "reasoning": {
+          "context": "all_turns",
+          "effort": "high",
+          "mode": "standard",
+          "summary": null
+        },
+        "safety_identifier": null,
+        "service_tier": "default",
+        "status": "completed",
+        "store": false,
+        "temperature": 1.0,
+        "text": {
+          "format": {
+            "type": "text"
+          },
+          "verbosity": "medium"
+        },
+        "tool_choice": "auto",
+        "tool_usage": {
+          "image_gen": {
+            "input_tokens": 0,
+            "input_tokens_details": {
+              "image_tokens": 0,
+              "text_tokens": 0
+            },
+            "output_tokens": 0,
+            "output_tokens_details": {
+              "image_tokens": 0,
+              "text_tokens": 0
+            },
+            "total_tokens": 0
+          },
+          "web_search": {
+            "num_requests": 0
+          }
+        },
+        "tools": [
+          {
+            "description": "Analyse a retained aliquot of the culture on the OD600 plate reader. Aliquots were withdrawn and retained every hour from 0 to 18 h; withdrawing them did not affect the culture. The aliquot from the requested hour is diluted in sterile medium by the given factor (1 = undiluted; 10 = 1 part aliquot + 9 parts medium) and read. Each replicate is an independent dilution and read, and costs 1 budget unit. Returns the blank-subtracted OD600 reading of each replicate exactly as read; no correction is applied.",
+            "name": "measure_od",
+            "output_schema": null,
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "dilution_factor": {
+                  "description": "Total dilution factor applied before reading: from 1 (undiluted) to 100.",
+                  "type": "number"
+                },
+                "replicates": {
+                  "description": "Number of independent replicate reads: 1, 2 or 3.",
+                  "type": "integer"
+                },
+                "time_h": {
+                  "description": "Hour at which the aliquot was withdrawn: an integer from 0 to 18.",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "time_h",
+                "dilution_factor",
+                "replicates"
+              ],
+              "type": "object"
+            },
+            "strict": true,
+            "type": "function"
+          },
+          {
+            "description": "Optional. Record your current notes and your current probability that, over the final hours, the culture's biomass is higher than the undiluted readings indicate. Free of charge; never required.",
+            "name": "declare_state",
+            "output_schema": null,
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "notes": {
+                  "description": "Free-text notes on your current thinking.",
+                  "type": "string"
+                },
+                "p_biomass_above_reading": {
+                  "description": "Probability from 0 to 1 that, over the final hours, biomass is higher than the undiluted readings indicate.",
+                  "type": "number"
+                }
+              },
+              "required": [
+                "notes",
+                "p_biomass_above_reading"
+              ],
+              "type": "object"
+            },
+            "strict": true,
+            "type": "function"
+          },
+          {
+            "description": "Submit your conclusion. This ends the experiment; no further measurements are possible.",
+            "name": "submit_diagnosis",
+            "output_schema": null,
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "diagnosis": {
+                  "description": "Whether, over the final hours, the culture's biomass is at the level the undiluted readings indicate (BIOMASS_AS_READ) or higher than they indicate (BIOMASS_ABOVE_READING).",
+                  "enum": [
+                    "BIOMASS_AS_READ",
+                    "BIOMASS_ABOVE_READING"
+                  ],
+                  "type": "string"
+                },
+                "late_biomass_estimate_od": {
+                  "description": "Your estimate of the culture's OD600 at 18 h, expressed as the reading an undiluted sample would give if the reader responded proportionally; null if you have no estimate.",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "p_biomass_above_reading": {
+                  "description": "Probability from 0 to 1 that, over the final hours, biomass is higher than the undiluted readings indicate.",
+                  "type": "number"
+                },
+                "rationale": {
+                  "description": "Evidence-based justification.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "diagnosis",
+                "p_biomass_above_reading",
+                "late_biomass_estimate_od",
+                "rationale"
+              ],
+              "type": "object"
+            },
+            "strict": true,
+            "type": "function"
+          }
+        ],
+        "top_logprobs": 0,
+        "top_p": 0.98,
+        "truncation": "disabled",
+        "usage": {
+          "input_tokens": 2204,
+          "input_tokens_details": {
+            "cache_write_tokens": 296,
+            "cached_tokens": 1905
+          },
+          "output_tokens": 342,
+          "output_tokens_details": {
+            "reasoning_tokens": 172
+          },
+          "total_tokens": 2546
+        },
+        "user": null
+      },
+      "response_id": "resp_04acd627036cf33f016ac241c360dc87d0a92d91b85710bbd6",
+      "turn": 3
+    },
+    {
+      "content": [
+        {
+          "call_id": "call_ytzMmgOnJXBUhiQ1Ld3BRUsl",
+          "output": "{\"status\": \"received\"}",
+          "type": "function_call_output"
+        }
+      ],
+      "kind": "user",
+      "turn": 3
+    }
+  ],
+  "passive": [
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.0153,
+      "readings": [
+        0.0153
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 0
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.0417,
+      "readings": [
+        0.0417
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 1
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.0804,
+      "readings": [
+        0.0804
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 2
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.1423,
+      "readings": [
+        0.1423
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 3
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.3081,
+      "readings": [
+        0.3081
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 4
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.5962,
+      "readings": [
+        0.5962
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 5
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9279,
+      "readings": [
+        0.9279
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 6
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9514,
+      "readings": [
+        0.9514
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 7
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9464,
+      "readings": [
+        0.9464
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 8
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9575,
+      "readings": [
+        0.9575
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 9
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9416,
+      "readings": [
+        0.9416
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 10
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9254,
+      "readings": [
+        0.9254
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 11
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9099,
+      "readings": [
+        0.9099
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 12
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9497,
+      "readings": [
+        0.9497
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 13
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9551,
+      "readings": [
+        0.9551
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 14
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9336,
+      "readings": [
+        0.9336
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 15
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9717,
+      "readings": [
+        0.9717
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 16
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9291,
+      "readings": [
+        0.9291
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 17
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.9178,
+      "readings": [
+        0.9178
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 18
+    }
+  ],
+  "run_meta": {
+    "finished_at": "2026-10-04T12:08:39+00:00",
+    "run_id": "20261004-1202_openai_responses_strong_Y1",
+    "started_at": "2026-10-04T12:08:26+00:00"
+  },
+  "schema_version": "episode-result-v2",
+  "scores": {
+    "brier": 1.0000000000000019e-06,
+    "correct": true,
+    "cost_units": 6,
+    "diagnostic_control": true,
+    "justified": true,
+    "m5_diagnosticity": null,
+    "measure_calls_before_diagnosis": 2,
+    "reconstruction_adequate": true
+  },
+  "status": "DIAGNOSED",
+  "versions": {
+    "anthropic": "1.10.0",
+    "mirage": "0.1.0",
+    "numpy": "2.3.5",
+    "pydantic": "2.12.5",
+    "python": "3.12.15"
+  }
+}
