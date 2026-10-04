@@ -217,8 +217,9 @@ def write_figure(a: dict[str, Any], path: Path) -> None:
         for p in prices:
             kn = a["by_price"][str(p)][key]
             ys.append(kn["rate"])
-            lo.append(kn["rate"] - kn["wilson95"][0])
-            hi.append(kn["wilson95"][1] - kn["rate"])
+            # clamp: at k = 0 or k = n the Wilson bound can differ from the rate by ~1e-17
+            lo.append(max(0.0, kn["rate"] - kn["wilson95"][0]))
+            hi.append(max(0.0, kn["wilson95"][1] - kn["rate"]))
         ax1.errorbar([p + dx for p in prices], ys, yerr=[lo, hi], marker=marker, capsize=3,
                      label=label)
     ax1.set_xticks(prices, [f"{p}\n({6 // p} affordable)" for p in prices])

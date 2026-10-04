@@ -138,3 +138,15 @@ this matrix. This is an exploratory variant: it does not change C1/C2 results.
 ## Deviations
 
 (None at registration. Later deviations are appended here with a date.)
+
+- **2026-10-04 (after the runs).** `analyze.py` `write_figure` crashed because a Wilson
+  bound at k = n differed from the rate by about 1e-16, which gave a negative error-bar
+  length. The error-bar lengths are now clamped at 0. This is a plotting fix only; no
+  metric or decision changed.
+- **2026-10-04 (after the runs).** RESULT.md has a clearly labelled post-hoc descriptive
+  section: the measurements chosen, the true-vs-read gap in the misdiagnosed plateau
+  cultures, and confidence on correct vs wrong answers. None of it was registered, and
+  none of it is used for a decision.
+- No other deviation. Configurations, seeds, order, metrics, decision rules and the
+  spend cap were as registered. There were no API failures or re-runs, and the spend
+  guard never triggered.

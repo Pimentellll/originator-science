@@ -317,3 +317,6 @@ def test_analysis_rows_lucky_and_confidence(tmp_path):
     assert r6["units_spent"]["mean"] == 6
     assert table["pooled"]["no_control"]["n"] == 2
     assert table["decision"]["stop_price"] == 1
+    assert "| 6 | 2 |" in analyze.render_table(table)
+    analyze.write_figure(table, tmp_path / "fig.png")  # k = n and k = 0 bars (clamped)
+    assert (tmp_path / "fig.png").stat().st_size > 0
