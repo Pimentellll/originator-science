@@ -1,0 +1,628 @@
+{
+  "agent": {
+    "effort": "high",
+    "kind": "llm",
+    "model": "k3",
+    "name": "kimi_chat",
+    "prompt_sha256": "dc07da980883558de995de94ed9c3affc1c8982f31fc5f149f9bfcacda1d91d1",
+    "prompt_version": "prompt-v2",
+    "sdk_version": "urllib/3.11.17"
+  },
+  "audit": [
+    {
+      "before_diagnosis": true,
+      "diagnostic_control": true,
+      "event_index": 0,
+      "in_diagnostic_set": true,
+      "in_useful_region": true,
+      "is_diluted": true,
+      "is_late": true,
+      "latent_biomass_odeq": 0.49351969274713753,
+      "noise_free_reading": 0.0493519692614686,
+      "presented_biomass_odeq": 0.049351969274713754,
+      "reconstruction_adequate": true,
+      "request_index": 0
+    },
+    {
+      "before_diagnosis": true,
+      "diagnostic_control": true,
+      "event_index": 1,
+      "in_diagnostic_set": true,
+      "in_useful_region": false,
+      "is_diluted": true,
+      "is_late": true,
+      "latent_biomass_odeq": 0.49351969274713753,
+      "noise_free_reading": 0.004935196927471375,
+      "presented_biomass_odeq": 0.004935196927471375,
+      "reconstruction_adequate": false,
+      "request_index": 1
+    },
+    {
+      "before_diagnosis": true,
+      "diagnostic_control": true,
+      "event_index": 2,
+      "in_diagnostic_set": true,
+      "in_useful_region": true,
+      "is_diluted": true,
+      "is_late": true,
+      "latent_biomass_odeq": 0.49351969274713753,
+      "noise_free_reading": 0.0493519692614686,
+      "presented_biomass_odeq": 0.049351969274713754,
+      "reconstruction_adequate": true,
+      "request_index": 2
+    }
+  ],
+  "diagnosis": {
+    "diagnosis": "BIOMASS_AS_READ",
+    "late_biomass_estimate_od": 0.485,
+    "p_biomass_above_reading": 0.03,
+    "rationale": "The undiluted trace rises to ~0.5 by 5 h and then remains flat (~0.46–0.49) through 18 h, which could reflect either stationary phase or reader saturation. Dilution checks argue against saturation: at 18 h, 10x-diluted aliquots read 0.0491 and 0.0472 (mean 0.0481), which rescale to 0.481, essentially the undiluted 18 h reading of 0.4885. At 16 h, 10x-diluted reads were 0.0485 and 0.0479 (mean 0.0482), rescaling to 0.482 versus the undiluted 16 h reading of 0.4727. Thus the reader responds proportionally across the relevant range and the late-culture OD is consistently ~0.48, not clipped. The 100x reads were near the blank/noise floor and inconsistent, so they were not used for estimation."
+  },
+  "episode": {
+    "assay": {
+      "eps_lin": 0.05,
+      "n": 8.0,
+      "resolution": 0.0001,
+      "s_odeq": 0.5981693345162851,
+      "sigma_abs": 0.003,
+      "sigma_rel": 0.02,
+      "y_loq": 0.03
+    },
+    "condition": "BIOLOGICAL_PLATEAU",
+    "episode_id": "s500018-BP",
+    "growth": {
+      "k_odeq": 0.49351969274713753,
+      "nu": 8.0,
+      "r_per_h": 0.8858487609095422,
+      "x0_odeq": 0.00885276683877933
+    },
+    "k_ratio": 0.8250501392657091,
+    "scenario_sha256": "5291e69c061fa42973cf541bd84b78a90770dc971227f32f052acfc404c0ce08",
+    "scenario_version": "scenario-v1",
+    "seed": 500018
+  },
+  "events": [
+    {
+      "arguments": {
+        "dilution_factor": 10,
+        "replicates": 2,
+        "time_h": 18
+      },
+      "error": null,
+      "index": 0,
+      "ok": true,
+      "result": {
+        "budget_remaining": 4,
+        "dilution_factor": 10.0,
+        "mean_reading": 0.0481,
+        "readings": [
+          0.0491,
+          0.0472
+        ],
+        "time_h": 18
+      },
+      "tool": "measure_od",
+      "turn": 1
+    },
+    {
+      "arguments": {
+        "dilution_factor": 100,
+        "replicates": 2,
+        "time_h": 18
+      },
+      "error": null,
+      "index": 1,
+      "ok": true,
+      "result": {
+        "budget_remaining": 2,
+        "dilution_factor": 100.0,
+        "mean_reading": 0.006,
+        "readings": [
+          0.0106,
+          0.0015
+        ],
+        "time_h": 18
+      },
+      "tool": "measure_od",
+      "turn": 2
+    },
+    {
+      "arguments": {
+        "dilution_factor": 10,
+        "replicates": 2,
+        "time_h": 16
+      },
+      "error": null,
+      "index": 2,
+      "ok": true,
+      "result": {
+        "budget_remaining": 0,
+        "dilution_factor": 10.0,
+        "mean_reading": 0.0482,
+        "readings": [
+          0.0485,
+          0.0479
+        ],
+        "time_h": 16
+      },
+      "tool": "measure_od",
+      "turn": 3
+    },
+    {
+      "arguments": {
+        "diagnosis": "BIOMASS_AS_READ",
+        "late_biomass_estimate_od": 0.485,
+        "p_biomass_above_reading": 0.03,
+        "rationale": "The undiluted trace rises to ~0.5 by 5 h and then remains flat (~0.46–0.49) through 18 h, which could reflect either stationary phase or reader saturation. Dilution checks argue against saturation: at 18 h, 10x-diluted aliquots read 0.0491 and 0.0472 (mean 0.0481), which rescale to 0.481, essentially the undiluted 18 h reading of 0.4885. At 16 h, 10x-diluted reads were 0.0485 and 0.0479 (mean 0.0482), rescaling to 0.482 versus the undiluted 16 h reading of 0.4727. Thus the reader responds proportionally across the relevant range and the late-culture OD is consistently ~0.48, not clipped. The 100x reads were near the blank/noise floor and inconsistent, so they were not used for estimation."
+      },
+      "error": null,
+      "index": 3,
+      "ok": true,
+      "result": {
+        "status": "received"
+      },
+      "tool": "submit_diagnosis",
+      "turn": 4
+    }
+  ],
+  "llm_transcript": [
+    {
+      "content": "{\"budget\": {\"cost\": \"1 unit per replicate reading\", \"remaining_units\": 6, \"total_units\": 6}, \"experiment\": {\"assay\": \"OD600 plate reader; blank-subtracted readings of undiluted culture\", \"culture\": \"bacterial batch culture inoculated at t = 0 h, incubated 18 h\", \"retained_aliquots_h\": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]}, \"limits\": {\"dilution_factor\": \"1 to 100\", \"max_turns\": 12, \"replicates\": \"1 to 3\", \"time_h\": \"integer 0 to 18\"}, \"passive_readings\": [{\"dilution_factor\": 1.0, \"reading\": 0.007, \"time_h\": 0}, {\"dilution_factor\": 1.0, \"reading\": 0.0251, \"time_h\": 1}, {\"dilution_factor\": 1.0, \"reading\": 0.0577, \"time_h\": 2}, {\"dilution_factor\": 1.0, \"reading\": 0.1185, \"time_h\": 3}, {\"dilution_factor\": 1.0, \"reading\": 0.3112, \"time_h\": 4}, {\"dilution_factor\": 1.0, \"reading\": 0.4977, \"time_h\": 5}, {\"dilution_factor\": 1.0, \"reading\": 0.476, \"time_h\": 6}, {\"dilution_factor\": 1.0, \"reading\": 0.4911, \"time_h\": 7}, {\"dilution_factor\": 1.0, \"reading\": 0.4874, \"time_h\": 8}, {\"dilution_factor\": 1.0, \"reading\": 0.4627, \"time_h\": 9}, {\"dilution_factor\": 1.0, \"reading\": 0.4749, \"time_h\": 10}, {\"dilution_factor\": 1.0, \"reading\": 0.4892, \"time_h\": 11}, {\"dilution_factor\": 1.0, \"reading\": 0.4647, \"time_h\": 12}, {\"dilution_factor\": 1.0, \"reading\": 0.4908, \"time_h\": 13}, {\"dilution_factor\": 1.0, \"reading\": 0.4735, \"time_h\": 14}, {\"dilution_factor\": 1.0, \"reading\": 0.481, \"time_h\": 15}, {\"dilution_factor\": 1.0, \"reading\": 0.4727, \"time_h\": 16}, {\"dilution_factor\": 1.0, \"reading\": 0.4902, \"time_h\": 17}, {\"dilution_factor\": 1.0, \"reading\": 0.4885, \"time_h\": 18}]}",
+      "kind": "user"
+    },
+    {
+      "kind": "assistant",
+      "request": {
+        "max_tokens": 16000,
+        "model": "k3",
+        "reasoning_effort": "high",
+        "tool_choice": "auto"
+      },
+      "response": {
+        "choices": [
+          {
+            "finish_reason": "tool_calls",
+            "index": 0,
+            "message": {
+              "content": "",
+              "reasoning_content": "We need answer as autonomous scientist. Need determine if final hours biomass higher than undiluted readings indicate due to detector saturation/nonlinearity likely plateau around OD ~0.48 from 5-18 while exponential growth earlier suggests true biomass continues rising or stationary? Need use measurements budget 6, max 12 turns. Need plan carefully.\n\nWe have passive readings: OD undiluted rises 0.007->0.0251->0.0577->0.1185->0.3112->0.4977 at t5 then flat ~0.46-0.49 to t18. The plateau could be stationary phase at OD~0.48, or reader saturation around 0.5 masking continued growth. Need decide with evidence. We can measure retained aliquots diluted. Need infer whether undiluted readings under-report at late times.\n\nNeed think of plate reader OD linear range. If readings capped near ~0.5, true OD may be higher. Need test linearity by diluting late aliquots and multiplying by dilution factor compare to undiluted reading. If diluted*factor >> undiluted, biomass above reading. Also can fit growth model early to predict late true OD if no stationary? But bacterial batch likely reaches stationary; however sudden plateau exactly after t5 at same value with fluctuations suggests possible instrument saturation rather than biology? Need test.\n\nBudget 6 readings. Need choose efficient measurements. We can measure late time aliquot at e.g. 18h with dilution 10 or 100 replicates; and maybe 5h/6h to establish onset. Need maybe measure undiluted retained aliquot? Passive readings already undiluted. measure_od can read retained aliquots at dilution factor; could measure 18h at dilution 10 replicates 3, and maybe 5h dilution 1? Need compare.\n\nImportant: The aliquots were retained hourly; withdrawing did not affect culture. measure_od requests aliquot from requested hour diluted in sterile medium and read. If culture at 18h true OD high (e.g. 5), undiluted reading saturated 0.488; 10x dilution would read ~0.5 if linear? Hmm if true OD 5, 10x dilution true 0.5 maybe still near saturation; 100x true 0.05 read 0.05. Then corrected =5, much above 0.488. If true stationary at 0.48, 10x dilution reads ~0.048 corrected=0.48 matching.\n\nNeed decide measurements. Maybe use all 6: at t18 dilution 10 x3 and dilution 100 x3? That gives robust estimate and tests linearity across dilution. But maybe need time course over final hours: t15/18 diluted? Task over final hours. Passive shows plateau 6-18. If t18 diluted indicates above, likely final hours above. To prove over final hours maybe measure t16 and t18 diluted. Budget 6: measure t16,t17,t18 at dilution 10 (3 units) maybe corrected compare; plus t18 dilution 100 (1) to avoid saturation; plus early t4/5? Need not overdo.\n\nNeed understand measurement noise. Passive undiluted at plateau fluctuates 0.4627-0.4911 (SD maybe 0.01), consistent noise ~0.01. If diluted 10 and corrected, noise scales *10 (0.1), maybe too imprecise but still if true much higher (e.g. >1) detectable. Use dilution 100 to estimate high OD precisely? If true OD around 5, 100x ->0.05 (noise absolute maybe 0.005-0.01), corrected noise 0.5-1. Not great. If true OD only modest above (0.6), 10x dilution 0.06 corrected 0.6 noise 0.1 could detect but less certain. Replicates help.\n\nPotential hidden phenomenon: plate reader nonlinear saturation at OD >~0.4; undiluted readings cap ~0.49. Culture may still be growing exponentially after t5, so true OD could be huge by t18 if exponential continues (doubling ~1h? from t3-t5: 0.1185->0.3112->0.4977, growth slowed at t5 due saturation maybe actual at t5 >0.497). If no saturation, logistic would plateau biologically around carrying capacity maybe ~0.5? Need distinguish.\n\nLet's estimate early growth rates: t0 0.007 inoculum. t1 0.0251 (3.6x), t2 0.0577 (2.3x), t3 0.1185 (2.05x), t4 0.3112 (2.63x), t5 0.4977 (1.6x but if saturation, actual maybe higher). Exponential doubling roughly every 0.8-1h from 1-4. If continued, by t18 enormous, impossible due nutrients; batch will stationary. But carrying capacity often OD maybe 1-3 in plate reader (true). Undiluted capped 0.5 could hide stationary OD ~1-2. Final hours likely higher than readings if true carrying capacity >0.5. Need evidence.\n\nMaybe setup intentionally: readings plateau at ~0.48 from 5h, not like normal stationary smooth approach; abrupt clamp at saturation threshold. Need diagnose above reading.\n\nNeed use measure_od. We can call multiple tools in same turn maybe parallel if independent. Need ensure at most 12 turns; use parallel calls to save. Need call functions.\n\nPlan first: measure retained aliquots t18 at dilution 10 and 100, maybe t5 at dilution 10? Budget 6. Need maximize information. Since final hours plural and to establish whether over final hours, measure multiple late times with dilution 10 maybe t15,t16,t17,t18? But high dilution needed if true OD high. Let's reason expected true OD if saturation. Suppose undiluted reads clipped at ~0.49. Actual could be maybe 1-5. A 10x dilution of t18 would bring actual to 0.1-0.5; if actual >5, still >0.5 saturate. A 100x dilution brings 0.01-0.05 for actual 1-5; if actual 50, 0.5. Early exponential if continued to t18 impossible (2^13*0.5~4000), but nutrients limit. In typical lab, stationary OD600 true maybe 1-3 (undiluted spectrophotometer), but plate reader path length lower; readings around 0.5 could correspond actual maybe ~1? Hmm.\n\nThe passive reading at t5 is 0.4977 then clamped. If true at t5 maybe just entering saturation around 0.5; by t18 maybe stationary true maybe around 1-2. 10x dilution gives 0.1-0.2 (linear), corrected 1-2. Good. If actual >5, 10x still maybe >0.5 and clipped, but 100x resolves. Use both dilution 10 and 100 for t18 with replicates? Need budget.\n\nI think first measurement: t18 dilution 10 with 3 replicates (cost 3) and t18 dilution 100 with 3 replicates (cost 3) in parallel. This exhausts budget but gives robust corrected estimate at final hour and tests consistency: corrected_10 vs corrected_100. If both agree >>0.488, strong. If 10x reads near 0.49 but 100x corrected high, saturation. If 10x corrected equals undiluted and 100x equals too, as read. Downside only t18 not final hours plural, but passive plateau all final; if t18 above and mechanism constant, final hours above. Could use t16 instead of one replicate, but robustness at t18 more valuable? Need maybe keep 1 unit for follow-up. We have 12 turns, can do first 4 units and follow-up 2.\n\nAlternative first: t18 dilution 10 x2, t18 dilution 100 x2 (cost4). Evaluate; if high, maybe measure t15 dilution10 x2 to show final hours. If as read, maybe enough. This preserves flexibility. Replicates 2 each give SD. Let's do that: parallel measure_od calls: (18,10,2), (18,100,2). Cost 4. Then based on results use remaining 2 maybe t16/t17 diluted or extra. Need call declare_state maybe optional after? Could include. We can parallel two measure_od. Let's call. ",
+              "role": "assistant",
+              "tool_calls": [
+                {
+                  "function": {
+                    "arguments": "{\"dilution_factor\":10,\"replicates\":2,\"time_h\":18}",
+                    "name": "measure_od"
+                  },
+                  "id": "tool_Gi5Pk3CRC1zQJuEDVFEKVKL1",
+                  "index": 0,
+                  "type": "function"
+                },
+                {
+                  "function": {
+                    "arguments": "{\"dilution_factor\":100,\"replicates\":2,\"time_h\":18}",
+                    "name": "measure_od"
+                  },
+                  "id": "tool_cg8BD16Nzdbj0kMe2XIqP1Lk",
+                  "index": 1,
+                  "type": "function"
+                }
+              ]
+            }
+          }
+        ],
+        "created": 1791120813,
+        "id": "chatcmpl-AgmwnrOlpI2tvP7eoNJFjf3v",
+        "model": "k3",
+        "object": "chat.completion",
+        "usage": {
+          "cached_tokens": 1024,
+          "completion_tokens": 2021,
+          "completion_tokens_details": {
+            "reasoning_tokens": 1869
+          },
+          "prompt_tokens": 1642,
+          "prompt_tokens_details": {
+            "cached_tokens": 1024
+          },
+          "total_tokens": 3663
+        }
+      },
+      "response_id": "chatcmpl-AgmwnrOlpI2tvP7eoNJFjf3v",
+      "turn": 1
+    },
+    {
+      "content": [
+        {
+          "content": "{\"budget_remaining\": 4, \"dilution_factor\": 10.0, \"mean_reading\": 0.0481, \"readings\": [0.0491, 0.0472], \"time_h\": 18}",
+          "role": "tool",
+          "tool_call_id": "tool_Gi5Pk3CRC1zQJuEDVFEKVKL1"
+        },
+        {
+          "content": "{\"budget_remaining\": 2, \"dilution_factor\": 100.0, \"mean_reading\": 0.006, \"readings\": [0.0106, 0.0015], \"time_h\": 18}",
+          "role": "tool",
+          "tool_call_id": "tool_cg8BD16Nzdbj0kMe2XIqP1Lk"
+        }
+      ],
+      "kind": "user",
+      "turn": 1
+    },
+    {
+      "kind": "assistant",
+      "request": {
+        "max_tokens": 16000,
+        "model": "k3",
+        "reasoning_effort": "high",
+        "tool_choice": "auto"
+      },
+      "response": {
+        "choices": [
+          {
+            "finish_reason": "tool_calls",
+            "index": 0,
+            "message": {
+              "content": "",
+              "reasoning_content": "Interesting results: t18 10x readings ~0.0481 => corrected 0.481, matches undiluted 0.4885. 100x readings [0.0106,0.0015] mean0.006 corrected 0.6 but noisy; one replicate 0.0106 corrected1.06, other 0.0015 corrected0.15, huge inconsistency likely at low signal near blank/noise; 100x too dilute and unreliable. 10x strongly suggests t18 as read (~0.48), not above. Need be careful: 10x mean 0.0481 exactly 1/10 of plateau. This indicates linear response at 0.048 and true OD ~0.481, not saturation. If undiluted were saturated at true higher, 10x would likely be higher than 0.048 unless true exactly 0.48. So t18 as read. But need final hours plural. Use remaining 2 to test another late hour e.g. t12 or t16 at dilution 10 x2. Could also test t6 near plateau onset. Need show over final hours. Measure t15 dilution10 x2? Cost2. Then corrected compare. Or measure t17/t18? Already t18. Choose t12 and t16 one replicate each? Replicates 1 noisy; better t15 x2. But final hours maybe 15-18; t15 enough plus t18. Maybe measure t16 dilution10 x2. Let's do t16 10x replicates2. Then declare/submit.\n\nNeed maybe consider 100x noisy readings could imply something? It is below reliable range; not evidence. 10x is in linear range and precise (replicates close). Corrected 0.481 vs passive 0.4885 within noise. Good.\n\nUse remaining 2 on t16 dilution10 replicates2 to confirm final hours. Then submit BIOMASS_AS_READ with estimate ~0.48-0.49. Need call measure. ",
+              "role": "assistant",
+              "tool_calls": [
+                {
+                  "function": {
+                    "arguments": "{\"dilution_factor\":10,\"replicates\":2,\"time_h\":16}",
+                    "name": "measure_od"
+                  },
+                  "id": "tool_8vEDMFOmYwprgOlrcVFW92NK",
+                  "index": 0,
+                  "type": "function"
+                }
+              ]
+            }
+          }
+        ],
+        "created": 1791120871,
+        "id": "chatcmpl-9ejU8XSbukfjbIOBILhZsCxP",
+        "model": "k3",
+        "object": "chat.completion",
+        "usage": {
+          "cached_tokens": 1536,
+          "completion_tokens": 514,
+          "completion_tokens_details": {
+            "reasoning_tokens": 427
+          },
+          "prompt_tokens": 3813,
+          "prompt_tokens_details": {
+            "cached_tokens": 1536
+          },
+          "total_tokens": 4327
+        }
+      },
+      "response_id": "chatcmpl-9ejU8XSbukfjbIOBILhZsCxP",
+      "turn": 2
+    },
+    {
+      "content": [
+        {
+          "content": "{\"budget_remaining\": 0, \"dilution_factor\": 10.0, \"mean_reading\": 0.0482, \"readings\": [0.0485, 0.0479], \"time_h\": 16}",
+          "role": "tool",
+          "tool_call_id": "tool_8vEDMFOmYwprgOlrcVFW92NK"
+        }
+      ],
+      "kind": "user",
+      "turn": 2
+    },
+    {
+      "kind": "assistant",
+      "request": {
+        "max_tokens": 16000,
+        "model": "k3",
+        "reasoning_effort": "high",
+        "tool_choice": "auto"
+      },
+      "response": {
+        "choices": [
+          {
+            "finish_reason": "tool_calls",
+            "index": 0,
+            "message": {
+              "content": "",
+              "reasoning_content": "Now evidence: t16 10x corrected 0.482 vs undiluted passive t16 0.4727, close. t18 10x corrected 0.481 vs passive 0.4885. Dilution linear at 10x; no hidden biomass. 100x too noisy near blank, disregard or mention not reliable. Need submit diagnosis. Need include rationale evidence-based, p maybe low 0.05 for above. late_biomass_estimate_od ~0.485? Express as reading undiluted would give if proportional: around 0.48-0.49. Use 0.485 maybe average of plateau/passive and corrected. Need choose diagnosis BIOMASS_AS_READ. p_biomass_above_reading low, e.g. 0.03. Need submit_diagnosis ends. Ensure no extra after. Need mention abrupt plateau could be carrying capacity, dilution check shows proportionality. Use late estimate 0.485. p 0.03. Need call. ",
+              "role": "assistant",
+              "tool_calls": [
+                {
+                  "function": {
+                    "arguments": "{\"diagnosis\":\"BIOMASS_AS_READ\",\"late_biomass_estimate_od\":0.485,\"p_biomass_above_reading\":0.03,\"rationale\":\"The undiluted trace rises to ~0.5 by 5 h and then remains flat (~0.46–0.49) through 18 h, which could reflect either stationary phase or reader saturation. Dilution checks argue against saturation: at 18 h, 10x-diluted aliquots read 0.0491 and 0.0472 (mean 0.0481), which rescale to 0.481, essentially the undiluted 18 h reading of 0.4885. At 16 h, 10x-diluted reads were 0.0485 and 0.0479 (mean 0.0482), rescaling to 0.482 versus the undiluted 16 h reading of 0.4727. Thus the reader responds proportionally across the relevant range and the late-culture OD is consistently ~0.48, not clipped. The 100x reads were near the blank/noise floor and inconsistent, so they were not used for estimation.\"}",
+                    "name": "submit_diagnosis"
+                  },
+                  "id": "tool_kRyVvEvOk6FiIntWqsl6dt3i",
+                  "index": 0,
+                  "type": "function"
+                }
+              ]
+            }
+          }
+        ],
+        "created": 1791120886,
+        "id": "chatcmpl-aksiZSEwGExKNSan4U14plzm",
+        "model": "k3",
+        "object": "chat.completion",
+        "usage": {
+          "cached_tokens": 3584,
+          "completion_tokens": 541,
+          "completion_tokens_details": {
+            "reasoning_tokens": 209
+          },
+          "prompt_tokens": 4406,
+          "prompt_tokens_details": {
+            "cached_tokens": 3584
+          },
+          "total_tokens": 4947
+        }
+      },
+      "response_id": "chatcmpl-aksiZSEwGExKNSan4U14plzm",
+      "turn": 3
+    },
+    {
+      "content": [
+        {
+          "content": "{\"status\": \"received\"}",
+          "role": "tool",
+          "tool_call_id": "tool_kRyVvEvOk6FiIntWqsl6dt3i"
+        }
+      ],
+      "kind": "user",
+      "turn": 3
+    }
+  ],
+  "passive": [
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.007,
+      "readings": [
+        0.007
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 0
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.0251,
+      "readings": [
+        0.0251
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 1
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.0577,
+      "readings": [
+        0.0577
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 2
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.1185,
+      "readings": [
+        0.1185
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 3
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.3112,
+      "readings": [
+        0.3112
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 4
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.4977,
+      "readings": [
+        0.4977
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 5
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.476,
+      "readings": [
+        0.476
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 6
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.4911,
+      "readings": [
+        0.4911
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 7
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.4874,
+      "readings": [
+        0.4874
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 8
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.4627,
+      "readings": [
+        0.4627
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 9
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.4749,
+      "readings": [
+        0.4749
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 10
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.4892,
+      "readings": [
+        0.4892
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 11
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.4647,
+      "readings": [
+        0.4647
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 12
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.4908,
+      "readings": [
+        0.4908
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 13
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.4735,
+      "readings": [
+        0.4735
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 14
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.481,
+      "readings": [
+        0.481
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 15
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.4727,
+      "readings": [
+        0.4727
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 16
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.4902,
+      "readings": [
+        0.4902
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 17
+    },
+    {
+      "budget_remaining": 6,
+      "cost_units": 0,
+      "dilution_factor": 1.0,
+      "mean_reading": 0.4885,
+      "readings": [
+        0.4885
+      ],
+      "request_index": null,
+      "source": "passive",
+      "time_h": 18
+    }
+  ],
+  "run_meta": {
+    "finished_at": "2026-10-04T13:35:02+00:00",
+    "run_id": "20261004-1308_kimi_chat_strong_Y2",
+    "started_at": "2026-10-04T13:33:32+00:00"
+  },
+  "schema_version": "episode-result-v2",
+  "scores": {
+    "brier": 0.0009,
+    "correct": true,
+    "cost_units": 6,
+    "diagnostic_control": true,
+    "justified": true,
+    "m5_diagnosticity": null,
+    "measure_calls_before_diagnosis": 3,
+    "reconstruction_adequate": true
+  },
+  "status": "DIAGNOSED",
+  "versions": {
+    "anthropic": "1.10.0",
+    "mirage": "0.1.0",
+    "numpy": "2.3.5",
+    "pydantic": "2.12.5",
+    "python": "3.11.17"
+  }
+}

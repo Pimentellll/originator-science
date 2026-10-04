@@ -173,3 +173,9 @@ This replaces the "not run" entry above. It is written before any Y2 call except
 - **Adapter.** `kimi_agent.py` uses Chat Completions, with the same system prompt, tools (converted to the `function` format), turn limit and reminder as Y1. It also uses the same 16,000-token output limit as Y1. Each complete assistant message, including `reasoning_content`, is sent back as Kimi's documentation requires. The `User-Agent` identifies this experiment honestly.
 - **Billing and cap.** Kimi Code calls use the user's membership credits, not per-token dollars. The driver records a list-price equivalent at the Kimi K3 platform price (platform.kimi.ai/docs/pricing/chat-k3, read 2026-10-04): input $3.00, cached input $0.30 and output $15.00 per MTok. At C2-like token use, that is roughly $2–4 for 30 episodes, so the $2.00 cap is replaced by a $10.00 list-price-equivalent guard in its own ledger, `spend_ledger_kimi.jsonl`. The guard checks each request the same way as Y1. A run stopped by the guard or by the membership quota is incomplete and is not reported as a 30-episode result.
 - **Unchanged:** prompt, tools, seeds, matrices, budget, metrics, analysis and decision rules.
+
+Addendum after the run: the first 16 Y2 episodes ran sequentially. At the user's request, to finish
+faster, the remaining 14 ran in five parallel worker processes (`parallel_resume.py`) with
+the same model, settings and per-episode logic. The episode in progress at the switch had no
+record and was re-run from scratch. Total list-price-equivalent spend was $1.792, within the $2.00
+cap, so the $10.00 guard never bound.

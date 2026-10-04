@@ -159,7 +159,7 @@ def test_growth_exploratory_runs_match_registry_and_committed_summaries(
             encoding="utf-8"
         )
     )["runs"]
-    assert len(rows) == len(registry) == 9
+    assert len(rows) == len(registry) == 10
     assert [
         (row["experiment"], row["run_id"]) for row in rows
     ] == [(entry["experiment"], entry["run"]) for entry in registry]
