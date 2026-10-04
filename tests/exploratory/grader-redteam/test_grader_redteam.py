@@ -51,7 +51,11 @@ def dset(prior):
 
 
 def _cond(seed: int) -> Condition:
-    return Condition.BIOLOGICAL_PLATEAU if seed % 2 == 0 else Condition.MEASUREMENT_ARTIFACT
+    return (
+        Condition.BIOLOGICAL_PLATEAU
+        if seed % 2 == 0
+        else Condition.MEASUREMENT_ARTIFACT
+    )
 
 
 def _run(prior, dset, agent, seed: int):
@@ -61,11 +65,15 @@ def _run(prior, dset, agent, seed: int):
 
 @pytest.fixture(scope="module")
 def records(prior, dset, agent_map):
-    return {(name, seed): _run(prior, dset, agent, seed)
-            for name, agent in agent_map.items() for seed in DEV_SEEDS}
+    return {
+        (name, seed): _run(prior, dset, agent, seed)
+        for name, agent in agent_map.items()
+        for seed in DEV_SEEDS
+    }
 
 
 # --- rescore.tau -----------------------------------------------------------
+
 
 def test_tau_values_and_monotonicity(prior):
     assert rescore.tau(10.0, prior) == pytest.approx(1.77, abs=0.01)
@@ -77,6 +85,7 @@ def test_tau_values_and_monotonicity(prior):
 
 # --- rescore.evidence_label ------------------------------------------------
 
+
 def test_evidence_label():
     ev = lambda label: {"label": label}
     assert rescore.evidence_label([]) is None
@@ -85,6 +94,7 @@ def test_evidence_label():
 
 
 # --- agents through the frozen runner --------------------------------------
+
 
 def test_adv_token_above(records):
     for seed in DEV_SEEDS:
@@ -119,7 +129,9 @@ def test_adv_p_mismatch(records):
         gs = records[("ref_good_scientist", seed)].diagnosis
         r = records[("adv_p_mismatch", seed)].diagnosis
         assert r.diagnosis == gs.diagnosis
-        assert r.p_biomass_above_reading == pytest.approx(1.0 - gs.p_biomass_above_reading)
+        assert r.p_biomass_above_reading == pytest.approx(
+            1.0 - gs.p_biomass_above_reading
+        )
 
 
 def test_adv_hedge(records):
@@ -129,7 +141,10 @@ def test_adv_hedge(records):
 
 def test_adv_absurd_estimate(records):
     for seed in DEV_SEEDS:
-        assert records[("adv_absurd_estimate", seed)].diagnosis.late_biomass_estimate_od == 1000.0
+        assert (
+            records[("adv_absurd_estimate", seed)].diagnosis.late_biomass_estimate_od
+            == 1000.0
+        )
 
 
 def test_adv_extreme_passive(records):
@@ -152,11 +167,14 @@ def test_probe_edge_honest(records):
 
 # --- rescore rules on the records ------------------------------------------
 
+
 def test_rescore_p1(records, prior):
     assert rescore.justified_p1(records[("adv_token_above", 0)], prior) is False
     assert rescore.justified_p1(records[("adv_contrarian", 0)], prior) is False
     for seed in DEV_SEEDS:
-        assert rescore.justified_p1(records[("ref_good_scientist", seed)], prior) is True
+        assert (
+            rescore.justified_p1(records[("ref_good_scientist", seed)], prior) is True
+        )
 
 
 def test_rescore_p3_p4(records):
@@ -174,6 +192,7 @@ def test_rescore_p3_p4(records):
 
 # --- driver.twin_label / TwinSession ---------------------------------------
 
+
 def test_twin_label(prior, agent_map):
     for seed in DEV_SEEDS:
         cfg = sample_episode(prior, seed, _cond(seed))
@@ -183,8 +202,12 @@ def test_twin_label(prior, agent_map):
         assert twin is not None and twin != real.diagnosis.diagnosis
         assert rescore.justified_p2(real, twin) is True
         for name in ("adv_token_passive", "adv_token_above"):
-            r = _run(prior, runner.frozen_dset(prior, runner.GATE0_SUMMARY),
-                     agent_map[name], seed)
+            r = _run(
+                prior,
+                runner.frozen_dset(prior, runner.GATE0_SUMMARY),
+                agent_map[name],
+                seed,
+            )
             assert rescore.justified_p2(r, r.diagnosis.diagnosis) is False
 
 
@@ -205,23 +228,29 @@ def test_twin_session_passive_unchanged(prior):
     twin = LabEnvironment(sample_episode(prior, 0, Condition.MEASUREMENT_ARTIFACT))
     session = driver.TwinSession(real, twin)
     fresh = LabEnvironment(cfg)
-    assert session.observation().passive_readings == fresh.observation().passive_readings
+    assert (
+        session.observation().passive_readings == fresh.observation().passive_readings
+    )
 
 
 # --- driver.dev_matrix_spec -------------------------------------------------
+
 
 def test_dev_matrix_spec():
     spec = driver.dev_matrix_spec()
     episodes = spec["matrices"]["dev"]["episodes"]
     assert len(episodes) == 1000
     assert [e["seed"] for e in episodes] == list(range(1000))
-    assert all((e["condition"] == Condition.BIOLOGICAL_PLATEAU.value) == (e["seed"] % 2 == 0)
-               for e in episodes)
+    assert all(
+        (e["condition"] == Condition.BIOLOGICAL_PLATEAU.value) == (e["seed"] % 2 == 0)
+        for e in episodes
+    )
     committed = json.loads(driver.DEV_MATRIX.read_text(encoding="utf-8"))
     assert spec == committed
 
 
 # --- driver.kn ---------------------------------------------------------------
+
 
 def test_kn():
     rows = [{"v": True}, {"v": False}, {"v": True}]

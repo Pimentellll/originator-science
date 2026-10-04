@@ -132,4 +132,24 @@ $0. No paid API call is made by any code in this directory.
 
 ## Deviations
 
-(none yet)
+### 2026-10-04
+
+1. **Code layout.** The agents are in `agents.py` and the proposals in `rescore.py`.
+   `driver.py` runs, re-scores and tabulates, and `make_figure.py` draws `figure.png`.
+   The registration said the agents were in `driver.py`. Agent behaviour is as
+   registered.
+2. **results.md.** `runner.summarize` writes only `summary.json`. Each run's `results.md`
+   is rendered by `driver.py` from that `summary.json`, and no number is recomputed.
+3. **Dev-block records.** The full per-episode records for 12 agents × 1000 episodes
+   (≈ 100 MB) are not committed. They are written to `.local/grader-redteam/dev/`.
+   `runs/dev/<agent>/` commits the manifest, `summary.json`, `results.md` and a compact
+   `episodes.jsonl` with every `scores` field, the diagnosis and the rescore fields.
+   `driver.py run --matrix dev` regenerates the full records deterministically. The
+   strong-matrix records are committed in full.
+4. **Lint after runs.** `ruff check --fix` and `ruff format` were applied to the
+   driver files after the first runs. The strong block was re-run after linting, and
+   every agent's `episodes.jsonl` and `summary.json` came out byte-identical.
+5. **P4 at p = 0.5.** The registered P4 is strict (p > 0.5 / p < 0.5), so p = 0.5 counts
+   as incoherent for both labels. That is reported as registered, and RESULT.md notes a
+   ≥/≤ variant for the team to consider. No rule was changed.
+
