@@ -20,7 +20,7 @@ import { notRunReport } from './project'
  *   GET  /episodes/{id}                                       -> PublicState
  *   GET  /benchmarks, /benchmarks/{id}                        -> aggregate results (token-gated; NOT RUN if absent)
  *   GET  /benchmarks/episodes/{id}                            -> per-episode correct-vs-justified verdict
- *                                                                (PROVISIONAL, not in H0; token-gated; only when `evaluation`)
+ *                                                                (token-gated; only when `evaluation`)
  *
  *  GET  /policies, /scenarios, /version, /diagnostics  -> public/system catalogue (orchestration metadata)
  *
@@ -30,7 +30,8 @@ import { notRunReport } from './project'
  *    predate that route fall back to `LiveConfig.policies`. A policy comparison plays exactly the
  *    available policies on the SAME seed through the ordinary reset / recommend / act endpoints:
  *    real public traces on identical seeded worlds. Every other canonical policy (Lookahead,
- *    PPO, ...) is NOT RUN.
+ *    PPO, ...) is NOT RUN. A configured policy that returns 422 is reported as NOT RUN while
+ *    other comparison lanes continue; other errors propagate.
  *  - aggregate results are requested only when `LiveConfig.benchmarks` is true (the endpoint is
  *    token-gated and answers 404 when disabled).
  */
@@ -299,9 +300,22 @@ export class LiveApiTransport implements ScientificTransport {
     const not_run: { policy_name: string; reason: string }[] = []
     const offered = await this.offered()
     const configured = new Set(offered.map(canonicalPolicyKey))
-    for (const name of offered) records.push(await this.playToEnd(seed, name, options))
+    const notRunPolicies = new Set<string>()
+    const addNotRun = (policyName: string, reason: string) => {
+      if (notRunPolicies.has(policyName)) return
+      notRunPolicies.add(policyName)
+      not_run.push({ policy_name: policyName, reason })
+    }
+    for (const name of offered) {
+      try {
+        records.push(await this.playToEnd(seed, name, options))
+      } catch (error) {
+        if (!(error instanceof TransportError) || error.status !== 422) throw error
+        addNotRun(canonicalPolicyKey(name), 'Not served by this server (POST /episodes answered 422 unknown policy).')
+      }
+    }
     for (const p of CANONICAL_POLICIES)
-      if (!configured.has(p.key)) not_run.push({ policy_name: p.key, reason: 'Not registered on this server: no replay artifact or checkpoint exists for this policy.' })
+      if (!configured.has(p.key)) addNotRun(p.key, 'Not registered on this server: no replay artifact or checkpoint exists for this policy.')
     if (records.length < 2) return null
     const cmp: PolicyComparisonRecord = { scenario: seedScenario(seed), seed, records, not_run, provenance: records[0].provenance }
     return adaptComparison(cmp)

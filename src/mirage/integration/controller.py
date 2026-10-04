@@ -8,6 +8,7 @@ from pathlib import Path
 from mirage.api.dto import StepDTO, event_dto, state_dto
 from mirage.belief import BINDER_SCHEMA_PROVISIONAL, IndependentPrior, ParticleBelief, bernoulli, uniform
 from mirage.belief.binder import BinderParticleModel
+from mirage.belief.seeding import belief_stream_seed
 from mirage.core import ActionType, AgentState, ScientificAction, StepResult
 from mirage.environments.binder import BinderBioPOMDP, BinderWorldMode
 from mirage.environments.binder.scenarios import BinderScenarioVersion
@@ -38,7 +39,12 @@ class BinderBeliefSession:
 
     def __init__(self, seed: int, *, particles: int = 256) -> None:
         self.model = BinderParticleModel()
-        self.belief = ParticleBelief.from_prior(BINDER_SCHEMA_PROVISIONAL, receptor_binder_prior(), n=particles, seed=seed)
+        self.belief = ParticleBelief.from_prior(
+            BINDER_SCHEMA_PROVISIONAL,
+            receptor_binder_prior(),
+            n=particles,
+            seed=belief_stream_seed(seed),
+        )
 
     def summary(self):
         return self.belief.summary()

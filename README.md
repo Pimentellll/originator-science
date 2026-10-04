@@ -278,15 +278,15 @@ Growth benchmark views (Results, Episode, Lab, Method) in the same app: start th
 `MIRAGE_EVAL_TOKEN=<token> PYTHONPATH=src .venv/bin/python scripts/serve_api.py --records .local/mirage-api --growth-results experiments/results`
 and run the frontend with the same `MIRAGE_EVAL_TOKEN`. Recorded runs and the hidden-truth verdict are served only
 under the token-gated `/benchmarks/growth/*` routes; the hands-on Lab uses public `/growth/sandbox/*` routes that
-never return the hidden condition. Offline build with no server: `cd frontend && npm run build:static`.
+never return the hidden condition. Offline build with no server: `cd frontend && PYTHON=../.venv/bin/python npm run build:static`.
 
 ### Reproduce the evaluation
 
 | Goal | Command | Notes |
 |---|---|---|
-| Verify the frozen Baseline V1 numbers | `PYTHONPATH=src .venv/bin/python scripts/export_baseline_v1.py --out <new dir>` | read-only on the run: rebuilds aggregates from the 750 stored evaluations and refuses to write unless they equal the run's own. Never write into `results/baseline_v1/`. |
+| Verify the frozen Baseline V1 numbers | `PYTHONPATH=src .venv/bin/python scripts/export_baseline_v1.py --out <new dir>` | read-only on the run: rebuilds aggregates from the 750 stored evaluations and refuses to write unless they equal the run's own. `--out` is required and must be a new or empty directory. Never write into `results/baseline_v1/`. |
 | Run a fresh benchmark | `PYTHONPATH=src .venv/bin/python scripts/run_binder_benchmark.py --per-archetype 50 --out <new dir>` | **not** a bit-for-bit reproduction of V1: V1 ran at commit `1c2ed6e` with the pre-tempering belief, and the current default is adaptive tempering. Check out tag `mirage-baseline-v1` to reproduce V1. |
-| Posterior convergence audit | `PYTHONPATH=src .venv/bin/python scripts/belief_convergence_audit.py --out <file>` | output of the audited run: [`docs/validation/convergence_audit.json`](docs/validation/convergence_audit.json) |
+| Posterior convergence audit | `PYTHONPATH=src:tests .venv/bin/python scripts/belief_convergence_audit.py --out <file>` | output of the audited run: [`docs/validation/convergence_audit.json`](docs/validation/convergence_audit.json) |
 | Replay a stored episode | `mirage.provenance.Replay` over `results/binder_campaign/public/*.jsonl` | calls no model, policy, RNG or environment |
 | Legacy growth benchmark | [docs/mirage-bio/README.md](docs/mirage-bio/README.md) | earlier, separate environment |
 
@@ -377,15 +377,33 @@ under `experiments/results/`, but it is a **different, earlier environment** wit
 system does not replace or rewrite it. See [docs/mirage-bio/README.md](docs/mirage-bio/README.md). The cockpit app
 shows it under Results, Episode, Lab and Method (see §7).
 
+### Web console
+
+A local, offline console over committed results and the virtual lab. It has a leaderboard, a 30-episode outcome grid,
+episode replays with evaluator audits, and a hands-on dilution-experiment sandbox. It makes no model calls, and sandbox
+episodes use development seeds only.
+
+```bash
+.venv/bin/python -m mirage.ui.server --port 8765
+```
+
+Open `http://127.0.0.1:8765`. The frontend is plain HTML, CSS and ES modules in `src/mirage/ui/static/`, with no build
+step or CDN; the API uses Python's standard-library `http.server`.
+
 ## 13. Verification snapshot
 
-At the documentation freeze, with the project virtualenvs (`PYTHONPATH=src`):
+After merging current `main` (`PYTHONPATH=src`, Python 3.11.17):
 
-| Suite | Result |
-|---|---|
-| Python, excluding `tests/rl` | 1128 passed, 3 skipped, 1 xfailed, **4 failed**: 2 belief-convergence-gate tests (unmet B4A gate) and 2 V2 lock checks (A5 touched a locked file) |
-| Python `tests/rl` (Gym/PPO environment) | 36 passed |
-| Frontend | typecheck, lint and production build clean; 54 tests passed, 4 skipped (the real-backend suite needs a running server) |
+| Suite | Python 3.11.17 | Python 3.12 |
+|---|---|---|
+| Python, excluding `tests/rl` | 1195 passed, 4 skipped, 1 xfailed, 4 failed | Not rerun after merge |
+| Python `tests/rl` (Gym/PPO environment) | 40 passed | Not rerun after merge |
+
+The same four non-RL tests failed in the Python 3.11 run; they were also seen in the pre-merge Python 3.12 run:
+`test_tempered_posterior_matches_exact_reference_at_512_particles`
+for `invalid_biological_model-50000-greedy_eig|1` and `broken_assay-50000-greedy_eig|1`, plus
+`test_committed_lock_matches_the_files_on_disk` and `test_lock_detects_any_change_to_spec_scoring_or_doc`.
+Frontend validation: typecheck and lint passed; Vitest reported 93 passed and 4 skipped.
 
 After the launcher, guided demo and system routes (`./mirage test`, full): every software group passes (core 78, binder 33, belief 61, policies 59,
 trust boundary 70, evaluator 130, API 47, RL 36, launcher 24, provenance + legacy 675 with 3 skipped, frontend 91 with 4 skipped, E2E smoke 9).
