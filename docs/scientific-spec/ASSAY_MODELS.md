@@ -1,7 +1,15 @@
 # Assay models
 
-Every assay maps private truth plus seeded noise to a public ScientificObservation with value, uncertainty, unit, and quality. Models must be transparent, auditable, and deliberately overlapping: a noisy result is evidence, not a direct revelation.
+Every assay maps private truth plus seeded noise to a public structured observation: named numeric measurements, quality, and optional public notes. Values are assay estimates, not copies of latent state. Exact numerical parameters are configurable modelling assumptions, not biological constants.
 
-SEC informs monomer fraction. Stability informs folding. SPR informs affinity and kinetics, but severely aggregated input can yield unreliable signal and degrade instrument health. Epitope and developability assays inform their respective factors with overlap. Assay validation and orthogonal function separate molecule failure from broken-assay or invalid-model explanations.
+| Assay | Factors informed | Public fields and artifact behavior |
+| --- | --- | --- |
+| stability | folding/stability | stability_proxy; noisy readout |
+| SEC | monomer fraction | monomer_fraction; aggregation evidence |
+| SPR | affinity, kinetics, aggregation | log_kd, log_koff, quality; aggregated input can be unreliable and reduce future SPR health |
+| epitope | functional epitope | epitope_signal; overlapping evidence |
+| developability | liability | liability_proxy; noisy risk evidence |
+| assay control | assay validity | control_signal; detects broken downstream assay |
+| orthogonal function | assay/model separation | orthogonal_function_signal; distinguishes invalid assay from invalid model |
 
-Assay likelihoods are shared with particle inference where feasible. They must be versioned with the environment and tested for reproducibility, nontrivial overlap, and no leakage.
+Assay likelihoods are shared with particle inference where feasible. They are versioned with the environment and tested for reproducibility, nontrivial overlap, path dependence, and no leakage.
