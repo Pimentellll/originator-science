@@ -232,3 +232,32 @@ def test_one_decision_is_interactive_at_default_settings():
     wall = time.perf_counter() - t0
     assert pol.last_decision_seconds == pytest.approx(wall, rel=0.2, abs=0.02)
     assert wall < 1.5  # generous CI ceiling; ~0.2 s typical on a laptop
+
+
+# --- structured multi-output observations ------------------------------------
+
+def test_hypothetical_spr_outcomes_are_structured_multi_output_observations():
+    b = make_belief(256)
+    rng = np.random.default_rng(0)
+    y = MODEL.sample_observation(b.particles[0], act(A.MEASURE_SPR), rng)
+    assert y.action_type == A.MEASURE_SPR and set(y.measurements) == {"log_kd", "log_koff"}
+    assert isinstance(y.quality, str) and y.quality
+
+
+def test_eig_likelihood_couples_every_output_and_rejects_malformed_outcomes():
+    b = make_belief(256)
+    a = act(A.MEASURE_SPR)
+    y = MODEL.sample_observation(b.particles[3], a, np.random.default_rng(1))
+    base = MODEL.log_likelihood(y, b.particles, a)
+    shifted_koff = obs(A.MEASURE_SPR, quality=y.quality, log_kd=y.measurements["log_kd"], log_koff=y.measurements["log_koff"] + 1.0)
+    assert not np.allclose(base[np.isfinite(base)], MODEL.log_likelihood(shifted_koff, b.particles, a)[np.isfinite(base)])
+    only_kd = obs(A.MEASURE_SPR, quality=y.quality, log_kd=y.measurements["log_kd"])
+    assert np.all(np.isneginf(MODEL.log_likelihood(only_kd, b.particles, a)))
+
+
+def test_spr_eig_exceeds_each_single_output_view_of_the_same_mechanisms():
+    """SPR informs affinity and kinetics jointly, so it must out-score the one-output assays
+    that each inform only one of the mechanisms it covers (here: stability and epitope)."""
+    b = make_belief(512)
+    spr = eig(b, A.MEASURE_SPR).eig
+    assert spr > eig(b, A.MEASURE_STABILITY).eig and spr > eig(b, A.MEASURE_EPITOPE).eig
