@@ -278,12 +278,14 @@ def run_benchmark(
     digests: dict[str, str] = {}
     for archetype in archetypes:
         worlds = list(source.worlds(archetype, seeds))
-        if sorted(w.seed for w in worlds) != sorted(seeds):
+        if sorted({w.seed for w in worlds}) != sorted(seeds):
             raise PairingError(f"world source did not return exactly the requested seeds for {archetype.value}")
+        if len({(w.archetype, w.seed) for w in worlds}) != len(worlds):
+            raise PairingError(f"world source returned duplicate (archetype, seed) worlds for {archetype.value}")
         for world in worlds:
-            key = f"{archetype.value}/{world.seed}"
+            key = f"{world.archetype}/{world.seed}"
             for name in sorted(policies):
-                episode_id = f"{benchmark_id}-{archetype.value}-{world.seed}-{name}"
+                episode_id = f"{benchmark_id}-{world.archetype}-{world.seed}-{name}"
                 record, env, incident, belief_incidents = play_episode(
                     world,
                     policies[name],

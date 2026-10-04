@@ -1,0 +1,264 @@
+{
+  "action_costs_budget_sample_time": {
+    "MEASURE_DEVELOPABILITY": [
+      1.0,
+      0.4,
+      0.5
+    ],
+    "MEASURE_EPITOPE": [
+      1.0,
+      0.4,
+      0.5
+    ],
+    "MEASURE_SEC": [
+      1.0,
+      0.5,
+      0.5
+    ],
+    "MEASURE_SPR": [
+      2.0,
+      1.0,
+      1.0
+    ],
+    "MEASURE_STABILITY": [
+      1.0,
+      0.5,
+      0.5
+    ],
+    "ORTHOGONAL_FUNCTION": [
+      1.5,
+      0.25,
+      0.75
+    ],
+    "REDESIGN_INTERFACE": [
+      2.0,
+      1.0,
+      1.0
+    ],
+    "REDESIGN_SOLUBILITY": [
+      2.0,
+      1.0,
+      1.0
+    ],
+    "REDESIGN_STABILITY": [
+      2.0,
+      1.0,
+      1.0
+    ],
+    "VALIDATE_ASSAY": [
+      0.75,
+      0.1,
+      0.25
+    ]
+  },
+  "archetypes": [
+    "instability",
+    "aggregation_kinetic_defect",
+    "broken_assay",
+    "invalid_biological_model",
+    "misleading_proxy_trap"
+  ],
+  "belief": {
+    "n_particles": 512,
+    "prior": "binder_benchmark.PRIOR_PARAMS (unchanged from V1)"
+  },
+  "design": "every (archetype, seed) world is played at all three resource strata (fully crossed)",
+  "episodes_per_policy": 750,
+  "evaluator": {
+    "label_rules": {
+      "liability_max": 0.4,
+      "log_kd_max": -7.0,
+      "log_koff_max": -2.0,
+      "monomer_min": 0.6,
+      "stability_min": 0.5,
+      "version": "campaign-eval/1/label-rules"
+    },
+    "version": "campaign-eval/1"
+  },
+  "full_funnel_cost": {
+    "budget": 8.25,
+    "sample": 3.15,
+    "sequence": [
+      "MEASURE_STABILITY",
+      "MEASURE_SEC",
+      "MEASURE_SPR",
+      "MEASURE_EPITOPE",
+      "MEASURE_DEVELOPABILITY",
+      "VALIDATE_ASSAY",
+      "ORTHOGONAL_FUNCTION"
+    ]
+  },
+  "question": "When exhaustive characterisation is unaffordable, does adaptive long-horizon planning improve scientifically justified outcomes?",
+  "sampling": {
+    "distribution": "independent uniform within each range, rounded to 2 decimals",
+    "draw_order": [
+      "budget",
+      "sample",
+      "spr_health"
+    ],
+    "independent_of_world_rng": true,
+    "rng": "numpy default_rng([1380275011, seed, stratum_index]) with stratum_index low=0, medium=1, high=2"
+  },
+  "seeds": {
+    "development": [
+      1100,
+      1101,
+      1102,
+      1103,
+      1104,
+      1105,
+      1106,
+      1107,
+      1108,
+      1109,
+      1110,
+      1111,
+      1112,
+      1113,
+      1114,
+      1115,
+      1116,
+      1117,
+      1118,
+      1119,
+      1120,
+      1121,
+      1122,
+      1123,
+      1124,
+      1125,
+      1126,
+      1127,
+      1128,
+      1129,
+      1130,
+      1131,
+      1132,
+      1133,
+      1134,
+      1135,
+      1136,
+      1137,
+      1138,
+      1139,
+      1140,
+      1141,
+      1142,
+      1143,
+      1144,
+      1145,
+      1146,
+      1147,
+      1148,
+      1149
+    ],
+    "held_out": [
+      60000,
+      60001,
+      60002,
+      60003,
+      60004,
+      60005,
+      60006,
+      60007,
+      60008,
+      60009,
+      60010,
+      60011,
+      60012,
+      60013,
+      60014,
+      60015,
+      60016,
+      60017,
+      60018,
+      60019,
+      60020,
+      60021,
+      60022,
+      60023,
+      60024,
+      60025,
+      60026,
+      60027,
+      60028,
+      60029,
+      60030,
+      60031,
+      60032,
+      60033,
+      60034,
+      60035,
+      60036,
+      60037,
+      60038,
+      60039,
+      60040,
+      60041,
+      60042,
+      60043,
+      60044,
+      60045,
+      60046,
+      60047,
+      60048,
+      60049
+    ],
+    "train_reserved_inclusive": [
+      100000,
+      199999
+    ]
+  },
+  "spec_version": "binder-rescue-v2",
+  "strata": {
+    "high": {
+      "budget": [
+        10.0,
+        14.0
+      ],
+      "rationale": "A well-supplied lab (brackets V1's 12.0 / 8.0): the funnel is always affordable with room for about one redesign. FixedPipeline is expected to perform well here.",
+      "sample": [
+        5.0,
+        9.0
+      ],
+      "spr_health": [
+        1.0,
+        1.0
+      ]
+    },
+    "low": {
+      "budget": [
+        2.5,
+        4.5
+      ],
+      "rationale": "A small or under-supplied lab: roughly 30-55% of the budget and 30-65% of the sample the 7-assay funnel needs. The funnel is infeasible in every draw. The instrument may already be worn (health < 0.70 degrades every SPR readout in core).",
+      "sample": [
+        1.0,
+        2.0
+      ],
+      "spr_health": [
+        0.6,
+        1.0
+      ]
+    },
+    "medium": {
+      "budget": [
+        6.0,
+        10.0
+      ],
+      "rationale": "A constrained lab: the funnel is affordable only in some draws and leaves little or no room for redesign.",
+      "sample": [
+        2.5,
+        5.0
+      ],
+      "spr_health": [
+        0.8,
+        1.0
+      ]
+    }
+  },
+  "unconstrained": {
+    "simulated_time": "core exposes no deadline or time_remaining; time only accumulates"
+  },
+  "worlds_per_stratum": 250
+}

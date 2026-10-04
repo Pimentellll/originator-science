@@ -109,6 +109,7 @@ def test_privileged_accessor_is_imported_only_by_the_benchmark_layer():
         "evaluation/campaign/binder_benchmark.py",
         "evaluation/campaign/privileged_binder.py",
         "evaluation/campaign/baseline_export.py",  # offline evaluator-side export
+        "evaluation/campaign/rescue_v2.py",  # benchmark spec: builds worlds and evaluator-side oracles
     }
     offenders = []
     for path in SRC.rglob("*.py"):
