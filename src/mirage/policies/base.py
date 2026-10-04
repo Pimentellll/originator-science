@@ -21,6 +21,18 @@ REDESIGN_ACTIONS = frozenset(
 )
 
 
+MEASUREMENT_ACTIONS = frozenset(ActionType) - TERMINAL_ACTIONS - REDESIGN_ACTIONS
+
+_MOLECULAR_FIELDS = (
+    "p_folding_failure",
+    "p_aggregation_failure",
+    "p_affinity_failure",
+    "p_kinetic_failure",
+    "p_epitope_failure",
+    "p_developability_failure",
+)
+
+
 class PolicyError(RuntimeError):
     """The policy cannot produce a legal action from its inputs."""
 
@@ -53,3 +65,41 @@ class ScientificPolicy(ABC):
             raise PolicyError("episode is terminal; no action to choose")
         if not available_actions:
             raise PolicyError("no available actions")
+
+
+def usable_actions(
+    state: AgentState, available_actions: Sequence[ScientificAction]
+) -> dict[ActionType, ScientificAction]:
+    """Available actions applicable to the active candidate, one per action type."""
+    cid = state.active_candidate.candidate_id
+    usable = {a.action_type: a for a in available_actions if a.candidate_id in (cid, None)}
+    for a in available_actions:  # prefer an action explicitly bound to the active candidate
+        if a.candidate_id == cid:
+            usable[a.action_type] = a
+    return usable
+
+
+def threshold_terminal_decision(
+    belief: BeliefSummary, usable: dict[ActionType, ScientificAction], threshold: float
+) -> ScientificAction:
+    """Shared closing rule for the non-learning baselines (public belief only):
+
+        p_assay_invalid >= t                    -> ABSTAIN
+        p_model_invalid >= t                    -> MODEL_INVALID
+        any molecular failure marginal >= t     -> REJECT
+        otherwise                               -> SELECT
+    """
+    if belief.p_assay_invalid >= threshold:
+        wanted = ActionType.ABSTAIN
+    elif belief.p_model_invalid >= threshold:
+        wanted = ActionType.MODEL_INVALID
+    elif any(getattr(belief, f) >= threshold for f in _MOLECULAR_FIELDS):
+        wanted = ActionType.REJECT
+    else:
+        wanted = ActionType.SELECT
+    if wanted in usable:
+        return usable[wanted]
+    for fallback in (ActionType.ABSTAIN, *sorted(TERMINAL_ACTIONS, key=lambda a: a.value)):
+        if fallback in usable:
+            return usable[fallback]
+    raise PolicyError("no terminal action is available")

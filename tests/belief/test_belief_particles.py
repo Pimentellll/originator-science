@@ -20,9 +20,9 @@ PRIOR = IndependentPrior(
         "log_kd": lambda r, n: r.uniform(-10, -5, n),
         "log_koff": lambda r, n: r.uniform(-5, 0, n),
         "functional_epitope": lambda r, n: r.uniform(0, 1, n),
-        "liability": lambda r, n: r.uniform(0, 1, n),
-        "assay_validity": lambda r, n: r.integers(0, 2, n).astype(float),
-        "model_validity": lambda r, n: r.integers(0, 2, n).astype(float),
+        "developability_liability": lambda r, n: r.uniform(0, 1, n),
+        "assay_valid": lambda r, n: r.integers(0, 2, n).astype(float),
+        "model_valid": lambda r, n: r.integers(0, 2, n).astype(float),
     },
 )
 
@@ -147,8 +147,8 @@ def test_compound_failures_survive_in_marginals():
     p[:, SCHEMA.index("monomer_fraction")] = 0.5   # aggregated
     p[:, SCHEMA.index("log_koff")] = -1.0          # fast dissociation
     p[:, SCHEMA.index("log_kd")] = -9.0            # strong affinity
-    p[:, SCHEMA.index("assay_validity")] = 1.0
-    p[:, SCHEMA.index("model_validity")] = 1.0
+    p[:, SCHEMA.index("assay_valid")] = 1.0
+    p[:, SCHEMA.index("model_valid")] = 1.0
     s = ParticleBelief(SCHEMA, p).summary()
     assert s.p_aggregation_failure > 0.99 and s.p_kinetic_failure > 0.99
     assert s.p_affinity_failure < 0.01
@@ -156,18 +156,20 @@ def test_compound_failures_survive_in_marginals():
     assert sum(probs) > 1.5
 
 
-def test_pattern_entropy_distinguishes_compound_from_independent():
-    # perfectly correlated failures: 2 patterns, entropy log 2
+def test_marginal_and_joint_entropy_for_correlated_compound_failure():
+    # perfectly correlated failures: 2 joint patterns, but two uncertain marginals
     n = 1000
     p = PRIOR.sample(np.random.default_rng(0), n)
     bad = np.arange(n) < n // 2
     p[:, SCHEMA.index("monomer_fraction")] = np.where(bad, 0.5, 0.95)
     p[:, SCHEMA.index("log_koff")] = np.where(bad, -1.0, -4.0)
     for f, v in [("stability", 0.9), ("log_kd", -9.0), ("functional_epitope", 0.9),
-                 ("liability", 0.1), ("assay_validity", 1.0), ("model_validity", 1.0)]:
+                 ("developability_liability", 0.1), ("assay_valid", 1.0), ("model_valid", 1.0)]:
         p[:, SCHEMA.index(f)] = v
     s = ParticleBelief(SCHEMA, p).summary()
-    assert s.posterior_entropy == pytest.approx(np.log(2))
+    belief = ParticleBelief(SCHEMA, p)
+    assert belief.pattern_entropy() == pytest.approx(np.log(2))  # joint: one binary choice
+    assert s.posterior_entropy == pytest.approx(2 * np.log(2))  # marginals: two uncertain mechanisms
     assert s.p_aggregation_failure == pytest.approx(0.5) and s.p_kinetic_failure == pytest.approx(0.5)
 
 
@@ -180,7 +182,7 @@ def test_summary_fields_and_no_particle_leak():
         "posterior_entropy", "continuous_means", "continuous_variances", "effective_sample_size"}
     assert set(s.continuous_means) == set(SCHEMA.summary_factors)
     assert all(v >= 0 for v in s.continuous_variances.values())
-    assert 0 <= s.posterior_entropy <= 8 * np.log(2)
+    assert 0 <= s.posterior_entropy <= 8 * np.log(2) + 1e-12
     with pytest.raises(Exception):
         s.p_folding_failure = 0.0  # frozen
 
@@ -229,3 +231,15 @@ def test_schema_validation():
     rules["p_folding_failure"] = FailureRule("nonexistent", "below", 0.0)
     with pytest.raises(ValueError):
         LatentSchema(SCHEMA.factors, rules, ())
+
+
+def test_entropy_is_zero_when_all_marginals_are_certain_and_max_when_all_fifty_fifty():
+    from mirage.belief import binary_entropy
+    assert binary_entropy(np.array([0.0, 1.0])).tolist() == [0.0, 0.0]
+    assert binary_entropy(np.array([0.5]))[0] == pytest.approx(np.log(2))
+    p = PRIOR.sample(np.random.default_rng(0), 50)
+    for f, v in [("stability", 0.9), ("monomer_fraction", 0.95), ("log_kd", -9.0), ("log_koff", -4.0),
+                 ("functional_epitope", 1.0), ("developability_liability", 0.1), ("assay_valid", 1.0),
+                 ("model_valid", 1.0)]:
+        p[:, SCHEMA.index(f)] = v
+    assert ParticleBelief(SCHEMA, p).mechanism_entropy() == 0.0

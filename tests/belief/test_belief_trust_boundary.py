@@ -18,6 +18,9 @@ ALLOWED_IMPORT_ROOTS = {
     "collections", "time", "numpy", "pydantic", "mirage",
 }
 ALLOWED_MIRAGE = ("mirage.core", "mirage.belief", "mirage.policies")
+# The single place allowed to touch the environment package: the adapter that
+# delegates to the environment's PUBLIC predictive model (no truth, no env object).
+ADAPTER_EXCEPTIONS = {"binder.py": {"mirage.environments.binder.predictive"}}
 
 
 def _tree(path):
@@ -40,6 +43,16 @@ def test_no_private_names(path):
             assert n.lower() not in FORBIDDEN_NAMES and "truth" not in n.lower(), f"{path.name}: {n}"
 
 
+def test_greedy_eig_is_scanned():
+    assert "greedy_eig.py" in {p.name for p in FILES}
+
+
+def test_only_the_adapter_may_import_the_environment_package():
+    offenders = [p.name for p in FILES for n in ast.walk(_tree(p))
+                 if isinstance(n, ast.ImportFrom) and (n.module or "").startswith("mirage.environments")]
+    assert set(offenders) <= set(ADAPTER_EXCEPTIONS)
+
+
 @pytest.mark.parametrize("path", FILES, ids=lambda p: p.name)
 def test_imports_restricted_to_public_surface(path):
     for node in ast.walk(_tree(path)):
@@ -50,7 +63,7 @@ def test_imports_restricted_to_public_surface(path):
             mods = [node.module or ""]
         for m in mods:
             assert m.split(".")[0] in ALLOWED_IMPORT_ROOTS, f"{path.name} imports {m}"
-            if m.startswith("mirage"):
+            if m.startswith("mirage") and m not in ADAPTER_EXCEPTIONS.get(path.name, ()):
                 assert m.startswith(ALLOWED_MIRAGE), f"{path.name} imports {m}"
 
 

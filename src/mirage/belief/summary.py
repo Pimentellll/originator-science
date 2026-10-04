@@ -25,7 +25,7 @@ class BeliefSummary(BaseModel):
     p_assay_invalid: float = Field(ge=0.0, le=1.0)
     p_model_invalid: float = Field(ge=0.0, le=1.0)
 
-    # Shannon entropy (nats) of the joint failure-pattern distribution.
+    # Sum of the eight failure marginals' binary entropies, in nats (0 .. 8 ln 2).
     posterior_entropy: float = Field(ge=0.0)
     continuous_means: dict[str, float]
     continuous_variances: dict[str, float]
