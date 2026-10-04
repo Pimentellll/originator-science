@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from mirage.agents.claude import DEFAULT_MODEL
-from mirage.config import canonical_sha256, load_prior
+from mirage.config import canonical_sha256, load_demo_pair, load_prior
 from mirage.evaluation import runner
 from mirage.evaluation.metrics import EpisodeResult, audit_measurements, score_episode
 from mirage.evaluation.passive import REFERENCE_SEEDS
@@ -47,6 +47,7 @@ def strip_meta(path: Path) -> str:
 
 def test_t017_reproducible_records(tmp_path) -> None:
     a, b = go(tmp_path, "a"), go(tmp_path, "b")
+    assert "demo_seeds" not in json.loads((a / "manifest.json").read_text(encoding="utf-8"))
     fa = sorted((a / "episodes").glob("*.json"))
     fb = sorted((b / "episodes").glob("*.json"))
     assert [f.name for f in fa] == [f.name for f in fb] and len(fa) == 20
@@ -133,6 +134,54 @@ def test_eval_matrix_v1() -> None:
         assert sum(c.value == "BIOLOGICAL_PLATEAU" for _, c in m) == half
     assert len(ref) == 2000 and {s for s, _ in ref} == set(range(900_000, 901_000))
     assert not {s for s, _ in strong} & set(range(0, 10_000))  # dev block disjoint (ER-002)
+
+
+def test_demo_pair_run_uses_matched_configs_and_manifest(tmp_path) -> None:
+    run_dir = runner.run(
+        "good_scientist",
+        "demo",
+        tmp_path / "runs",
+        gate0_summary=fixture_gate0(tmp_path / "g0.json"),
+        run_id="demo",
+        reference_seeds=REFERENCE_SEEDS[:5000],
+    )
+    paths = sorted((run_dir / "episodes").glob("*.json"))
+    assert [path.name for path in paths] == ["demo-BP.json", "demo-MA.json"]
+
+    configs = {
+        cfg.episode_id: cfg
+        for cfg in load_demo_pair(runner.DEMO, PRIOR, seeds=runner.DEMO_SEEDS)
+    }
+    records = [
+        EpisodeResult.model_validate_json(path.read_text(encoding="utf-8")) for path in paths
+    ]
+    for record in records:
+        expected = configs[record.episode.episode_id]
+        assert record.episode.model_dump(mode="json") == expected.model_dump(mode="json")
+        assert record.status == "DIAGNOSED"
+        assert record.scores.correct
+
+    manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["matrix"] == "demo"
+    assert manifest["matrix_sha256"] == runner.file_sha256(runner.DEMO)
+    assert manifest["demo_seeds"] == [0, 0]
+    summary = json.loads((run_dir / "summary.json").read_text(encoding="utf-8"))
+    assert summary["n_episodes"] == 2
+
+
+def test_demo_matrix_rejects_custom_matrix_file(tmp_path) -> None:
+    with pytest.raises(ValueError) as err:
+        runner.run(
+            "good_scientist",
+            "demo",
+            tmp_path / "runs",
+            matrix=small_matrix(tmp_path),
+            gate0_summary=fixture_gate0(tmp_path / "g0.json"),
+            run_id="demo",
+        )
+    assert str(err.value) == (
+        "--matrix demo uses demo_pair.json; do not combine it with --matrix-file"
+    )
 
 
 # --- LLM path (DEV-013): fake client only; no network, no API key -----------------------------

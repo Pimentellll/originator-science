@@ -4,6 +4,7 @@ Usage:
   python -m mirage.evaluation.runner run --agent good_scientist --matrix minimal [--out DIR]
   python -m mirage.evaluation.runner run --agent claude --matrix minimal [--model ID]
       [--resume RUN_ID] [--matrix-file PATH]
+  python -m mirage.evaluation.runner run --agent claude --matrix demo --out experiments/results/demo
   python -m mirage.evaluation.runner summarize RUN_DIR
 """
 
@@ -22,8 +23,15 @@ from pathlib import Path
 from typing import Any
 
 from mirage.agents.scripted import GoodScientist, PassiveBayesAgent
-from mirage.biology.conditions import ABBREVIATION, Condition
-from mirage.config import ScenarioPrior, canonical_sha256, load_prior, sample_episode
+from mirage.biology.conditions import Condition
+from mirage.config import (
+    EpisodeConfig,
+    ScenarioPrior,
+    canonical_sha256,
+    load_demo_pair,
+    load_prior,
+    sample_episode,
+)
 from mirage.evaluation.metrics import (
     SCHEMA_VERSION,
     AgentInfo,
@@ -41,6 +49,9 @@ from mirage.lab.tools import PROMPT_VERSION
 ROOT = Path(__file__).resolve().parents[3]
 SCENARIO = ROOT / "experiments" / "configs" / "scenario_v1.json"
 MATRIX = ROOT / "experiments" / "configs" / "eval_matrix_v1.json"
+DEMO = ROOT / "experiments" / "configs" / "demo_pair.json"
+DEMO_MATRIX = "demo"
+DEMO_SEEDS = (0, 0)  # Dev block; never in metrics.
 GATE0_SUMMARY = ROOT / "experiments" / "results" / "gate0" / "summary.json"
 SCRATCH = ROOT / ".local" / "runs"
 SUMMARY_VERSION = "run-summary-v1"
@@ -128,9 +139,8 @@ def agent_info(agent: Any) -> AgentInfo:
                      sdk_version=agent.sdk_version)
 
 
-def run_episode(prior: ScenarioPrior, seed: int, condition: Condition, agent: Any,
-                dset: DiagnosticActionSet, run_meta: dict[str, Any]) -> EpisodeResult:
-    cfg = sample_episode(prior, seed, condition)
+def run_episode(cfg: EpisodeConfig, agent: Any, dset: DiagnosticActionSet,
+                run_meta: dict[str, Any]) -> EpisodeResult:
     env = LabEnvironment(cfg)
     started = _now()
     agent.run(env.session())  # scripted agents propagate errors: a bug is a test failure
@@ -157,7 +167,7 @@ def run_episode(prior: ScenarioPrior, seed: int, condition: Condition, agent: An
 def run(agent_name: str, matrix_name: str, out_root: Path, *, scenario: Path = SCENARIO,
         matrix: Path = MATRIX, gate0_summary: Path = GATE0_SUMMARY, run_id: str | None = None,
         reference_seeds=REFERENCE_SEEDS, client: Any | None = None, model: str | None = None,
-        resume: bool = False) -> Path:
+        resume: bool = False, demo_pair: Path = DEMO) -> Path:
     """Run every matrix episode; write manifest.json, episodes/*.json, then summary.json.
 
     ``resume`` continues an interrupted run in place: the manifest must match exactly and
@@ -167,7 +177,15 @@ def run(agent_name: str, matrix_name: str, out_root: Path, *, scenario: Path = S
         raise ValueError("--model is only supported with --agent claude")
     prior = load_prior(scenario)
     dset = frozen_dset(prior, gate0_summary)
-    episodes = load_matrix(matrix, matrix_name)
+    if matrix_name == DEMO_MATRIX:
+        if matrix != MATRIX:
+            raise ValueError(
+                "--matrix demo uses demo_pair.json; do not combine it with --matrix-file"
+            )
+        cfgs = load_demo_pair(demo_pair, prior, seeds=DEMO_SEEDS)
+    else:
+        cfgs = [sample_episode(prior, seed, condition)
+                for seed, condition in load_matrix(matrix, matrix_name)]
     if agent_name == "claude" and client is None and not os.environ.get(API_KEY_ENV):
         raise ValueError(f"{API_KEY_ENV} is not set; refusing to start a paid run without it")
     agent = make_agent(agent_name, prior, reference_seeds, client=client, model=model)
@@ -181,11 +199,14 @@ def run(agent_name: str, matrix_name: str, out_root: Path, *, scenario: Path = S
         raise FileNotFoundError(f"{run_dir} has no manifest.json to resume")
     manifest = {
         "run_id": run_id, "agent": agent_name, "matrix": matrix_name,
-        "matrix_sha256": file_sha256(matrix), "scenario_sha256": canonical_sha256(prior),
+        "matrix_sha256": file_sha256(demo_pair if matrix_name == DEMO_MATRIX else matrix),
+        "scenario_sha256": canonical_sha256(prior),
         "gate0_summary_sha256": file_sha256(gate0_summary), "diagnostic_action_set":
             dset.model_dump(mode="json"), "prompt_version": PROMPT_VERSION,
-        "n_episodes": len(episodes), "versions": versions(), "created_at": _now(),
+        "n_episodes": len(cfgs), "versions": versions(), "created_at": _now(),
     }
+    if matrix_name == DEMO_MATRIX:
+        manifest["demo_seeds"] = list(DEMO_SEEDS)
     if is_llm(agent):
         manifest |= {"model": agent.model, "effort": agent.effort,
                      "prompt_sha256": agent.prompt_sha256}
@@ -201,17 +222,17 @@ def run(agent_name: str, matrix_name: str, out_root: Path, *, scenario: Path = S
         write_atomic(manifest_path, dumps(manifest))
         base_manifest = manifest
     meta = {"run_id": run_id}
-    for seed, cond in episodes:
-        episode_id = f"s{seed}-{ABBREVIATION[cond]}"
+    for cfg in cfgs:
+        episode_id = cfg.episode_id
         episode_path = run_dir / "episodes" / f"{episode_id}.json"
         attempt1_path = run_dir / "reruns" / f"{episode_id}.attempt1.json"
         if resume and episode_path.exists():
             continue  # atomic writes: a file is a finished episode, never a partial one
         rerun_in_progress = resume and agent_name == "claude" and attempt1_path.exists()
-        res = run_episode(prior, seed, cond, agent, dset, meta)
+        res = run_episode(cfg, agent, dset, meta)
         if agent_name == "claude" and res.status == "API_FAILURE" and not rerun_in_progress:
             write_atomic(attempt1_path, dumps(res.model_dump(mode="json")))
-            res = run_episode(prior, seed, cond, agent, dset, meta)
+            res = run_episode(cfg, agent, dset, meta)
         write_atomic(run_dir / "episodes" / f"{res.episode.episode_id}.json",
                      dumps(res.model_dump(mode="json")))
     if agent_name == "claude":
