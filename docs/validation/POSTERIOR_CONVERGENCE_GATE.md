@@ -16,7 +16,8 @@ about the Monte Carlo error of the exact importance-sampling reference used for 
 
 * `tests/fixtures/belief_traces/public_traces.json`: the 7-assay panel on 5 canonical scenarios x 3 seeds
   (public actions and observations only), evaluated at every prefix k = 1..7.
-The cited `v1_invalid_model_traces.json` file was never committed.
+* `tests/fixtures/belief_traces/v1_invalid_model_traces.json`: cited in the original gate design but never
+  committed to the repository.
 * Agent-side prior and label rules: exactly those recorded in the Baseline V1 manifest
   (`campaign-eval/1`), because that is the configuration whose behaviour was questioned.
 
