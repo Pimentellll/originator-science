@@ -338,7 +338,7 @@ def main(argv: list[str] | None = None) -> int:
             no_effort=args.no_effort,
             resume_run_id=args.resume,
         )
-    except (SpendCapReached, ValueError) as err:
+    except (SpendCapReached, ValueError, FileExistsError, FileNotFoundError) as err:
         print(f"model-effort: {err}", file=sys.stderr)
         return 2
     print(run_dir)

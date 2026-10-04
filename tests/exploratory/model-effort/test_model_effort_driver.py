@@ -248,6 +248,7 @@ def test_dev_matrix_run_writes_manifest_episodes_summary_reports_and_usage(
     manifest = json.loads((run_dir / "manifest.json").read_text())
     assert manifest["model"] == model
     assert manifest["effort"] == effort
+    assert run_dir.name.endswith(f"_{config_id}-noeffort" if no_effort else f"_{config_id}")
     assert len(list((run_dir / "episodes").glob("*.json"))) == 2
     assert (run_dir / "summary.json").exists()
     assert (run_dir / "results.md").exists()

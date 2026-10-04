@@ -141,3 +141,21 @@ None at registration time. Dated entries below were added after the registration
   same minute. (2) If a response reports a model id that is not in the price table, the cost is priced
   at the requested model. Neither fix changes prompts, tools, scoring or the strong-matrix procedure.
  Later deviations are added here with a date; the text above is not edited.
+
+- **2026-10-04 11:10 UTC, run moved to the lead machine (key unavailable in the earlier session).**
+  The registration, driver, analysis script and tests were pushed by an earlier session that had
+  no `ANTHROPIC_API_KEY` and, per the lead engineer, made no API calls. The experiment continues
+  in a new session on the lead machine, which has the key, from that branch, unchanged. Notes:
+  (1) The model list in §2 was re-queried here (`GET /v1/models`, free). It returned the same 13
+  ids in the same order, so `models_list.json` stands. (2) Pricing in §6 was re-checked against
+  platform.claude.com/docs/en/about-claude/pricing and is unchanged. (3) The X1 dry run that the
+  previous entry cites (`20261004-1058_claude_dev_X1`) cannot be verified: that directory is not
+  on this machine, and the earlier session had no key. The contingency was **independently
+  triggered here**. Dev run `20261004-1101_claude_dev_X1` (effort `high`) got HTTP 400 "This
+  model does not support the effort parameter." on the first request of both episodes, with no
+  tokens billed. X1 therefore omits `output_config`, as registered. (4) Dry runs on this machine
+  (dev seeds 0, 1, pipeline check only, not results): `20261004-1101_claude_dev_X1-noeffort` and
+  `20261004-1102_claude_dev_X2`, both 2/2 DIAGNOSED. Ledger total after the dry runs: $0.0766.
+  `spend_ledger.jsonl` here is the only spend record for the session. (5) A one-line driver
+  change: the CLI now also reports `FileExistsError`/`FileNotFoundError` from the runner as a
+  clean exit 2. No change to configurations, prompt, tools, seeds, metrics or decision rule.
