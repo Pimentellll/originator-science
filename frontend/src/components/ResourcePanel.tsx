@@ -1,6 +1,6 @@
 import { useSession } from '../state/sessionContext'
 import { Meter, Panel } from './ui'
-import { fmtMoney, fmtT } from '../lib/format'
+import { fmtBudget, fmtSample, fmtT } from '../lib/format'
 
 export function ResourcePanel() {
   const { frame } = useSession()
@@ -18,12 +18,12 @@ export function ResourcePanel() {
       <div className="res__meters">
         <Meter
           label="BUDGET USED"
-          value={<>{fmtMoney(budgetUsed)} <small>/ {fmtMoney(r.budget.total)}</small></>}
+          value={<>{fmtBudget(budgetUsed)} <small>/ {fmtBudget(r.budget.total)}</small></>}
           fraction={budgetUsed / r.budget.total}
           ghost={next?.budget !== undefined ? next.budget / r.budget.total : 0}
           tone={left < 0.15 ? 'warn' : 'default'}
         />
-        <Meter label="SAMPLE USED" value={<>{sampleUsed} <small>/ {r.sample.total} µg</small></>} fraction={sampleUsed / r.sample.total} ghost={next?.sample !== undefined ? next.sample / r.sample.total : 0} />
+        <Meter label="SAMPLE USED" value={<>{fmtSample(sampleUsed)} <small>/ {fmtSample(r.sample.total)}</small></>} fraction={sampleUsed / r.sample.total} ghost={next?.sample !== undefined ? next.sample / r.sample.total : 0} />
         <div className="meter">
           <div className="meter__row">
             <span>SIMULATED TIME</span>

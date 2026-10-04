@@ -21,8 +21,9 @@ export function SessionProvider({ transport, children }: { transport: Scientific
   const [phase, setPhase] = useState<Phase>('loading')
   const [error, setError] = useState<string | null>(null)
   const [playing, setPlaying] = useState(false)
-  const [cmpState, setCmpState] = useState<{ id: string; value: PolicyComparison | null } | null>(null)
+  const [cmpState, setCmpState] = useState<{ id: string; value: PolicyComparison | null; error?: string } | null>(null)
   const openToken = useRef(0)
+  const [restart, setRestart] = useState(0)
 
   const frames = useMemo(() => (session ? projectEpisode(session.record) : []), [session])
 
@@ -64,7 +65,7 @@ export function SessionProvider({ transport, children }: { transport: Scientific
         setPhase('ready')
       })
       .catch((e) => token === openToken.current && fail(e))
-  }, [transport, scenarioId, policyName, fail])
+  }, [transport, scenarioId, policyName, restart, fail])
 
   useEffect(() => {
     if (!scenarioId) return
@@ -72,13 +73,15 @@ export function SessionProvider({ transport, children }: { transport: Scientific
     transport
       .getPolicyComparison(scenarioId)
       .then((c) => alive && setCmpState({ id: scenarioId, value: c }))
-      .catch(() => alive && setCmpState({ id: scenarioId, value: null }))
+      .catch((e) => alive && setCmpState({ id: scenarioId, value: null, error: e instanceof Error ? e.message : String(e) }))
     return () => {
       alive = false
     }
   }, [transport, scenarioId])
 
-  const comparison = cmpState && cmpState.id === scenarioId ? cmpState.value : undefined
+  const cmpHere = cmpState && cmpState.id === scenarioId ? cmpState : null
+  const comparison = cmpHere ? cmpHere.value : undefined
+  const comparisonError = cmpHere?.error ?? null
   const atEnd = frames.length > 0 && cursor >= frames.length - 1
   const terminal = frames[cursor]?.status === 'terminal'
   const canRun = phase === 'ready' && !terminal && (!atEnd || (session?.mode === 'live' && !session.record.complete))
@@ -132,8 +135,14 @@ export function SessionProvider({ transport, children }: { transport: Scientific
       atEnd,
       canRun,
       comparison,
+      comparisonError,
+      startCampaign: (seed) => {
+        setScenarioId(`seed-${seed}`)
+        setPolicyName((p) => p ?? episodes[0]?.policy.name ?? null)
+        setRestart((n) => n + 1)
+      },
       selectScenario: (id) => {
-        setPolicyName(episodes.find((e) => e.scenario.id === id)?.policy.name ?? null)
+        setPolicyName((p) => episodes.find((e) => e.scenario.id === id)?.policy.name ?? p)
         setScenarioId(id)
       },
       selectPolicy: (name) => setPolicyName(name),
@@ -153,7 +162,7 @@ export function SessionProvider({ transport, children }: { transport: Scientific
       },
       select: setSelection,
     }),
-    [transport, episodes, scenarioId, policyName, session, frames, cursor, selection, phase, error, isPlaying, atEnd, canRun, comparison, run],
+    [transport, episodes, scenarioId, policyName, session, frames, cursor, selection, phase, error, isPlaying, atEnd, canRun, comparison, comparisonError, run],
   )
 
   return <SessionContext.Provider value={api}>{children}</SessionContext.Provider>

@@ -33,12 +33,12 @@ const G1 = 'MB-0417-g1'
 const G2 = 'MB-0417-g2'
 const R = 'MB-0417'
 
-// ------------------------------------------------------------- MIRAGE (PPO)
+// ----------------------------------------------- long-horizon (illustrative MOCK)
 export const caseAMirage = buildRecord({
   id: 'mock-417417-ppo',
   seed: 417417,
   scenario: SCENARIO_1,
-  policy: { name: 'PPOPolicy', description: 'Campaign-level planner. Values information net of damage to later measurements.' },
+  policy: { name: 'MockLongHorizon', description: 'Illustrative authored trace of campaign-level planning. Not produced by PPO, Lookahead or any trained policy.' },
   candidate: R,
   notes: NOTES,
   p0: P0,
@@ -58,11 +58,11 @@ export const caseAMirage = buildRecord({
         score: 0.81,
         confidence: 0.78,
         eig: 0.74,
-        risk: 'Assumes 30 µg resolves a monomer / aggregate trace. A clean result leaves binding questions open for 3 h and $210.',
+        risk: 'A clean SEC result leaves binding questions open, for the price of one low-cost assay.',
         alts: [
           ['MEASURE_SPR', 0.52, 1.12, 'Highest immediate information, but an aggregated sample gives an unreliable sensorgram and can foul the chip, which poisons every later SPR run.'],
           ['VALIDATE_ASSAY', 0.4, 0.52, 'Assay invalidity has a low prior and the control cannot localise a molecular cause.'],
-          ['MEASURE_EPITOPE', 0.18, 0.61, '24 h-class cost for information that is premature before sample quality is known.'],
+          ['MEASURE_EPITOPE', 0.18, 0.61, 'Premature before sample quality is known.'],
           ['MEASURE_STABILITY', 0.21, 0.38, 'Cheap, but folding is one of several candidates and this does not detect aggregation reliably.'],
         ],
       }),
@@ -199,7 +199,7 @@ export const caseAMirage = buildRecord({
       }),
     },
   ],
-  evaluation: { terminal_correct: true, justified: true, compound_recognised: true, assay_invalid_detected: null, model_invalid_detected: null, unnecessary_redesigns: 0, decision_calibration_error: 0.06 },
+  evaluation: { terminal_correct: true, justified: true, unnecessary_redesigns: 0 },
 })
 
 // ---------------------------------------------------------------- GREEDY EIG
@@ -244,7 +244,6 @@ export const caseAGreedy = buildRecord({
       quality: 'degraded',
       notes: ['Fit quality worse than the first run.', 'Surface does not regenerate.'],
       spr: 0.2,
-      cost: { time: 10 },
       p: [0.33, 0.46, 0.67, 0.5, 0.28, 0.38, 0.18, 0.27],
       continuous: c(0.75, 0.06, -5.1, 0.8, -0.95, 0.7),
       rationale: 'The biphasic trace is ambiguous between a heterogeneous interaction and weak affinity. A second concentration series has the highest expected information.',
@@ -315,11 +314,11 @@ export const caseAGreedy = buildRecord({
       candidate: 'MB-0417-g2',
       p: [0.36, 0.48, 0.42, 0.45, 0.41, 0.4, 0.2, 0.38],
       continuous: c(0.75, 0.06, -5.9, 0.9, -1.3, 0.9),
-      rationale: 'Only $140 remains, so no experiment is affordable. Select the most recent candidate.',
+      rationale: 'The budget is exhausted, so no experiment is affordable. Select the most recent candidate.',
       decision: decision({ candidate: 'MB-0417-g2', score: 0.3, confidence: 0.35, risk: 'The decision rests on measurements the policy had degraded, with no direct evidence on this candidate.', alts: [] }),
     },
   ],
-  evaluation: { terminal_correct: false, justified: false, compound_recognised: false, assay_invalid_detected: null, model_invalid_detected: null, unnecessary_redesigns: 2, decision_calibration_error: 0.31 },
+  evaluation: { terminal_correct: false, justified: false, unnecessary_redesigns: 2 },
 })
 
 export const comparisonCase1: PolicyComparisonRecord = {

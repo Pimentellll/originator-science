@@ -6,15 +6,13 @@ export const fmtDelta = (d: number | null) => {
   return `${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(2)}`
 }
 
-export const fmtMoney = (n: number, currency = 'USD') => {
-  const sym = currency === 'USD' ? '$' : ''
-  return `${sym}${Math.round(n).toLocaleString('en-US')}`
-}
+/** The API reports budget / sample / time in abstract simulator units, not currency or mass. */
+export const fmtNum = (n: number) => (Math.abs(n - Math.round(n)) < 1e-9 ? n.toFixed(1) : n.toFixed(2).replace(/0$/, ''))
+export const fmtBudget = fmtNum
+export const fmtSample = fmtNum
 
-export const fmtHours = (h: number) => `${Math.round(h)} h`
-
-/** Simulated time stamp, e.g. T+078h */
-export const fmtT = (h: number) => `T+${String(Math.round(h)).padStart(3, '0')}h`
+/** Simulated time stamp, e.g. T+3.5 */
+export const fmtT = (t: number) => `T+${fmtNum(t)}`
 
 export const fmtBits = (b: number | undefined) => (b === undefined ? '—' : `${b.toFixed(2)} bit`)
 

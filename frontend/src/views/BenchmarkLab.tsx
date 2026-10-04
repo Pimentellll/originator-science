@@ -6,9 +6,6 @@ import type { BenchmarkReport, MetricInfo } from '../lib/types'
 import { LoadState } from './Cockpit'
 
 function fmt(m: MetricInfo, v: number): string {
-  if (m.unit === 'USD') return `$${Math.round(v).toLocaleString('en-US')}`
-  if (m.unit === 'µg') return `${Math.round(v)} µg`
-  if (m.unit === 'h') return `${Math.round(v)} h`
   if (m.max <= 1) return v.toFixed(2)
   return v.toFixed(1)
 }
@@ -45,6 +42,11 @@ export function BenchmarkLab() {
   if (report === undefined) return <LoadState what="benchmark" />
 
   const isMock = report.status === 'mock'
+  const ran = new Set(
+    report.policies
+      .filter((p) => Object.values(report.cells).some((f) => Object.values(f[p.name] ?? {}).some((c) => c.status === 'ok')))
+      .map((p) => p.name),
+  )
   const slices = report.families.filter((f) => f.slice)
   const worlds = report.families.filter((f) => !f.slice)
 
@@ -98,7 +100,10 @@ export function BenchmarkLab() {
                 <tr>
                   <th className="lab__metric">Metric</th>
                   {report.policies.map((p) => (
-                    <th key={p.name}>{p.label}</th>
+                    <th key={p.name}>
+                      {p.label}
+                      {!ran.has(p.name) && <span className="lab__nrh mono">NOT RUN</span>}
+                    </th>
                   ))}
                 </tr>
               </thead>

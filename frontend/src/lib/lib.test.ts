@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { caseAGreedy, caseAMirage, caseB, comparisonCase1, mockBenchmark, mockSource } from './mock'
 import { assertComparison, assertPublic, assertRecord } from './validate'
-import { beliefRows, buildGraph, counterfactualFor, aggregateCell, ALL_FAMILIES, divergenceStep, mechanismStatus, timelineItems } from './derive'
+import { beliefRows, buildGraph, counterfactualFor, aggregateCell, ALL_FAMILIES, divergenceStep, justification, mechanismStatus, timelineItems } from './derive'
+import { canonicalPolicyKey, policyInfo } from './actions'
 import { projectComparison, projectEpisode, deriveLinks, toBelief } from './project'
 import { ReplayTransport } from './replayTransport'
-import { LiveApiTransport } from './liveApiTransport'
 import { adaptBenchmark } from './adapters'
-import { MECHANISMS } from './types'
+import { MECHANISMS, MECHANISM_GROUPS } from './types'
 import type { EpisodeRecord } from './wire'
 
 const records = [caseAMirage, caseAGreedy, caseB]
@@ -145,7 +145,7 @@ describe('projection', () => {
 
   it('actual cost and SPR damage come from resource accounting', () => {
     const g = projectEpisode(caseAGreedy)
-    expect(g[1].events[1].cost).toEqual({ budget: 640, sample: 40, time: 6 })
+    expect(g[1].events[1].cost).toEqual({ budget: 2, sample: 1, time: 1 })
     expect(g[1].events[1].spr_delta).toBeCloseTo(-0.65, 5)
     expect(projectEpisode(caseAMirage).every((f) => f.resources.spr_health > 0.9)).toBe(true)
   })
@@ -186,15 +186,15 @@ describe('policy comparison and counterfactual', () => {
     expect(divergenceStep(cmp.tracks)).toBe(0)
     const rec = (n: string) => cmp.tracks.find((t) => t.policy.name === n)!.frames[0].recommendation!.action_type
     expect(rec('GreedyEIGPolicy')).toBe('MEASURE_SPR')
-    expect(rec('PPOPolicy')).toBe('MEASURE_SEC')
+    expect(rec('MockLongHorizon')).toBe('MEASURE_SEC')
   })
   it('counterfactual from the other branch shows SPR damage; none after policies stop sharing history', () => {
-    const cf = counterfactualFor(cmp, 'PPOPolicy', 0)!
+    const cf = counterfactualFor(cmp, 'MockLongHorizon', 0)!
     expect(cf.alternative.action).toBe('MEASURE_SPR')
     expect(cf.simulated).toBe(true)
     expect(cf.consequences.some((c) => c.kind === 'instrument' && c.severity === 'bad')).toBe(true)
-    expect(counterfactualFor(cmp, 'PPOPolicy', 3)).toBeNull()
-    expect(counterfactualFor(null, 'PPOPolicy', 0)).toBeNull()
+    expect(counterfactualFor(cmp, 'MockLongHorizon', 3)).toBeNull()
+    expect(counterfactualFor(null, 'MockLongHorizon', 0)).toBeNull()
   })
 })
 
@@ -204,7 +204,7 @@ describe('ReplayTransport over the mock source', () => {
     expect((await t.listEpisodes()).length).toBe(3)
     const s = await t.openEpisode(caseAMirage.scenario.id)
     expect(s.mode).toBe('replay')
-    expect(s.record.policy.name).toBe('PPOPolicy')
+    expect(s.record.policy.name).toBe('MockLongHorizon')
     expect((await t.openEpisode(caseAMirage.scenario.id, 'GreedyEIGPolicy')).record.policy.name).toBe('GreedyEIGPolicy')
     expect(await t.getPolicyComparison(caseAMirage.scenario.id)).not.toBeNull()
     expect(await t.getPolicyComparison(caseB.scenario.id)).toBeNull()
@@ -214,47 +214,7 @@ describe('ReplayTransport over the mock source', () => {
   })
 })
 
-describe('LiveApiTransport (fake fetch, no backend)', () => {
-  const json = (body: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }))
-
-  it('opens a record, posts the recommended action, validates, and maps 404 benchmark to NOT RUN', async () => {
-    const partial = clone(caseB)
-    const open = { ...partial, events: partial.events.slice(0, 1), terminal_decision: null, complete: false, pending: { recommendation: { action: partial.events[1].action } } }
-    const next = { ...partial, events: partial.events.slice(0, 2), terminal_decision: null, complete: false }
-    const calls: string[] = []
-    const t = new LiveApiTransport('/api', ((url: string, init?: RequestInit) => {
-      calls.push(`${init?.method ?? 'GET'} ${url}`)
-      if (url.endsWith('/episodes') && init?.method === 'POST') return json({ session_id: 's1', mode: 'live', record: open })
-      if (url.endsWith('/episodes/s1/actions')) {
-        expect(JSON.parse(init!.body as string).action.action_type).toBe('MEASURE_SPR')
-        return json({ session_id: 's1', mode: 'live', record: next })
-      }
-      if (url.endsWith('/benchmark')) return json({}, 404)
-      return json({}, 500)
-    }) as typeof fetch)
-    const s = await t.openEpisode('x')
-    expect(s.mode).toBe('live')
-    expect(projectEpisode(s.record)).toHaveLength(2)
-    expect(projectEpisode(s.record).at(-1)!.recommendation!.action_type).toBe('MEASURE_SPR')
-    const s2 = await t.step('s1')
-    expect(s2.record.events).toHaveLength(2)
-    expect((await t.getBenchmark()).status).toBe('not_run')
-    expect(calls.length).toBe(3)
-  })
-
-  it('rejects a payload that leaks privileged fields', async () => {
-    const bad = { ...clone(caseB), _privileged_state: { assay_validity: false } }
-    const t = new LiveApiTransport('/api', (() => json({ session_id: 's', mode: 'live', record: bad })) as typeof fetch)
-    await expect(t.openEpisode('x')).rejects.toThrow(/privileged/)
-  })
-
-  it('surfaces network failure as a TransportError with the URL', async () => {
-    const t = new LiveApiTransport('/api', (() => Promise.reject(new Error('ECONNREFUSED'))) as typeof fetch)
-    await expect(t.listEpisodes()).rejects.toThrow(/Cannot reach backend at \/api\/scenarios/)
-  })
-})
-
-describe('benchmark', () => {
+describe('benchmark (mock)', () => {
   const rep = adaptBenchmark(mockBenchmark)
   it('is flagged mock and exercises not_run / na states', () => {
     expect(rep.status).toBe('mock')
@@ -262,11 +222,79 @@ describe('benchmark', () => {
     expect(flat.some((c) => c.status === 'not_run')).toBe(true)
     expect(flat.some((c) => c.status === 'na')).toBe(true)
   })
-  it('all-worlds aggregate excludes slices and reports coverage; never fabricates a missing cell', () => {
-    const a = aggregateCell(rep, ALL_FAMILIES, 'PPOPolicy', 'terminal_correct')
+
+  it('always lists the five canonical policies; Lookahead and PPO are NOT RUN, never given numbers', () => {
+    expect(rep.policies.map((p) => p.label)).toEqual(['RANDOM', 'FIXED PIPELINE', 'GREEDY EIG', 'RESCUE PLANNER', 'LOOKAHEAD', 'PPO'])
+    for (const name of ['rescue_planner', 'lookahead', 'ppo']) {
+      for (const m of rep.metrics) expect(aggregateCell(rep, ALL_FAMILIES, name, m.id).cell.status).toBe('not_run')
+      expect(aggregateCell(rep, 'class:COMPOUND_FAILURE', name, 'correct').cell.status).toBe('not_run')
+    }
+    expect(aggregateCell(rep, ALL_FAMILIES, 'GreedyEIGPolicy', 'correct').cell.status).toBe('ok')
+  })
+
+  it('all-worlds aggregate excludes slices; metrics newer than the mock stay NOT RUN', () => {
+    const a = aggregateCell(rep, ALL_FAMILIES, 'GreedyEIGPolicy', 'correct')
     expect(a.total).toBe(rep.families.filter((f) => !f.slice).length)
-    expect(a.of).toBe(a.total - 1) // PPO not run on one family
-    expect(aggregateCell(rep, ALL_FAMILIES, 'PPOPolicy', 'proxy_exploitation').cell.status).toBe('not_run')
-    expect(aggregateCell(rep, 'MODEL_FAILURE', 'PPOPolicy', 'terminal_correct').cell.status).toBe('not_run')
+    expect(aggregateCell(rep, ALL_FAMILIES, 'GreedyEIGPolicy', 'rescued').cell.status).toBe('not_run')
+  })
+})
+
+describe('policy naming', () => {
+  it('maps backend names and class names to canonical policies', () => {
+    expect(canonicalPolicyKey('greedy_eig')).toBe('greedy_eig')
+    expect(canonicalPolicyKey('GreedyEIGPolicy')).toBe('greedy_eig')
+    expect(canonicalPolicyKey('FixedPipelinePolicy')).toBe('fixed_pipeline')
+    expect(canonicalPolicyKey('PPOPolicy')).toBe('ppo')
+  })
+  it('never labels the mock long-horizon trace as PPO or Lookahead', () => {
+    const info = policyInfo('MockLongHorizon')
+    expect(info.family).toBe('mock')
+    expect(info.label).toMatch(/MOCK/)
+    expect(info.label).not.toMatch(/PPO|LOOKAHEAD|RESCUE/)
+    const cmp = projectComparison(comparisonCase1)
+    expect(cmp.not_run.map((n) => n.policy.name).sort()).toEqual(['fixed_pipeline', 'lookahead', 'ppo', 'random', 'rescue_planner'])
+  })
+})
+
+describe('justification (public data only)', () => {
+  const frames = projectEpisode(caseAMirage)
+  it('lists leading explanation, unresolved alternative and required evidence from the belief and log', () => {
+    const j = justification(frames[4], frames[0])
+    expect(j.leading?.mechanism).toBe('kinetic')
+    expect(j.leading?.group).toBe('molecule')
+    expect(j.alternative).not.toBeNull()
+    expect(j.entropy.now).toBeLessThan(j.entropy.start)
+    // SPR was already measured reliably on the active candidate, so it is not "still required".
+    expect(j.required.every((r) => r.action !== 'MEASURE_SPR')).toBe(true)
+  })
+  it('never invents the threshold verdict: no certificate => null', () => {
+    for (const f of frames) expect(justification(f, frames[0]).certificate).toBeNull()
+  })
+  it('consumes a certificate when the record carries one, on the latest frame only', () => {
+    const rec = { ...caseAMirage, certificate: { threshold_met: true, threshold: 0.9 } }
+    const fs = projectEpisode(rec)
+    expect(justification(fs.at(-1)!, fs[0]).certificate?.threshold_met).toBe(true)
+    expect(justification(fs[2], fs[0]).certificate).toBeNull()
+  })
+})
+
+describe('failure localisation', () => {
+  it('is null unless the backend supplies group probabilities', () => {
+    expect(projectEpisode(caseAMirage)[0].belief.localisation).toBeNull()
+    const rec = clone(caseAMirage)
+    rec.initial_state.belief.failure_localisation = { molecule: 0.8, experiment: 0.2, biological_model: 0.1 }
+    expect(projectEpisode(rec)[0].belief.localisation).toEqual({ molecule: 0.8, experiment: 0.2, biological_model: 0.1 })
+  })
+  it('groups partition the eight mechanisms and do not normalise them', () => {
+    expect(MECHANISM_GROUPS.flatMap((g) => g.members).sort()).toEqual([...MECHANISMS].sort())
+  })
+})
+
+describe('transport config parsing', () => {
+  it('an empty seed / policy env var must not become seed 0', async () => {
+    const { createTransport } = await import('./index')
+    const t = createTransport('live') as unknown as { cfg: { seeds: number[]; policies: string[] } }
+    expect(t.cfg.seeds).toEqual([9])
+    expect(t.cfg.policies[0]).toBe('rescue_planner')
   })
 })

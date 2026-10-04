@@ -22,11 +22,9 @@ export function Timeline() {
         <span className="tl__ctl">
           <button className="btn btn--ghost tl__b" onClick={() => s.seek(0)} disabled={s.cursor === 0} aria-label="First step">|◀</button>
           <button className="btn btn--ghost tl__b" onClick={() => s.seek(s.cursor - 1)} disabled={s.cursor === 0} aria-label="Previous step">◀</button>
-          {replay && (
-            <button className="btn btn--ghost tl__b tl__play" onClick={s.togglePlay} aria-label={s.playing ? 'Pause replay' : 'Play replay'}>
-              {s.playing ? '❚❚ PAUSE' : '▶ PLAY'}
-            </button>
-          )}
+          <button className="btn btn--ghost tl__b tl__play" onClick={s.togglePlay} disabled={!replay && !s.canRun && !s.playing} aria-label={s.playing ? 'Pause' : replay ? 'Play replay' : 'Auto-run the policy'}>
+            {s.playing ? '❚❚ PAUSE' : replay ? '▶ PLAY' : '▶ AUTO-RUN'}
+          </button>
           <button className="btn btn--ghost tl__b" onClick={() => s.seek(s.cursor + 1)} disabled={s.cursor >= s.frames.length - 1} aria-label="Next step">▶</button>
           <button className="btn btn--ghost tl__b" onClick={s.reset} aria-label="Reset">↺</button>
         </span>

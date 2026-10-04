@@ -1,17 +1,21 @@
-import { MECHANISMS } from './types'
+import { MECHANISMS, groupOf } from './types'
 import type {
   ActionType,
   BenchmarkReport,
   Belief,
+  Certificate,
   CockpitState,
   EventView,
+  GroupId,
   MetricCell,
   Mechanism,
   PolicyComparison,
   PolicyTrack,
   Relation,
 } from './types'
-import { actionLabel, isPoorQuality } from './actions'
+import { actionInforms, actionKind, actionLabel, isPoorQuality } from './actions'
+import { ACTION_TYPES } from './wire'
+import { fmtBudget, fmtNum, fmtSample } from './format'
 
 // ----------------------------------------------------------------- belief
 
@@ -207,7 +211,7 @@ export function counterfactualFor(cmp: PolicyComparison | null, policyName: stri
     out.push({ kind: 'instrument', text: `SPR instrument health ${(ev.resources_before?.spr_health ?? 1).toFixed(2)} → ${ev.resources_after.spr_health.toFixed(2)}. Later SPR runs are less reliable.`, severity: 'bad' })
   }
   const dc = ev.cost
-  out.push({ kind: 'resource', text: `Costs $${Math.round(dc.budget).toLocaleString()}, ${dc.sample} µg and ${dc.time} h.`, severity: 'info' })
+  out.push({ kind: 'resource', text: `Costs ${fmtBudget(dc.budget)} budget, ${fmtSample(dc.sample)} sample and ${fmtNum(dc.time)} time units.`, severity: 'info' })
   if (ev.belief_before) {
     const moved = MECHANISMS.map((m) => ({ m, d: ev.belief_after.p[m] - ev.belief_before!.p[m] }))
       .filter((x) => Math.abs(x.d) >= 0.08)
@@ -245,3 +249,55 @@ export function aggregateCell(report: BenchmarkReport, familyId: string, policyN
   const ci = familyId !== ALL_FAMILIES && ok.length === 1 ? ok[0].ci : undefined
   return { cell: { status: 'ok', value, ...(ci ? { ci } : {}), n }, of: ok.length, total: fams.length }
 }
+
+// ------------------------------------------------------------ justification
+
+export interface Justification {
+  /** Highest-probability mechanism, only if it clears the leading threshold. */
+  leading: { mechanism: Mechanism; p: number; group: GroupId } | null
+  /** Highest-probability mechanism that is neither leading nor ruled out. */
+  alternative: { mechanism: Mechanism; p: number } | null
+  entropy: { now: number; start: number }
+  /** Assays that could still move an unresolved mechanism on the ACTIVE candidate. */
+  required: { action: ActionType; resolves: { mechanism: Mechanism; p: number }[]; reason: string }[]
+  /** From the backend's JustificationCertificate. null = not available; never inferred here. */
+  certificate: Certificate | null
+}
+
+const SETTLED_HIGH = 0.9
+
+/**
+ * "Is this conclusion justified?" from public data only. It lists what the belief and the
+ * measurement log show; it deliberately does NOT decide whether the evidence threshold is met.
+ * That verdict belongs to the scientific JustificationCertificate.
+ */
+export function justification(frame: CockpitState, start: CockpitState): Justification {
+  const rows = MECHANISMS.map((m) => ({ m, p: frame.belief.p[m] })).sort((a, b) => b.p - a.p)
+  const top = rows[0]
+  const leading = top.p >= ACTIVE_P ? { mechanism: top.m, p: top.p, group: groupOf(top.m) } : null
+  const alt = rows.find((r) => r.m !== leading?.mechanism && r.p > RULED_OUT_P && r.p < SETTLED_HIGH)
+
+  const measured = frame.events.filter((e) => e.observation && e.candidate_id === frame.candidate.id)
+  const reliable = new Set(measured.filter((e) => !isPoorQuality(e.observation!.quality)).map((e) => e.action_type))
+  const poor = new Set(measured.filter((e) => isPoorQuality(e.observation!.quality)).map((e) => e.action_type))
+  const unresolved = rows.filter((r) => r.p > RULED_OUT_P && r.p < SETTLED_HIGH)
+
+  const byAction = new Map<ActionType, { mechanism: Mechanism; p: number }[]>()
+  for (const r of unresolved)
+    for (const a of ALL_MEASUREMENTS) {
+      if (reliable.has(a) || !actionInforms(a).includes(r.m)) continue
+      byAction.set(a, [...(byAction.get(a) ?? []), { mechanism: r.m, p: r.p }])
+    }
+  const required = [...byAction]
+    .map(([action, resolves]) => ({
+      action,
+      resolves: resolves.sort((x, y) => y.p - x.p),
+      reason: poor.has(action) ? 'Earlier reading was poor quality; repeat on a clean sample' : 'Not yet measured on the active candidate',
+    }))
+    .sort((a, b) => b.resolves.reduce((s, r) => s + Math.min(r.p, 1 - r.p), 0) - a.resolves.reduce((s, r) => s + Math.min(r.p, 1 - r.p), 0))
+    .slice(0, 3)
+
+  return { leading, alternative: alt ? { mechanism: alt.m, p: alt.p } : null, entropy: { now: frame.belief.entropy, start: start.belief.entropy }, required, certificate: frame.certificate }
+}
+
+const ALL_MEASUREMENTS: ActionType[] = ACTION_TYPES.filter((a) => actionKind(a) === 'measurement')

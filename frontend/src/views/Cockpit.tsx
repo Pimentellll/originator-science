@@ -5,6 +5,7 @@ import { CandidatePanel } from '../components/CandidatePanel'
 import { EvidenceGraph } from '../components/EvidenceGraph'
 import { BeliefPanel } from '../components/BeliefPanel'
 import { ActionPanel } from '../components/ActionPanel'
+import { JustificationPanel } from '../components/JustificationPanel'
 import { ResourcePanel } from '../components/ResourcePanel'
 import { Timeline } from '../components/Timeline'
 
@@ -15,7 +16,15 @@ export function LoadState({ what }: { what: string }) {
       <div className="state" role="alert">
         <b>Cannot load {what}</b>
         <pre>{s.error}</pre>
-        <span>Transport: {s.transport.label}. Try <span className="mono">?transport=mock</span>.</span>
+        <span>
+          Transport: {s.transport.label}.
+          {s.transport.kind === 'live' && ' Start the MIRAGE API (default http://localhost:8000, proxied at /api), or use development data.'}
+        </span>
+        {s.transport.kind !== 'mock' && (
+          <button className="btn" onClick={() => (window.location.search = '?transport=mock')}>
+            OPEN WITH DEV / MOCK DATA
+          </button>
+        )}
       </div>
     )
   return (
@@ -47,7 +56,10 @@ export function Cockpit({ navigate }: { navigate: (r: Route) => void }) {
 
   return (
     <div className="cockpit">
-      <CandidatePanel />
+      <div className="leftcol">
+        <CandidatePanel />
+        <JustificationPanel />
+      </div>
       <EvidenceGraph />
       <BeliefPanel />
       <ActionPanel navigate={navigate} />

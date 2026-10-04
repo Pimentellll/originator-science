@@ -4,7 +4,7 @@ import { beliefRows, beliefSum, entropySeries } from '../lib/derive'
 import type { BeliefRow } from '../lib/derive'
 import { fmtDelta, fmtP, MECH_LABEL } from '../lib/format'
 import { measurementLabel } from '../lib/actions'
-import { NON_MOLECULAR } from '../lib/types'
+import { MECHANISM_GROUPS } from '../lib/types'
 import type { Mechanism } from '../lib/types'
 
 function Row({ r, selected, onSelect }: { r: BeliefRow; selected: boolean; onSelect: () => void }) {
@@ -38,8 +38,6 @@ export function BeliefPanel() {
   const Hprev = prevFrame ? prevFrame.belief.entropy : null
   const series = entropySeries(frames, cursor)
   const sum = beliefSum(frame.belief)
-  const molecular = rows.filter((r) => !NON_MOLECULAR.includes(r.mechanism))
-  const system = rows.filter((r) => NON_MOLECULAR.includes(r.mechanism))
   const sel = (m: Mechanism) => selection === `m:${m}`
   const toggle = (m: Mechanism) => select(sel(m) ? null : `m:${m}`)
   const est = Object.keys(frame.belief.means)
@@ -55,21 +53,30 @@ export function BeliefPanel() {
         <span>0.5</span>
         <span>1</span>
       </div>
-      <ul className="belief__list" aria-label="Molecular failure modes">
-        {molecular.map((r) => (
-          <Row key={r.mechanism} r={r} selected={sel(r.mechanism)} onSelect={() => toggle(r.mechanism)} />
-        ))}
-      </ul>
-
-      <div className="belief__split">
-        <span>Not the molecule</span>
-        <span className="faint">measurement and biological-model validity</span>
-      </div>
-      <ul className="belief__list" aria-label="Non-molecular explanations">
-        {system.map((r) => (
-          <Row key={r.mechanism} r={r} selected={sel(r.mechanism)} onSelect={() => toggle(r.mechanism)} />
-        ))}
-      </ul>
+      {MECHANISM_GROUPS.map((g, gi) => {
+        const members = rows.filter((r) => g.members.includes(r.mechanism))
+        const loc = frame.belief.localisation?.[g.id]
+        return (
+          <section key={g.id} className={`bgrp bgrp--${g.id}`} aria-label={`${g.label} failure modes`}>
+            <header className="bgrp__hd">
+              <span className="bgrp__idx mono">{'ABC'[gi]}</span>
+              <span className="bgrp__name">{g.label}</span>
+              {g.sub && <span className="bgrp__sub">{g.sub}</span>}
+              <span className="bgrp__loc mono" title={loc === undefined ? 'FailureLocalisation is not available from the backend' : 'Group-level failure-localisation probability'}>
+                {loc === undefined ? 'group p —' : `group p ${fmtP(loc)}`}
+              </span>
+            </header>
+            <ul className="belief__list">
+              {members.map((r) => (
+                <Row key={r.mechanism} r={r} selected={sel(r.mechanism)} onSelect={() => toggle(r.mechanism)} />
+              ))}
+            </ul>
+          </section>
+        )
+      })}
+      <p className="belief__loc">
+        {frame.belief.localisation ? 'Group probabilities are FailureLocalisation outputs; they are not the sum or maximum of the rows.' : 'Group-level FailureLocalisation: not available from the backend.'}
+      </p>
 
       <div className="belief__legend mono" aria-hidden>
         <span>

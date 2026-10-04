@@ -23,7 +23,11 @@ export interface SessionApi {
   canRun: boolean
   /** Identical-seed comparison for the open scenario. undefined = loading, null = NOT RUN. */
   comparison: PolicyComparison | null | undefined
+  /** Set when the comparison could not be produced (distinct from NOT RUN, which is `comparison === null`). */
+  comparisonError: string | null
   selectScenario: (id: string) => void
+  /** Reset the campaign on `seed` (a fresh episode, same policy). Live transports only. */
+  startCampaign: (seed: number) => void
   selectPolicy: (name: string) => void
   run: () => void
   seek: (i: number) => void
